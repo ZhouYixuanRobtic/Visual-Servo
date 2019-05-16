@@ -52,14 +52,14 @@ void Camera::CameraInit()
     {
         mdevAnyDevice_.setImageRegistrationMode( IMAGE_REGISTRATION_OFF );
     }
-        
+
     // 打开深度和图像数据流
     mDepthStream_.start();
     mColorStream_.start();
 
  	// 为了得到骨骼数据，先初始化NiTE
 //    NiTE::initialize();
-    
+
 //    mUserTracker_.create( &mdevAnyDevice_ );
 //    mUserTracker_.setSkeletonSmoothingFactor( 0.1f );
 }
@@ -134,7 +134,7 @@ Camera::~Camera()
     mdevAnyDevice_.close();
     // 关闭NITE和OpenNI环境
 //    NiTE::shutdown();
-    OpenNI::shutdown(); 
+    OpenNI::shutdown();
     cout << "Finish Process!" << endl;
 }
 bool  Camera::toggleRegister(bool setRegister)
@@ -270,8 +270,8 @@ std::vector<cv::Point3d> Camera::getPositions(const cv::Mat &src, const cv::Mat 
         circle(src, cv::Point(cross_x, cross_y), 5, cv::Scalar(0, 255, 0), -1);
         //waitKey(0);
         cv::imshow("eeeeeeeeeeeeeee", src);
-        
-        
+
+
         vProjecttiveCloud[i].x = (float)cross_x;
         vProjecttiveCloud[i].y = (float)cross_y;
 		//vProjecttiveCloud[i].z = CaliDepth.at<uint16_t>(cross_y, cross_x)*0.001f;

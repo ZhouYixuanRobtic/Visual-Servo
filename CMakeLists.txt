@@ -13,11 +13,9 @@ find_package(Eigen3 REQUIRED)
 if(NOT EIGEN3_INCLUDE_DIRS)
   set(EIGEN3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})
 endif()
-
-find_package(catkin REQUIRED COMPONENTS 
-                        roscpp rospy std_msgs sensor_msgs geometry_msgs cv_bridge image_transport 
-                        interactive_markers moveit_core moveit_visual_tools moveit_ros_planning 
-                        moveit_ros_planning_interface pluginlib geometric_shapes pcl_ros pcl_conversions rosbag tf2_ros tf2_eigen tf2_geometry_msgs)
+find_package(catkin REQUIRED COMPONENTS roscpp rospy std_msgs sensor_msgs geometry_msgs cv_bridge image_transport
+                interactive_markers moveit_core moveit_visual_tools moveit_ros_planning moveit_ros_planning_interface 
+                pluginlib geometric_shapes pcl_ros pcl_conversions rosbag tf2_ros tf2_eigen tf2_geometry_msgs message_generation)
 
 find_package(
         OpenCV REQUIRED
@@ -58,12 +56,11 @@ find_package(Boost REQUIRED system filesystem date_time thread)
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
-#   Message2.msg
-# )
-
+add_message_files(
+   FILES
+  TagsDetection_msg.msg
+   TagDetection_msg.msg
+ )
 ## Generate services in the 'srv' folder
 # add_service_files(
 #   FILES
@@ -79,10 +76,11 @@ find_package(Boost REQUIRED system filesystem date_time thread)
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs  # Or other packages containing msgs
-# )
+ generate_messages(
+   DEPENDENCIES
+   std_msgs  # Or other packages containing msgs
+   geometry_msgs
+ )
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -126,6 +124,7 @@ catkin_package(
                  moveit_ros_planning_interface
                  interactive_markers
                  tf2_ros tf2_eigen tf2_geometry_msgs
+                 message_runtime
         DEPENDS
                  EIGEN3
 )

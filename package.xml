@@ -101,4 +101,7 @@
 <exec_depend>tf2_ros</exec_depend>
 <exec_depend>tf2_eigen</exec_depend>
 <exec_depend>tf2_geometry_msgs</exec_depend>
+<build_depend>message_generation</build_depend>
+<exec_depend>message_runtime</exec_depend>
+<build_export_depend>message_generation</build_export_depend>
 </package>
