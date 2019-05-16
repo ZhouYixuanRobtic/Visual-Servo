@@ -224,7 +224,7 @@ void Manipulator::go_cut(double vector_scale)
 int main(int argc, char** argv)
 {
   
-    Eigen::Affine3d ExpectMatrix,Trans_E2C,Trans_W2E,Trans_W2EP;
+    Eigen::Affine3d ExpectMatrix,Trans_E2C;
   
     ExpectMatrix.matrix() << 1,0,0,0,
             0,1,0,0,
