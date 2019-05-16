@@ -139,18 +139,13 @@ include_directories (
         SYSTEM
         ${Boost_INCLUDE_DIR} 
         ${EIGEN3_INCLUDE_DIRS}
-        "/home/xcy/module/OpenNI-Linux-x64-2.2/Include"
-        "/home/xcy/module/NiTE-2.0.0/Include"
         ${OpenCV_INCLUDE_DIRS}
         /usr/local/include/tf
         /usr/local/include/apriltag
-        KCFcpp
         /usr/local/include/sophus
         ${catkin_INCLUDE_DIRS}
 )
 link_directories(
-        "/home/xcy/module/OpenNI-Linux-x64-2.2/Redist"
-        "/home/xcy/module/NiTE-2.0.0/Redist"
         ${OpenCV_LIB_DIR}
         ${catkin_LIBRARY_DIRS}
         /user/local/lib
@@ -184,20 +179,13 @@ link_directories(
 # target_link_libraries(${PROJECT_NAME}_node
 #   ${catkin_LIBRARIES}
 # )
-FILE(GLOB_RECURSE sourcefiles "src/KCFcpp/*.cpp")
-add_library(KCF ${sourcefiles} )
-target_link_libraries(KCF ${OpenCV_LIBRARIES})
+
 
 add_library(servo src/Servo.cpp)
-target_link_libraries(servo apriltag KCF ${OpenCV_LIBRARIES} OpenNI2 NiTE2 Sophus)
-
-add_library(draw src/Draw.cpp)
-target_link_libraries(draw ${OpenCV_LIBRARIES})
-add_library(camera src/camera.cpp)
-target_link_libraries(camera ${OpenCV_LIBRARIES} OpenNI2 NiTE2 draw)
+target_link_libraries(servo apriltag ${OpenCV_LIBRARIES} Sophus)
 
 add_executable(visual_servo src/main.cpp)
-target_link_libraries(visual_servo ${catkin_LIBRARIES} camera apriltag servo KCF ${OpenCV_LIBRARIES} OpenNI2 NiTE2 Sophus ${Boost_LIBRARIES})
+target_link_libraries(visual_servo ${catkin_LIBRARIES} apriltag servo ${OpenCV_LIBRARIES} Sophus ${Boost_LIBRARIES})
 #############
 ## Install ##
 #############
