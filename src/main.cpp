@@ -1,7 +1,8 @@
 /*
     visual_servo
     TO DO:  Add BREAK statement in go_search;
-            Remove global variable Tags_detected in go_servo;
+            Test the search function;
+            Add re-search function in go_servo;
 */
 #include <iostream>
 
