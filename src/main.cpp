@@ -1,6 +1,8 @@
 /*
     visual_servo
-    TO DO:  MOVE TAG DOWN
+    TO DO:  DELETE COLLISION OBJECT UNDER THE PLANNING SCENE done
+            ADD GO HOME done
+
 */
 #include <iostream>
 
@@ -67,6 +69,7 @@ public:
     virtual ~Manipulator();
     void add_planning_constraint();
     void go_up(double goal_tolerance=0.001,double velocity_scale=1.0);
+    void go_home(double goal_tolerance=0.001,double velocity_scale=1.0);
     bool go_search_once(string search_type,double search_angle=M_PI,double velocity_scale=0.05,double goal_tolerance=0.001);
     bool go_search(double search_angle=M_PI,double velocity_scale=0.05,double goal_tolerance=0.001);
     bool go_servo(Eigen::Affine3d ExpectMatrix,Eigen::Affine3d Trans_E2C,double goal_tolerance=0.02,double velocity_scale=1.0);
@@ -86,6 +89,12 @@ Manipulator::~Manipulator()
 }
 void Manipulator::add_planning_constraint()
 {
+    vector<string> object_names;
+    objects_names=planning_scene_interface->getKnownObjecNames();
+    if(!object_names.empty())
+    {
+        planning_scene_interface->removeCollisionObjects(object_names);
+    }
     vector<moveit_msgs::CollisionObject> objects;
     //添加地面以限制规划
     moveit_msgs::CollisionObject collision_object;
@@ -125,6 +134,14 @@ void Manipulator::go_up(double goal_tolerance,double velocity_scale)
     move_group->setGoalTolerance(goal_tolerance);
     move_group->setMaxVelocityScalingFactor(velocity_scale);
     move_group->setNamedTarget("up");
+    move_group->move();
+    sleep(2);
+}
+void Manipulator::go_home(double goal_tolerance,double velocity_scale)
+{
+    move_group->setGoalTolerance(goal_tolerance);
+    move_group->setMaxVelocityScalingFactor(velocity_scale);
+    move_group->setNamedTarget("home");
     move_group->move();
     sleep(2);
 }
