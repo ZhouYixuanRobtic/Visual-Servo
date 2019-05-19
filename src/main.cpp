@@ -56,7 +56,7 @@ class Manipulator
 private:
     const std::string PLANNING_GROUP = "manipulator";
     moveit::planning_interface::MoveGroupInterface *move_group;
-    moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
+    moveit::planning_interface::PlanningSceneInterface *planning_scene_interface;
     const robot_state::JointModelGroup* joint_model_group;
 
     geometry_msgs::PoseStamped current_pose;
@@ -79,6 +79,7 @@ public:
 Manipulator::Manipulator()
 {
     move_group = new moveit::planning_interface::MoveGroupInterface(PLANNING_GROUP);
+    planning_scene_interface = new  moveit::planning_interface::PlanningSceneInterface;
     joint_model_group = move_group->getCurrentState()->getJointModelGroup(PLANNING_GROUP);
     ROS_INFO_NAMED("Visual Servo", "Reference frame: %s", move_group->getPlanningFrame().c_str());
     ROS_INFO_NAMED("Visual Servo", "End effector link: %s", move_group->getEndEffectorLink().c_str());
@@ -86,11 +87,12 @@ Manipulator::Manipulator()
 Manipulator::~Manipulator()
 {
     delete move_group;
+    delete planning_scene_interface;
 }
 void Manipulator::add_planning_constraint()
 {
     vector<string> object_names;
-    objects_names=planning_scene_interface->getKnownObjecNames();
+    object_names=planning_scene_interface->getKnownObjectNames();
     if(!object_names.empty())
     {
         planning_scene_interface->removeCollisionObjects(object_names);
@@ -127,7 +129,7 @@ void Manipulator::add_planning_constraint()
     collision_object1.operation = collision_object.ADD;
     objects.push_back(collision_object1);
 
-    planning_scene_interface.addCollisionObjects(objects);
+    planning_scene_interface->addCollisionObjects(objects);
 }
 void Manipulator::go_up(double goal_tolerance,double velocity_scale)
 {
