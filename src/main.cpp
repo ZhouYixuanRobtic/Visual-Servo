@@ -38,10 +38,10 @@
 
 
 #define _USE_MATH_DEFINES
-using namespace std;
+
 
 //全局变量
-vector<TagDetectInfo> Tags_detected;
+std::vector<TagDetectInfo> Tags_detected;
 
 Servo astra;
 
@@ -49,8 +49,8 @@ pthread_t camera_id;
 
 //函数声明
 void *camera_thread(void *data);
-void ImageCallback(const sensor_msgs::ImageConstPtr& msg);
 
+//操作器类声明，物理上对应机械臂的一系列操作
 class Manipulator
 {
 private:
@@ -70,11 +70,112 @@ public:
     void add_planning_constraint();
     void go_up(double goal_tolerance=0.001,double velocity_scale=1.0);
     void go_home(double goal_tolerance=0.001,double velocity_scale=1.0);
-    bool go_search_once(string search_type,double search_angle=M_PI,double velocity_scale=0.05,double goal_tolerance=0.001);
+    bool go_search_once(std::string search_type,double search_angle=M_PI,double velocity_scale=0.05,double goal_tolerance=0.001);
     bool go_search(double search_angle=M_PI,double velocity_scale=0.05,double goal_tolerance=0.001);
     bool go_servo(Eigen::Affine3d ExpectMatrix,Eigen::Affine3d Trans_E2C,double goal_tolerance=0.02,double velocity_scale=1.0);
     void go_cut(double velocity_scale=0.1);
 };
+
+//相机相关类声明，负责相机有关操作
+class Listener
+{
+private:
+    double fx,fy,u0,v0;
+    ros::Publisher tag_pub;
+    ros::NodeHandle nh;
+    image_transport::ImageTransport *it;
+    image_transport::Subscriber image_sub;
+    ros::Subscriber camera_info_sub;
+
+public:
+    bool image_received,camera_info_received;
+    Listener();
+    virtual ~Listener();
+    void ImageCallback(const sensor_msgs::ImageConstPtr& msg);
+    void CameraInfoCallback(const sensor_msgs::CameraInfo& msg);
+    void TagsInfoPublish();
+};
+
+int main(int argc, char** argv)
+{
+
+    Eigen::Affine3d ExpectMatrix,Trans_E2C;
+
+    ExpectMatrix.matrix() << 1,0,0,0,
+            0,1,0,0,
+            0,0,1,0.2,
+            0,0,0,1;
+    Trans_E2C.matrix()<<0,0,1,-0.0823,
+            -1,0,0,0,
+            0,-1,0,0.0675,
+            0,0,0,1;
+
+    ros::init(argc, argv, "visual_servo");
+    ros::NodeHandle n;
+
+    pthread_create(&camera_id, NULL, camera_thread, NULL);
+    ros::AsyncSpinner spinner(1);
+    spinner.start();
+    /*
+    Manipulator robot_manipulator;
+
+    robot_manipulator.add_planning_constraint();
+    robot_manipulator.go_up();
+    if(Tags_detected.empty())
+    {
+        if(robot_manipulator.go_search())
+        {
+            bool servo_success=robot_manipulator.go_servo(ExpectMatrix,Trans_E2C);
+            if(servo_success)
+                robot_manipulator.go_cut();
+            robot_manipulator.go_up();
+        }
+        else
+        {
+            ROS_INFO("!!!!!!NO TAG SEARCHED!!!!!");
+            /*
+             * PRESERVE SPACE FOR ACT WITH NAVIGATION;
+
+        }
+    }
+    else
+    {
+        bool servo_success=robot_manipulator.go_servo(ExpectMatrix,Trans_E2C);
+        if(servo_success)
+            robot_manipulator.go_cut();
+        robot_manipulator.go_up();
+    }
+    */
+    ros::waitForShutdown();
+    return 0;
+
+}
+
+void *camera_thread(void *data)
+{
+
+    Listener listener;
+
+    ros::Rate loop_rate(15);
+    int counter;
+    while(ros::ok())
+    {
+        listener.TagsInfoPublish();
+        counter++;
+        counter %=31;
+        if(counter>=30&&(!listener.image_received||!listener.camera_info_received))
+        {
+            ROS_ERROR("No image received!!!!");
+            break;
+        }
+
+        ros::spinOnce();
+        loop_rate.sleep();
+
+    }
+    ros::shutdown();
+}
+
 
 Manipulator::Manipulator()
 {
@@ -91,13 +192,13 @@ Manipulator::~Manipulator()
 }
 void Manipulator::add_planning_constraint()
 {
-    vector<string> object_names;
+    std::vector<std::string> object_names;
     object_names=planning_scene_interface->getKnownObjectNames();
     if(!object_names.empty())
     {
         planning_scene_interface->removeCollisionObjects(object_names);
     }
-    vector<moveit_msgs::CollisionObject> objects;
+    std::vector<moveit_msgs::CollisionObject> objects;
     //添加地面以限制规划
     moveit_msgs::CollisionObject collision_object;
     collision_object.header.frame_id = move_group->getPlanningFrame();
@@ -147,11 +248,11 @@ void Manipulator::go_home(double goal_tolerance,double velocity_scale)
     move_group->move();
     sleep(2);
 }
-bool Manipulator::go_search_once(string search_type,double search_angle,double velocity_scale,double goal_tolerance)
+bool Manipulator::go_search_once(std::string search_type,double search_angle,double velocity_scale,double goal_tolerance)
 {
     //旋转关节以搜索tag
     move_group->setGoalTolerance(goal_tolerance);
-    vector<double> goal;
+    std::vector<double> goal;
     if(search_type=="flat")
         goal=move_group->getCurrentJointValues();
     else if(search_type=="look up")
@@ -172,7 +273,7 @@ bool Manipulator::go_search_once(string search_type,double search_angle,double v
     move_group->setJointValueTarget(goal);
     move_group->setMaxVelocityScalingFactor(velocity_scale);
     move_group->asyncMove();
-    vector<double> current_joints;
+    std::vector<double> current_joints;
     while(Tags_detected.empty())
     {
         //ROS_INFO("Searching tag!!!!!");
@@ -194,7 +295,6 @@ bool Manipulator::go_search(double search_angle, double velocity_scale, double g
             go_search_once("look down",search_angle,velocity_scale,goal_tolerance) ||
             go_search_once("look up",search_angle,velocity_scale,goal_tolerance);
 }
-
 bool Manipulator::go_servo(Eigen::Affine3d ExpectMatrix,Eigen::Affine3d Trans_E2C,double goal_tolerance,double velocity_scale)
 {
     current_pose=move_group->getCurrentPose();
@@ -273,94 +373,37 @@ void Manipulator::go_cut(double velocity_scale)
     }
 }
 
-
-int main(int argc, char** argv)
+Listener::Listener()
 {
+    this->fx=617.5472412109375;
+    this->fy=617.5472412109375;
+    this->u0=324.5312805175781;
+    this->v0=236.61178588867188;
 
-    Eigen::Affine3d ExpectMatrix,Trans_E2C;
-
-    ExpectMatrix.matrix() << 1,0,0,0,
-            0,1,0,0,
-            0,0,1,0.2,
-            0,0,0,1;
-    Trans_E2C.matrix()<<0,0,1,-0.0823,
-            -1,0,0,0,
-            0,-1,0,0.0675,
-            0,0,0,1;
-
-    ros::init(argc, argv, "visual_servo");
-    ros::NodeHandle n;
-    pthread_create(&camera_id, NULL, camera_thread, NULL);
-    ros::AsyncSpinner spinner(1);
-    spinner.start();
-
-    Manipulator robot_manipulator;
-
-    robot_manipulator.add_planning_constraint();
-    robot_manipulator.go_up();
-    if(Tags_detected.empty())
-    {
-        if(robot_manipulator.go_search())
-        {
-            bool servo_success=robot_manipulator.go_servo(ExpectMatrix,Trans_E2C);
-            if(servo_success)
-                robot_manipulator.go_cut();
-            robot_manipulator.go_up();
-        }
-        else
-        {
-            ROS_INFO("!!!!!!NO TAG SEARCHED!!!!!");
-            /*
-             * PRESERVE SPACE FOR ACT WITH NAVIGATION;
-             */
-        }
-    }
-    else
-    {
-        bool servo_success=robot_manipulator.go_servo(ExpectMatrix,Trans_E2C);
-        if(servo_success)
-            robot_manipulator.go_cut();
-        robot_manipulator.go_up();
-    }
-
-    ros::waitForShutdown();
-    return 0;
-
+    this->image_received= false;
+    this->camera_info_received=false;
+    it = new image_transport::ImageTransport(nh);
+    image_sub = it->subscribe("/camera/color/image_raw", 1,&Listener::ImageCallback,this);
+    camera_info_sub = nh.subscribe("/camera/color/camera_info",1,&Listener::CameraInfoCallback,this);
+    tag_pub = nh.advertise<visual_servo::TagsDetection_msg>("TagsDetected", 1000);
 }
-void *camera_thread(void *data)
+Listener::~Listener()
 {
-    ros::NodeHandle nh;
-    image_transport::ImageTransport it(nh);
-    image_transport::Subscriber image_sub;
-    image_sub = it.subscribe("/rrbot/camera1/image_raw", 1,&ImageCallback);
-    ros::Publisher tag_pub = nh.advertise<visual_servo::TagsDetection_msg>("TagsDetected", 1000);
-    ros::Rate loop_rate(15);
-    while(ros::ok())
-    {
-
-        if(!Tags_detected.empty())
-        {
-            visual_servo::TagsDetection_msg TagsDetection;
-            visual_servo::TagDetection_msg TagDetection;
-            TagsDetection.header.frame_id="camera_link";
-            for(auto & tag_detected : Tags_detected )
-            {
-                TagDetection.id = tag_detected.id;
-                TagDetection.pose = Eigen::toMsg(tag_detected.Trans_C2T);
-                TagDetection.PixelCoef = tag_detected.PixelCoef;
-                TagDetection.center.x = tag_detected.Center.x;
-                TagDetection.center.y = tag_detected.Center.y;
-                TagsDetection.tags_information.push_back(TagDetection);
-            }
-            tag_pub.publish(TagsDetection);
-        }
-        ros::spinOnce();
-        loop_rate.sleep();
-    }
+    delete it;
 }
-void ImageCallback(const sensor_msgs::ImageConstPtr& msg)
+void Listener::CameraInfoCallback(const sensor_msgs::CameraInfo &msg)
 {
+    this->camera_info_received= true;
+    this->fx=msg.K[0];
+    this->fy=msg.K[4];
+    this->u0=msg.K[2];
+    this->v0=msg.K[5];
+}
+void Listener::ImageCallback(const sensor_msgs::ImageConstPtr &msg)
+{
+    this->image_received=true;
     cv_bridge::CvImagePtr cv_ptr;
+
     try
     {
         cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
@@ -371,7 +414,27 @@ void ImageCallback(const sensor_msgs::ImageConstPtr& msg)
         return;
     }
     cv::Mat subscribed_rgb=cv_ptr->image;
-    double tagsize=0.8*0.1;
-    astra.SetCameraParameter(617.5472412109375,  617.5472412109375,324.5312805175781, 236.61178588867188);
-    Tags_detected= astra.GetTargetPoseMatrix(subscribed_rgb, tagsize);
+    double tag_size=0.8*0.1;
+    astra.SetCameraParameter(this->fx,this->fy,this->u0,this->v0);
+    Tags_detected= astra.GetTargetPoseMatrix(subscribed_rgb, tag_size);
 }
+void Listener::TagsInfoPublish()
+{
+    if(!Tags_detected.empty())
+    {
+        visual_servo::TagsDetection_msg TagsDetection;
+        visual_servo::TagDetection_msg TagDetection;
+        TagsDetection.header.frame_id="camera_link";
+        for(auto & tag_detected : Tags_detected )
+        {
+            TagDetection.id = tag_detected.id;
+            TagDetection.pose = Eigen::toMsg(tag_detected.Trans_C2T);
+            TagDetection.PixelCoef = tag_detected.PixelCoef;
+            TagDetection.center.x = tag_detected.Center.x;
+            TagDetection.center.y = tag_detected.Center.y;
+            TagsDetection.tags_information.push_back(TagDetection);
+        }
+        tag_pub.publish(TagsDetection);
+    }
+}
+
