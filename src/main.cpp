@@ -46,7 +46,7 @@ std::vector<TagDetectInfo> Tags_detected;
 Servo astra;
 
 pthread_t camera_id;
-
+int counter=0;
 //函数声明
 void *camera_thread(void *data);
 
@@ -54,7 +54,7 @@ void *camera_thread(void *data);
 class Manipulator
 {
 private:
-    const std::string PLANNING_GROUP = "manipulator";
+    const std::string PLANNING_GROUP = "manipulator_i5";
     moveit::planning_interface::MoveGroupInterface *move_group;
     moveit::planning_interface::PlanningSceneInterface *planning_scene_interface;
     const robot_state::JointModelGroup* joint_model_group;
@@ -86,6 +86,8 @@ private:
     image_transport::ImageTransport *it;
     image_transport::Subscriber image_sub;
     ros::Subscriber camera_info_sub;
+    ros::Subscriber tf_sub;
+    Eigen::Affine3d Trans_W2_W3;
 
 public:
     bool image_received,camera_info_received;
@@ -93,6 +95,7 @@ public:
     virtual ~Listener();
     void ImageCallback(const sensor_msgs::ImageConstPtr& msg);
     void CameraInfoCallback(const sensor_msgs::CameraInfo& msg);
+    void TfCallback(const tf2_msgs::TFMessage &msg);
     void TagsInfoPublish();
 };
 
@@ -105,10 +108,10 @@ int main(int argc, char** argv)
             0,1,0,0,
             0,0,1,0.2,
             0,0,0,1;
-    Trans_E2C.matrix()<<0,0,1,-0.0823,
-            -1,0,0,0,
-            0,-1,0,0.0675,
-            0,0,0,1;
+    Trans_E2C.matrix()<<    0.00867266,-0.00163184,0.999961,-0.138307,
+                            0.00659928,-0.999977,-0.0016891,0.065175,
+                            0.999941,0.00661367,-0.00866169,0.0790898,
+                            0,0,0,1;
 
     ros::init(argc, argv, "visual_servo");
     ros::NodeHandle n;
@@ -116,12 +119,12 @@ int main(int argc, char** argv)
     pthread_create(&camera_id, NULL, camera_thread, NULL);
     ros::AsyncSpinner spinner(1);
     spinner.start();
-    /*
+
     Manipulator robot_manipulator;
 
     robot_manipulator.add_planning_constraint();
-    robot_manipulator.go_up();
-    if(Tags_detected.empty())
+    robot_manipulator.go_home();
+    /*if(Tags_detected.empty())
     {
         if(robot_manipulator.go_search())
         {
@@ -163,10 +166,10 @@ void *camera_thread(void *data)
         listener.TagsInfoPublish();
         counter++;
         counter %=31;
-        if(counter>=30&&(!listener.image_received||!listener.camera_info_received))
+        if(counter>=30&&!listener.image_received)
         {
             ROS_ERROR("No image received!!!!");
-            break;
+            //break;
         }
 
         ros::spinOnce();
@@ -208,7 +211,7 @@ void Manipulator::add_planning_constraint()
     geometry_msgs::Pose object_pose;
     object_pose.position.x=0;
     object_pose.position.y=0;
-    object_pose.position.z=-0.2;
+    object_pose.position.z=0;
     object_pose.orientation.w=1.0;
     collision_object.planes.push_back(plane);
     collision_object.plane_poses.push_back(object_pose);
@@ -224,7 +227,7 @@ void Manipulator::add_planning_constraint()
     primitive.dimensions.resize(2);
     primitive.dimensions[0] = 5;
     primitive.dimensions[1] = radius;
-    object_pose.position.y=0.7;
+    object_pose.position.y=-0.7;
     collision_object1.primitives.push_back(primitive);
     collision_object1.primitive_poses.push_back(object_pose);
     collision_object1.operation = collision_object.ADD;
@@ -375,16 +378,22 @@ void Manipulator::go_cut(double velocity_scale)
 
 Listener::Listener()
 {
-    this->fx=617.5472412109375;
-    this->fy=617.5472412109375;
-    this->u0=324.5312805175781;
-    this->v0=236.61178588867188;
+    this->fx=615.3072;
+    this->fy=616.1456;
+    this->u0=333.4404;
+    this->v0=236.2650;
 
     this->image_received= false;
     this->camera_info_received=false;
+
+    Trans_W2_W3.matrix()<<   1,0,0,0,
+            0,0,-1,-0.094,
+            0,1,0,0,
+            0,0,0,1;
     it = new image_transport::ImageTransport(nh);
     image_sub = it->subscribe("/camera/color/image_raw", 1,&Listener::ImageCallback,this);
-    camera_info_sub = nh.subscribe("/camera/color/camera_info",1,&Listener::CameraInfoCallback,this);
+    //camera_info_sub = nh.subscribe("/camera/color/camera_info",1,&Listener::CameraInfoCallback,this);
+    //tf_sub = nh.subscribe("/tf_static",1000,&Listener::TfCallback,this);
     tag_pub = nh.advertise<visual_servo::TagsDetection_msg>("TagsDetected", 1000);
 }
 Listener::~Listener()
@@ -418,13 +427,33 @@ void Listener::ImageCallback(const sensor_msgs::ImageConstPtr &msg)
     astra.SetCameraParameter(this->fx,this->fy,this->u0,this->v0);
     Tags_detected= astra.GetTargetPoseMatrix(subscribed_rgb, tag_size);
 }
+void Listener::TfCallback(const tf2_msgs::TFMessage &msg)
+{
+    Eigen::Affine3d Trans_E2C,Trans_W2_C,Trans_W3_K,Trans_K_E,Trans_C_CC,Trans_CC_CCO;
+    for (auto & transform : msg.transforms)
+    {
+        if(transform.header.frame_id=="wrist2_Link"&&transform.child_frame_id=="camera_link")
+            Trans_W2_C=tf2::transformToEigen(transform);
+        else if(transform.header.frame_id=="wrist3_Link"&&transform.child_frame_id=="knife_link")
+            Trans_W3_K=tf2::transformToEigen(transform);
+        else if(transform.header.frame_id=="knife_link"&&transform.child_frame_id=="ee_link")
+            Trans_K_E=tf2::transformToEigen(transform);
+        else if(transform.header.frame_id=="camera_link"&&transform.child_frame_id=="camera_color_frame")
+            Trans_C_CC=tf2::transformToEigen(transform);
+        else if(transform.header.frame_id=="camera_color_frame"&&transform.child_frame_id=="camera_color_optical_frame")
+            Trans_CC_CCO=tf2::transformToEigen(transform);
+    }
+    Trans_E2C=Trans_K_E.inverse()*Trans_W3_K.inverse()*Trans_W2_W3.inverse()*Trans_W2_C*Trans_C_CC*Trans_CC_CCO;
+    std::cout<<Trans_E2C.matrix()<<std::endl;
+
+}
 void Listener::TagsInfoPublish()
 {
     if(!Tags_detected.empty())
     {
         visual_servo::TagsDetection_msg TagsDetection;
         visual_servo::TagDetection_msg TagDetection;
-        TagsDetection.header.frame_id="camera_link";
+        TagsDetection.header.frame_id="camera_color_optical_frame";
         for(auto & tag_detected : Tags_detected )
         {
             TagDetection.id = tag_detected.id;
