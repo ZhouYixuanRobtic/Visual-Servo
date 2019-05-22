@@ -32,9 +32,10 @@
 #include <tf2_eigen/tf2_eigen.h>
 
 #include "ros/callback_queue.h"
-#include<math.h>
+#include  <math.h>
 #include "visual_servo/TagDetection_msg.h"
 #include "visual_servo/TagsDetection_msg.h"
+#include "visp_hand2eye_calibration/TransformArray.h"
 
 
 #define _USE_MATH_DEFINES
@@ -54,7 +55,7 @@ void *camera_thread(void *data);
 class Manipulator
 {
 private:
-    const std::string PLANNING_GROUP = "manipulator_i5";
+    const std::string PLANNING_GROUP = "Manipulator";
     moveit::planning_interface::MoveGroupInterface *move_group;
     moveit::planning_interface::PlanningSceneInterface *planning_scene_interface;
     const robot_state::JointModelGroup* joint_model_group;
@@ -392,7 +393,7 @@ Listener::Listener()
             0,0,0,1;
     it = new image_transport::ImageTransport(nh);
     image_sub = it->subscribe("/camera/color/image_raw", 1,&Listener::ImageCallback,this);
-    //camera_info_sub = nh.subscribe("/camera/color/camera_info",1,&Listener::CameraInfoCallback,this);
+    camera_info_sub = nh.subscribe("/rrbot/camera/image_raw",1,&Listener::CameraInfoCallback,this);
     //tf_sub = nh.subscribe("/tf_static",1000,&Listener::TfCallback,this);
     tag_pub = nh.advertise<visual_servo::TagsDetection_msg>("TagsDetected", 1000);
 }
