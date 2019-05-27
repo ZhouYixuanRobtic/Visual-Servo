@@ -186,6 +186,8 @@ target_link_libraries(servo apriltag ${OpenCV_LIBRARIES} Sophus)
 
 add_executable(visual_servo src/main.cpp)
 target_link_libraries(visual_servo ${catkin_LIBRARIES} apriltag servo ${OpenCV_LIBRARIES} Sophus ${Boost_LIBRARIES})
+add_executable(real_sense src/camera.cpp)
+target_link_libraries(real_sense ${catkin_LIBRARIES} servo ${OpenCV_LIBRARIES} ${Boost_LIBRARIES})
 #############
 ## Install ##
 #############
