@@ -7,10 +7,6 @@
 
 #include "Servo.h"
 
-using namespace std;
-using namespace cv;
-
-
 
 
 
@@ -19,10 +15,10 @@ Servo::Servo()
 {
     //设置内参
 
-    fx=534.5703;
-    fy=534.9138;
-    u0=339.4611;
-    v0=233.3605;
+    this->fx=615.3072;
+    this->fy=616.1456;
+    this->u0=333.4404;
+    this->v0=236.2650;
 
 
 }
@@ -32,7 +28,7 @@ Servo::~Servo()
 }
 
 
-vector<TagDetectInfo> Servo::GetTargetPoseMatrix(Mat UserImage, double TagSize)
+std::vector<TagDetectInfo> Servo::GetTargetPoseMatrix(Mat UserImage, double TagSize)
 {
     char TagFamilyName[20]="tag36h11"; //Tag family to use
     int ThreadsNumber=2;                //Use this many CPU threads
@@ -40,10 +36,10 @@ vector<TagDetectInfo> Servo::GetTargetPoseMatrix(Mat UserImage, double TagSize)
     double Blur=0.0;                    //Apply low-pass blur to input
     bool Refine_edges=true;             //Spend more time trying to align edges of tags
     bool Quiet=false;                   //Reduce output
-    bool Debug=true;                    //Enable debugging output (slow)
+    bool Debug=false;                    //Enable debugging output (slow)
 
     Eigen::Affine3d Trans_C2T;
-    vector<TagDetectInfo> TagsDetected;
+    std::vector<TagDetectInfo> TagsDetected;
     TagDetectInfo TagDetected{};
     // Initialize tag detector with options
     apriltag_family_t *tf = NULL;
@@ -111,7 +107,7 @@ vector<TagDetectInfo> Servo::GetTargetPoseMatrix(Mat UserImage, double TagSize)
              Point(det->p[3][0], det->p[3][1]),
              Scalar(0xff, 0, 0), 2);
 
-        stringstream ss;
+        std::stringstream ss;
         ss << det->id;
         String text = ss.str();
         int fontface = FONT_HERSHEY_SCRIPT_SIMPLEX;
@@ -209,7 +205,7 @@ Destination_t Servo::GetCameraDestination(Eigen::Affine3d Trans_C2T,Eigen::Affin
                                               EndMotion(2,3)*EndMotion(2,3));
     return EndDestinationDelta;
 }
-void Servo::SetCameraParameter(const double fx,const double fy, const double u0, const double v0)
+void Servo::SetCameraParameter(double fx, double fy,  double u0,  double v0)
 {
     this->fx=fx;
     this->fy=fy;

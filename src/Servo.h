@@ -44,7 +44,7 @@ extern "C" {
 
 
 #include <sstream>
-using namespace std;
+
 using namespace cv;
 
 
@@ -69,7 +69,7 @@ public:
     Servo();
     virtual ~Servo();
 
-    vector<TagDetectInfo> GetTargetPoseMatrix(Mat UserImage, double TagSize);
+    std::vector<TagDetectInfo> GetTargetPoseMatrix(Mat UserImage, double TagSize);
     Destination_t GetCameraDestination (Eigen::Affine3d Trans_C2T,Eigen::Affine3d Trans_E2C, Eigen::Affine3d ExpectTrans_C2T);
     void SetCameraParameter(const double fx,const double fy, const double u0, const double v0);
 };
