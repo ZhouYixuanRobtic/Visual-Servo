@@ -56,10 +56,11 @@ private:
 
     geometry_msgs::PoseStamped current_pose;
     Eigen::Affine3d Trans_W2E,Trans_W2EP;
+    Eigen::Affine3d Trans_E2C;
     double goal_tolerance;
 
     double all_close(std::vector<double> goal);
-    Eigen::Affine3d get_EndMotion(  std::string search_type,Eigen::Affine3d Trans_E2C,
+    Eigen::Affine3d get_EndMotion(  std::string search_type,
                                     Eigen::Vector3d Translation=Eigen::Vector3d(0.0,0.0,0.0),
                                     Eigen::Vector3d RPY=Eigen::Vector3d(0.0,0.0,0.0));
 
@@ -67,16 +68,16 @@ public:
     double radius=0.2;
     Manipulator();
     virtual ~Manipulator();
-    void add_planning_constraint(Eigen::Affine3d Trans_E2C);
+    void add_planning_constraint();
     void go_up(double velocity_scale=0.5);
     void go_home(double velocity_scale=0.5);
-    bool go_search_once(std::string search_type,Eigen::Affine3d Trans_E2C,double search_angle=M_PI,double velocity_scale=0.5);
-    bool go_search(Eigen::Affine3d Trans_E2C,double search_angle=M_PI,double velocity_scale=0.5);
-    bool go_servo(Eigen::Affine3d ExpectMatrix,Eigen::Affine3d Trans_E2C,double velocity_scale=0.5);
-    void go_cut(double velocity_scale=0.1);
-    void go_calibrate(double velocity_scale=0.5);
+    bool go_search_once(std::string search_type,double search_angle=M_PI,double velocity_scale=0.5);
+    bool go_search(double search_angle=M_PI,double velocity_scale=0.5);
+    bool go_servo(Eigen::Affine3d ExpectMatrix,double velocity_scale=0.5);
+    void go_cut(double velocity_scale=0.05);
     void go_test(double velocity_scale=0.5);
     void go_zero(double velocity_scale=1.0);
+    bool go_camera(Eigen::Vector3d target_array,double velocity_scale);
 
 };
 
@@ -131,10 +132,10 @@ int main(int argc, char** argv)
     if(Tags_detected.empty())
     {
 
-        if(robot_manipulator.go_search(Trans_E2C))
+        if(robot_manipulator.go_search())
         {
-            robot_manipulator.add_planning_constraint(Trans_E2C);
-            bool servo_success=robot_manipulator.go_servo(ExpectMatrix,Trans_E2C);
+            robot_manipulator.add_planning_constraint();
+            bool servo_success=robot_manipulator.go_servo(ExpectMatrix);
             if(servo_success)
             {
                 robot_manipulator.go_zero();
@@ -152,17 +153,18 @@ int main(int argc, char** argv)
 
     }
     else
-    {      // while(true)
-
+    {   robot_manipulator.add_planning_constraint();
+        while(true)
+        {
             ROS_INFO("ANOTHER ONE");
-            robot_manipulator.add_planning_constraint(Trans_E2C);
-            bool servo_success = robot_manipulator.go_servo(ExpectMatrix, Trans_E2C);
-            if(servo_success)
+            bool servo_success = robot_manipulator.go_servo(ExpectMatrix);
+            if (servo_success)
             {
                 robot_manipulator.go_zero();
                 robot_manipulator.go_cut();
             }
             robot_manipulator.go_up();
+        }
 
     }
     ros::waitForShutdown();
@@ -206,13 +208,17 @@ Manipulator::Manipulator()
     joint_model_group = move_group->getCurrentState()->getJointModelGroup(PLANNING_GROUP);
     ROS_INFO_NAMED("Visual Servo", "Reference frame: %s", move_group->getPlanningFrame().c_str());
     ROS_INFO_NAMED("Visual Servo", "End effector link: %s", move_group->getEndEffectorLink().c_str());
+    Trans_E2C.matrix()<<    -0.999933,-0.00661497,0.00945798,0.0298311,
+                            0.00659931,-0.999977,-0.00168542,0.0801745,
+                            0.00946891,-0.0016229,0.999954, -0.141952,
+                            0,           0,           0,           1;
 }
 Manipulator::~Manipulator()
 {
     delete move_group;
     delete planning_scene_interface;
 }
-void Manipulator::add_planning_constraint(Eigen::Affine3d Trans_E2C)
+void Manipulator::add_planning_constraint()
 {
     Eigen::Affine3d Trans_B2E,Trans_B2T;
     current_pose=move_group->getCurrentPose();
@@ -299,7 +305,7 @@ double Manipulator::all_close(std::vector<double> goal)
     auxiliary.shrink_to_fit();
     return sqrt(std::accumulate(auxiliary.begin(), auxiliary.end(), 0.0));
 }
-Eigen::Affine3d Manipulator::get_EndMotion(std::string search_type,Eigen::Affine3d Trans_E2C,Eigen::Vector3d Translation,Eigen::Vector3d RPY)
+Eigen::Affine3d Manipulator::get_EndMotion(std::string search_type,Eigen::Vector3d Translation,Eigen::Vector3d RPY)
 {
     Eigen::Affine3d CameraMotion,Trans_B2E;
     CameraMotion.translation()=Translation;
@@ -315,7 +321,7 @@ Eigen::Affine3d Manipulator::get_EndMotion(std::string search_type,Eigen::Affine
     if(search_type=="look down")
         return CameraMotion*Trans_B2E;
 }
-bool Manipulator::go_search_once(std::string search_type,Eigen::Affine3d Trans_E2C,double search_angle,double velocity_scale)
+bool Manipulator::go_search_once(std::string search_type,double search_angle,double velocity_scale)
 {
     //旋转关节以搜索tag
     move_group->setGoalTolerance(goal_tolerance);
@@ -333,7 +339,7 @@ bool Manipulator::go_search_once(std::string search_type,Eigen::Affine3d Trans_E
     {
         //goal={-1.30988073349,-0.435410380363,-0.587560653687,0.0236551128328,1.31350243092,-0.0452341213822};
         //current_pose=move_group->getCurrentPose();
-        move_group->setPoseTarget(get_EndMotion("look down",Trans_E2C,Eigen::Vector3d(0.0,0.0,-0.10)));
+        move_group->setPoseTarget(get_EndMotion("look down",Eigen::Vector3d(0.0,0.0,-0.10)));
         move_group->move();
         goal=move_group->getCurrentJointValues();
         goal[4]-=2*search_angle/3;
@@ -342,7 +348,7 @@ bool Manipulator::go_search_once(std::string search_type,Eigen::Affine3d Trans_E
     else if(search_type=="look up")
        // goal={-1.21818768978,0.162731602788,0.505937635899,0.0003668028221,1.2371635437,0.11619579047};
     {
-        move_group->setPoseTarget(get_EndMotion("look up",Trans_E2C,Eigen::Vector3d(0.0,0.0,0.0),Eigen::Vector3d(M_PI/6,0,0)));
+        move_group->setPoseTarget(get_EndMotion("look up",Eigen::Vector3d(0.0,0.0,0.0),Eigen::Vector3d(M_PI/6,0,0)));
         move_group->move();
         goal=move_group->getCurrentJointValues();
         goal[4]+=2*search_angle/3;
@@ -372,13 +378,13 @@ bool Manipulator::go_search_once(std::string search_type,Eigen::Affine3d Trans_E
     move_group->move();
     return true;
 }
-bool Manipulator::go_search(Eigen::Affine3d Trans_E2C,double search_angle, double goal_tolerance)
+bool Manipulator::go_search(double search_angle, double goal_tolerance)
 {
-    return  go_search_once("flat",Trans_E2C,search_angle,goal_tolerance) ||
-            go_search_once("look down",Trans_E2C,search_angle,goal_tolerance) ||
-            go_search_once("look up",Trans_E2C,search_angle,goal_tolerance);
+    return  go_search_once("flat",search_angle,goal_tolerance) ||
+            go_search_once("look down",search_angle,goal_tolerance) ||
+            go_search_once("look up",search_angle,goal_tolerance);
 }
-bool Manipulator::go_servo(Eigen::Affine3d ExpectMatrix,Eigen::Affine3d Trans_E2C,double velocity_scale)
+bool Manipulator::go_servo(Eigen::Affine3d ExpectMatrix,double velocity_scale)
 {
     current_pose=move_group->getCurrentPose();
     Eigen::fromMsg(current_pose.pose,Trans_W2E);
@@ -391,7 +397,7 @@ bool Manipulator::go_servo(Eigen::Affine3d ExpectMatrix,Eigen::Affine3d Trans_E2
 
     while(error>goal_tolerance)
     {
-        if(!Tags_detected.empty()||go_search(Trans_E2C))
+        if(!Tags_detected.empty()||go_search())
         {
             EndDestination=astra.GetCameraDestination(Tags_detected[0].Trans_C2T,Trans_E2C,ExpectMatrix);
             error=EndDestination.error;
@@ -506,6 +512,30 @@ void Manipulator::go_zero(double velocity_scale)
     current_joints[5]=0.0;
     move_group->setJointValueTarget(current_joints);
     move_group->move();
+}
+bool Manipulator::go_camera(Eigen::Vector3d target_array, double velocity_scale)
+{
+    move_group->setGoalTolerance(goal_tolerance);
+    move_group->setMaxVelocityScalingFactor(velocity_scale);
+    current_pose=move_group->getCurrentPose();
+    Eigen::fromMsg(current_pose.pose,Trans_W2E);
+
+    Trans_W2EP.translation()=Trans_E2C*target_array;
+    Trans_W2EP.linear()=Eigen::Matrix3d::Identity();
+    Trans_W2EP=Trans_W2E*Trans_W2EP;
+    move_group->setPoseTarget(Trans_W2EP);
+    moveit::planning_interface::MoveGroupInterface::Plan my_plan;
+    if(move_group->plan(my_plan) == moveit::planning_interface::MoveItErrorCode::SUCCESS)
+    {
+        ROS_INFO("Naive Reachable");
+        move_group->execute(my_plan);
+        return true;
+    }
+    else
+    {
+        ROS_INFO("FAILED");
+        return false;
+    }
 }
 Listener::Listener()
 {
