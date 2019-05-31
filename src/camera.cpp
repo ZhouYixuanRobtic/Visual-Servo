@@ -78,11 +78,12 @@ void RealSense::ImageCallback(const sensor_msgs::ImageConstPtr &msg)
 }
 void RealSense::TagsInfoPublish()
 {
+    visual_servo::TagsDetection_msg TagsDetection;
+    visual_servo::TagDetection_msg TagDetection;
     if(!Tags_detected_.empty())
     {
         //std::cout<<Tags_detected_[0].Trans_C2T.matrix()<<std::endl;
-        visual_servo::TagsDetection_msg TagsDetection;
-        visual_servo::TagDetection_msg TagDetection;
+
         TagsDetection.header.frame_id="camera_color_optical_frame";
         for(auto & tag_detected : Tags_detected_ )
         {
@@ -93,8 +94,8 @@ void RealSense::TagsInfoPublish()
             TagDetection.center.y = tag_detected.Center.y;
             TagsDetection.tags_information.push_back(TagDetection);
         }
-        tag_pub_.publish(TagsDetection);
     }
+    tag_pub_.publish(TagsDetection);
 }
 
 int main(int argc, char** argv)
