@@ -41,7 +41,8 @@ std::vector<TagDetectInfo> Tags_detected;
 Servo astra;
 
 pthread_t camera_id;
-bool ready_go=true;
+bool ready_go=false;
+Eigen::Vector3d BeginPoint;
 //函数声明
 void *camera_thread(void *data);
 
@@ -49,6 +50,12 @@ void *camera_thread(void *data);
 class Manipulator
 {
 private:
+    enum SearchType{
+        FLAT=0,
+        DOWN=1,
+        UP=2,
+        DEFAULT=3
+    };
     const std::string PLANNING_GROUP = "manipulator_i5";
     moveit::planning_interface::MoveGroupInterface *move_group;
     moveit::planning_interface::PlanningSceneInterface *planning_scene_interface;
@@ -60,7 +67,7 @@ private:
     double goal_tolerance;
 
     double all_close(std::vector<double> goal);
-    Eigen::Affine3d get_EndMotion(  std::string search_type,
+    Eigen::Affine3d get_EndMotion(  int search_type,
                                     Eigen::Vector3d Translation=Eigen::Vector3d(0.0,0.0,0.0),
                                     Eigen::Vector3d RPY=Eigen::Vector3d(0.0,0.0,0.0));
 
@@ -71,7 +78,7 @@ public:
     void add_planning_constraint();
     void go_up(double velocity_scale=0.5);
     void go_home(double velocity_scale=0.5);
-    bool go_search_once(std::string search_type,double search_angle=M_PI,double velocity_scale=0.5);
+    bool go_search_once(int search_type,double search_angle=M_PI,double velocity_scale=0.5);
     bool go_search(double search_angle=M_PI,double velocity_scale=0.5);
     bool go_servo(Eigen::Affine3d ExpectMatrix,double velocity_scale=0.5);
     void go_cut(double velocity_scale=0.05);
@@ -126,7 +133,6 @@ int main(int argc, char** argv)
     //robot_manipulator.go_up();
     //robot_manipulator.add_planning_constraint();
     robot_manipulator.go_home();
-    /*
     if(Tags_detected.empty())
     {
 
@@ -146,7 +152,7 @@ int main(int argc, char** argv)
             ROS_INFO("!!!!!!NO TAG SEARCHED!!!!!");
             /*
              * PRESERVE SPACE FOR ACT WITH NAVIGATION;
-
+            */
         }
 
     }
@@ -159,15 +165,16 @@ int main(int argc, char** argv)
             if (servo_success)
             {
                 robot_manipulator.go_zero();
-                std::cout<<Tags_detected[0].Center3d<<std::endl;
-                Tags_detected[0].Center3d[2] -=0.07;
-                robot_manipulator.go_camera(Tags_detected[0].Center3d);
+                ready_go=true;
+                while(ready_go);
+                robot_manipulator.go_camera(BeginPoint,0.1);
+                BeginPoint=Eigen::Vector3d(0.0,0.0,0.0);
                 //robot_manipulator.go_cut();
             }
             //robot_manipulator.go_up();
             robot_manipulator.go_home();
         }
-    }*/
+    }
     ros::waitForShutdown();
     return 0;
 
@@ -316,7 +323,7 @@ double Manipulator::all_close(std::vector<double> goal)
     auxiliary.shrink_to_fit();
     return sqrt(std::accumulate(auxiliary.begin(), auxiliary.end(), 0.0));
 }
-Eigen::Affine3d Manipulator::get_EndMotion(std::string search_type,Eigen::Vector3d Translation,Eigen::Vector3d RPY)
+Eigen::Affine3d Manipulator::get_EndMotion(int search_type ,Eigen::Vector3d Translation,Eigen::Vector3d RPY)
 {
     Eigen::Affine3d CameraMotion,Trans_B2E;
     CameraMotion.translation()=Translation;
@@ -327,49 +334,48 @@ Eigen::Affine3d Manipulator::get_EndMotion(std::string search_type,Eigen::Vector
     CameraMotion.linear()=rotation_matrix;
     current_pose=move_group->getCurrentPose();
     Eigen::fromMsg(current_pose.pose,Trans_B2E);
-    if(search_type=="look up")
-        return Trans_B2E*CameraMotion;
-    else if(search_type=="look down")
-        return CameraMotion*Trans_B2E;
-    else
-        return Trans_B2E*CameraMotion;
+
+    switch (search_type)
+    {
+        case UP:
+            return Trans_B2E*CameraMotion;
+        case DOWN:
+            return CameraMotion*Trans_B2E;
+        default:
+            return Trans_B2E*CameraMotion;
+    }
 }
-bool Manipulator::go_search_once(std::string search_type,double search_angle,double velocity_scale)
+bool Manipulator::go_search_once(int search_type,double search_angle,double velocity_scale)
 {
     //旋转关节以搜索tag
     move_group->setGoalTolerance(goal_tolerance);
     move_group->setMaxVelocityScalingFactor(velocity_scale);
     std::vector<double> goal;
-    if(search_type=="flat")
+    switch (search_type)
     {
-        goal = move_group->getCurrentJointValues();
-        goal[4]-=search_angle/3;
-        move_group->setJointValueTarget(goal);
-        move_group->move();
-        goal[4]+=2*search_angle/3;
+        case FLAT:
+            goal = move_group->getCurrentJointValues();
+            goal[4]-=search_angle/3;
+            move_group->setJointValueTarget(goal);
+            move_group->move();
+            goal[4]+=2*search_angle/3;
+            break;
+        case DOWN:
+            move_group->setPoseTarget(get_EndMotion(DOWN,Eigen::Vector3d(0.0,0.0,-0.10)));
+            move_group->move();
+            goal=move_group->getCurrentJointValues();
+            goal[4]-=2*search_angle/3;
+            break;
+        case UP:
+            move_group->setPoseTarget(get_EndMotion(UP,Eigen::Vector3d(0.0,0.0,0.0),Eigen::Vector3d(M_PI/6,0,0)));
+            move_group->move();
+            goal=move_group->getCurrentJointValues();
+            goal[4]+=2*search_angle/3;
+            break;
+        default:
+            ROS_ERROR("Wrong search type!!!!");
+            return false;
     }
-    else if(search_type=="look down")
-    {
-        move_group->setPoseTarget(get_EndMotion("look down",Eigen::Vector3d(0.0,0.0,-0.10)));
-        move_group->move();
-        goal=move_group->getCurrentJointValues();
-        goal[4]-=2*search_angle/3;
-    }
-
-    else if(search_type=="look up")
-       // goal={-1.21818768978,0.162731602788,0.505937635899,0.0003668028221,1.2371635437,0.11619579047};
-    {
-        move_group->setPoseTarget(get_EndMotion("look up",Eigen::Vector3d(0.0,0.0,0.0),Eigen::Vector3d(M_PI/6,0,0)));
-        move_group->move();
-        goal=move_group->getCurrentJointValues();
-        goal[4]+=2*search_angle/3;
-    }
-    else
-    {
-        ROS_ERROR("Wrong search type!!!!");
-        return false;
-    }
-
     move_group->setJointValueTarget(goal);
     move_group->setMaxVelocityScalingFactor(0.1);
     move_group->asyncMove();
@@ -391,9 +397,9 @@ bool Manipulator::go_search_once(std::string search_type,double search_angle,dou
 }
 bool Manipulator::go_search(double search_angle, double goal_tolerance)
 {
-    return  go_search_once("flat",search_angle,goal_tolerance) ||
-            go_search_once("look down",search_angle,goal_tolerance) ||
-            go_search_once("look up",search_angle,goal_tolerance);
+    return  go_search_once(FLAT,search_angle,goal_tolerance) ||
+            go_search_once(DOWN,search_angle,goal_tolerance) ||
+            go_search_once(UP,search_angle,goal_tolerance);
 }
 bool Manipulator::go_servo(Eigen::Affine3d ExpectMatrix,double velocity_scale)
 {
@@ -438,7 +444,7 @@ bool Manipulator::go_servo(Eigen::Affine3d ExpectMatrix,double velocity_scale)
 }
 void Manipulator::go_cut(double velocity_scale)
 {
-    move_group->setPoseTarget(get_EndMotion(" ",Eigen::Vector3d(0.0,0.0,0.0),Eigen::Vector3d(0.0,0.0,M_PI/2)));
+    move_group->setPoseTarget(get_EndMotion(DEFAULT,Eigen::Vector3d(0.0,0.0,0.0),Eigen::Vector3d(0.0,0.0,M_PI/2)));
     move_group->move();
     geometry_msgs::Pose target_pose3 = move_group->getCurrentPose().pose;
     std::vector<geometry_msgs::Pose> waypoints;
@@ -558,7 +564,7 @@ Listener::Listener()
     tag_info_sub =nh.subscribe("TagsDetected",1000,&Listener::TagInfoCallback,this);
     //tf_sub = nh.subscribe("/tf_static",1000,&Listener::TfCallback,this);
     client =nh.serviceClient<visual_servo::detect_once>("detect_once");
-    srv.request.read_go=(int)ready_go;
+    srv.request.ready_go=(int)ready_go;
 }
 Listener::~Listener()
 {
@@ -577,7 +583,6 @@ void Listener::TagInfoCallback(const visual_servo::TagsDetection_msg &msg)
         Tag_detected.Center.x=tag_information.center.x;
         Tag_detected.Center.y=tag_information.center.y;
         Tag_detected.id=tag_information.id;
-        Tag_detected.Center3d=Eigen::Vector3d(tag_information.Center3d.x,tag_information.Center3d.y,tag_information.Center3d.z);
         Tags_detected.push_back(Tag_detected);
     }
 }
@@ -619,6 +624,9 @@ bool Listener::callSrv()
     if (client.call(srv))
     {
         std::cout<<srv.response.beginPoint<<std::endl;
+        BeginPoint[0]=srv.response.beginPoint.x;
+        BeginPoint[1]=srv.response.beginPoint.y;
+        BeginPoint[2]=srv.response.beginPoint.z;
         return true;
     }
     else

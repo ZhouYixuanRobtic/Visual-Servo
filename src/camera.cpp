@@ -35,7 +35,6 @@ private:
     cv::Mat subscribed_rgb_,subscribed_depth_;
 
     std::vector<TagDetectInfo> Tags_detected_;
-    std::vector<Eigen::Vector3d> coordinate_3d_;
     cv::Point beginPoint_;
     Eigen::Vector3d inverse_project(Eigen::Vector3d TargetPoint);
     bool detect_once(visual_servo::detect_once::Request  &req,
@@ -106,27 +105,13 @@ void RealSense::DepthCallback(const sensor_msgs::ImageConstPtr &msg)
     }
 
     subscribed_depth_ = depth_ptr_->image;
-    coordinate_3d_.clear();
-    if(!Tags_detected_.empty())
-    {
-        for(auto & tag_detected:Tags_detected_)
-        {
-            Eigen::Vector3d TargetPoint;
-            TargetPoint[0]=beginPoint_.x;
-            TargetPoint[1]=beginPoint_.y;
-            TargetPoint[2]=1;
-            coordinate_3d_.push_back(inverse_project(TargetPoint));
-            //std::cout<<TargetPoint<<std::endl;
-        }
-
-    }
 
 }
 void RealSense::TagsInfoPublish()
 {
     visual_servo::TagsDetection_msg TagsDetection;
     visual_servo::TagDetection_msg TagDetection;
-    if(!Tags_detected_.empty()&&!coordinate_3d_.empty())
+    if(!Tags_detected_.empty())
     {
         //std::cout<<Tags_detected_[0].Trans_C2T.matrix()<<std::endl;
 
@@ -138,9 +123,6 @@ void RealSense::TagsInfoPublish()
             TagDetection.PixelCoef = Tags_detected_[i].PixelCoef;
             TagDetection.center.x = Tags_detected_[i].Center.x;
             TagDetection.center.y = Tags_detected_[i].Center.y;
-            TagDetection.Center3d.x = coordinate_3d_[i][0];
-            TagDetection.Center3d.y = coordinate_3d_[i][1];
-            TagDetection.Center3d.z = coordinate_3d_[i][2];
             TagsDetection.tags_information.push_back(TagDetection);
         }
     }

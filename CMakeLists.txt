@@ -189,8 +189,6 @@ target_link_libraries(visual_servo ${catkin_LIBRARIES} apriltag servo ${OpenCV_L
 add_executable(real_sense src/camera.cpp)
 target_link_libraries(real_sense detector ${catkin_LIBRARIES} servo ${OpenCV_LIBRARIES} ${Boost_LIBRARIES})
 
-add_executable(radon_transform src/newtest.cpp)
-target_link_libraries( radon_transform detector ${OpenCV_LIBS} ${catkin_LIBRARIES})
 #############
 ## Install ##
 #############

@@ -10,5 +10,3 @@ float64 PixelCoef
 # the detected tag center
 geometry_msgs/Point center
 
-# the coordinate of tag cent measured by depth camera
-geometry_msgs/Point Center3d
