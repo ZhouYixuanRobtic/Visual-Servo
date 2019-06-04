@@ -30,7 +30,7 @@
 #include "visual_servo/TagDetection_msg.h"
 #include "visual_servo/TagsDetection_msg.h"
 #include <tf2_ros/transform_listener.h>
-
+#include "visual_servo/detect_once.h"
 
 #define _USE_MATH_DEFINES
 
@@ -41,7 +41,7 @@ std::vector<TagDetectInfo> Tags_detected;
 Servo astra;
 
 pthread_t camera_id;
-int counter=0;
+bool ready_go=true;
 //函数声明
 void *camera_thread(void *data);
 
@@ -77,7 +77,7 @@ public:
     void go_cut(double velocity_scale=0.05);
     void go_test(double velocity_scale=0.5);
     void go_zero(double velocity_scale=1.0);
-    bool go_camera(Eigen::Vector3d target_array,double velocity_scale);
+    bool go_camera(Eigen::Vector3d target_array,double velocity_scale=0.1);
 
 };
 
@@ -86,12 +86,12 @@ class Listener
 {
 private:
     ros::NodeHandle nh;
-
+    ros::ServiceClient client;
     ros::Subscriber tag_info_sub;
     ros::Subscriber tf_sub;
     tf2_ros::Buffer tfBuffer;
     tf2_ros::TransformListener *tfListener;
-
+    visual_servo::detect_once srv;
     void TagInfoCallback(const visual_servo::TagsDetection_msg& msg);
     void TfCallback(const tf2_msgs::TFMessage &msg);
 
@@ -101,6 +101,7 @@ public:
     Listener();
     virtual ~Listener();
     void CalibrateInfoPublish();
+    bool callSrv();
 };
 
 int main(int argc, char** argv)
@@ -109,14 +110,8 @@ int main(int argc, char** argv)
     Eigen::Affine3d ExpectMatrix,Trans_E2C;
     ExpectMatrix.matrix() << 1,0,0,0,
             0,1,0,0,
-            0,0,1,0.3,
+            0,0,1,0.20,
             0,0,0,1;
-
-    Trans_E2C.matrix()<<    -0.999933,-0.00661497,0.00945798,0.0298311,
-                            0.00659931,-0.999977,-0.00168542,0.0801745,
-                            0.00946891,-0.0016229,0.999954, -0.141952,
-                            0,           0,           0,           1;
-
 
     ros::init(argc, argv, "visual_servo");
     ros::NodeHandle n;
@@ -128,7 +123,10 @@ int main(int argc, char** argv)
 
     Manipulator robot_manipulator;
 
-    robot_manipulator.go_up();
+    //robot_manipulator.go_up();
+    //robot_manipulator.add_planning_constraint();
+    robot_manipulator.go_home();
+    /*
     if(Tags_detected.empty())
     {
 
@@ -148,25 +146,28 @@ int main(int argc, char** argv)
             ROS_INFO("!!!!!!NO TAG SEARCHED!!!!!");
             /*
              * PRESERVE SPACE FOR ACT WITH NAVIGATION;
-            */
+
         }
 
     }
     else
     {   robot_manipulator.add_planning_constraint();
-        while(true)
+        while(ros::ok())
         {
             ROS_INFO("ANOTHER ONE");
-            bool servo_success = robot_manipulator.go_servo(ExpectMatrix);
+            bool servo_success = robot_manipulator.go_servo(ExpectMatrix,0.5);
             if (servo_success)
             {
                 robot_manipulator.go_zero();
-                robot_manipulator.go_cut();
+                std::cout<<Tags_detected[0].Center3d<<std::endl;
+                Tags_detected[0].Center3d[2] -=0.07;
+                robot_manipulator.go_camera(Tags_detected[0].Center3d);
+                //robot_manipulator.go_cut();
             }
-            robot_manipulator.go_up();
+            //robot_manipulator.go_up();
+            robot_manipulator.go_home();
         }
-
-    }
+    }*/
     ros::waitForShutdown();
     return 0;
 
@@ -191,6 +192,11 @@ void *camera_thread(void *data)
                 ROS_ERROR("No tag received!!!!");
                 //break;
             }
+
+        }
+        if(ready_go)
+        {
+            ready_go=!listener.callSrv();
         }
         ros::spinOnce();
         loop_rate.sleep();
@@ -208,10 +214,13 @@ Manipulator::Manipulator()
     joint_model_group = move_group->getCurrentState()->getJointModelGroup(PLANNING_GROUP);
     ROS_INFO_NAMED("Visual Servo", "Reference frame: %s", move_group->getPlanningFrame().c_str());
     ROS_INFO_NAMED("Visual Servo", "End effector link: %s", move_group->getEndEffectorLink().c_str());
-    Trans_E2C.matrix()<<    -0.999933,-0.00661497,0.00945798,0.0298311,
-                            0.00659931,-0.999977,-0.00168542,0.0801745,
-                            0.00946891,-0.0016229,0.999954, -0.141952,
-                            0,           0,           0,           1;
+    Trans_E2C.matrix()<<    -0.0102032,0.00213213,-0.999946,0.109,
+                            0.999923,  0.00702205,-0.010188,0.184,
+                            0.00699994,-0.999973, -0.00220362,0.065,
+                            0,        0,           0,           1;
+
+
+
 }
 Manipulator::~Manipulator()
 {
@@ -291,7 +300,9 @@ void Manipulator::go_home(double velocity_scale)
 {
     move_group->setGoalTolerance(goal_tolerance);
     move_group->setMaxVelocityScalingFactor(velocity_scale);
-    move_group->setNamedTarget("home");
+    std::vector<double> goal;
+    goal={-0.751516878605,0.599489152431,1.09664881229,0.497168213129,2.3225440979,0.0022961855866};
+    move_group->setJointValueTarget(goal);
     move_group->move();
 }
 double Manipulator::all_close(std::vector<double> goal)
@@ -318,8 +329,10 @@ Eigen::Affine3d Manipulator::get_EndMotion(std::string search_type,Eigen::Vector
     Eigen::fromMsg(current_pose.pose,Trans_B2E);
     if(search_type=="look up")
         return Trans_B2E*CameraMotion;
-    if(search_type=="look down")
+    else if(search_type=="look down")
         return CameraMotion*Trans_B2E;
+    else
+        return Trans_B2E*CameraMotion;
 }
 bool Manipulator::go_search_once(std::string search_type,double search_angle,double velocity_scale)
 {
@@ -337,8 +350,6 @@ bool Manipulator::go_search_once(std::string search_type,double search_angle,dou
     }
     else if(search_type=="look down")
     {
-        //goal={-1.30988073349,-0.435410380363,-0.587560653687,0.0236551128328,1.31350243092,-0.0452341213822};
-        //current_pose=move_group->getCurrentPose();
         move_group->setPoseTarget(get_EndMotion("look down",Eigen::Vector3d(0.0,0.0,-0.10)));
         move_group->move();
         goal=move_group->getCurrentJointValues();
@@ -401,6 +412,8 @@ bool Manipulator::go_servo(Eigen::Affine3d ExpectMatrix,double velocity_scale)
         {
             EndDestination=astra.GetCameraDestination(Tags_detected[0].Trans_C2T,Trans_E2C,ExpectMatrix);
             error=EndDestination.error;
+           //if(error>goal_tolerance*2)
+                EndDestination.EE_Motion.linear()=Eigen::Matrix3d::Identity();
             Trans_W2EP=Trans_W2E*EndDestination.EE_Motion;
             move_group->setPoseTarget(Trans_W2EP);
             moveit::planning_interface::MoveGroupInterface::Plan my_plan;
@@ -425,6 +438,8 @@ bool Manipulator::go_servo(Eigen::Affine3d ExpectMatrix,double velocity_scale)
 }
 void Manipulator::go_cut(double velocity_scale)
 {
+    move_group->setPoseTarget(get_EndMotion(" ",Eigen::Vector3d(0.0,0.0,0.0),Eigen::Vector3d(0.0,0.0,M_PI/2)));
+    move_group->move();
     geometry_msgs::Pose target_pose3 = move_group->getCurrentPose().pose;
     std::vector<geometry_msgs::Pose> waypoints;
 
@@ -542,7 +557,8 @@ Listener::Listener()
     this->tag_info_received=false;
     tag_info_sub =nh.subscribe("TagsDetected",1000,&Listener::TagInfoCallback,this);
     //tf_sub = nh.subscribe("/tf_static",1000,&Listener::TfCallback,this);
-
+    client =nh.serviceClient<visual_servo::detect_once>("detect_once");
+    srv.request.read_go=(int)ready_go;
 }
 Listener::~Listener()
 {
@@ -561,6 +577,7 @@ void Listener::TagInfoCallback(const visual_servo::TagsDetection_msg &msg)
         Tag_detected.Center.x=tag_information.center.x;
         Tag_detected.Center.y=tag_information.center.y;
         Tag_detected.id=tag_information.id;
+        Tag_detected.Center3d=Eigen::Vector3d(tag_information.Center3d.x,tag_information.Center3d.y,tag_information.Center3d.z);
         Tags_detected.push_back(Tag_detected);
     }
 }
@@ -597,4 +614,16 @@ void Listener::CalibrateInfoPublish()
     Eigen::Affine3d Trans_E2C=tf2::transformToEigen(transformStamped.transform);
     std::cout<<"try"<<Trans_E2C.matrix()<<std::endl;
 }
-
+bool Listener::callSrv()
+{
+    if (client.call(srv))
+    {
+        std::cout<<srv.response.beginPoint<<std::endl;
+        return true;
+    }
+    else
+    {
+        ROS_ERROR("Failed to call service detect_once");
+        return false;
+    }
+}
