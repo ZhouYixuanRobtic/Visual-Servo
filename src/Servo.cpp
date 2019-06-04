@@ -178,7 +178,7 @@ Destination_t Servo::GetCameraDestination(Eigen::Affine3d Trans_C2T,Eigen::Affin
     //动态插值
 
     //插值分割比例
-    double lambda=1.0;
+    double lambda=0.8;
     //需要插值的最小值
     double Interpolate_tolerance=0.05;
     Eigen::Matrix3d R=EndMotion.rotation();

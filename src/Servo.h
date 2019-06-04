@@ -57,6 +57,7 @@ struct TagDetectInfo{
     int id;
     double PixelCoef;
     Point2d Center;
+    Eigen::Vector3d Center3d;
 };
 class Servo
 {
