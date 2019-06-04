@@ -62,11 +62,10 @@ add_message_files(
    TagDetection_msg.msg
  )
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
+add_service_files(
+        FILES
+        detect_once.srv
+ )
 
 ## Generate actions in the 'action' folder
 # add_action_files(
@@ -183,11 +182,15 @@ link_directories(
 
 add_library(servo src/Servo.cpp)
 target_link_libraries(servo apriltag ${OpenCV_LIBRARIES} Sophus)
-
+add_library(detector src/Detector.cpp src/radon_transform.cpp)
+target_link_libraries(detector ${OpenCV_LIBS} ${catkin_LIBRARIES})
 add_executable(visual_servo src/main.cpp)
 target_link_libraries(visual_servo ${catkin_LIBRARIES} apriltag servo ${OpenCV_LIBRARIES} Sophus ${Boost_LIBRARIES})
 add_executable(real_sense src/camera.cpp)
-target_link_libraries(real_sense ${catkin_LIBRARIES} servo ${OpenCV_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(real_sense detector ${catkin_LIBRARIES} servo ${OpenCV_LIBRARIES} ${Boost_LIBRARIES})
+
+add_executable(radon_transform src/newtest.cpp)
+target_link_libraries( radon_transform detector ${OpenCV_LIBS} ${catkin_LIBRARIES})
 #############
 ## Install ##
 #############

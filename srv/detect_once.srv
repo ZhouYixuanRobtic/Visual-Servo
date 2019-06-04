@@ -1,0 +1,6 @@
+#request
+int64 read_go
+
+---
+#knfie point in real 3d world
+geometry_msgs/Point beginPoint
