@@ -1,33 +1,26 @@
 //
-// Created by xzy on 19-4-1.
+// Created by zyx on 19-4-1.
 //
-/******************************************************
-获取彩色和深度图像以及点云的类
-******************************************************/
 
 #include "Servo.h"
 
-
-
-
-//默认构造函数
 Servo::Servo()
 {
-    //设置内参
-
     this->fx=615.3072;
     this->fy=616.1456;
     this->u0=333.4404;
     this->v0=236.2650;
-
-
 }
 Servo::~Servo()
 {
 
 }
-
-
+/*
+ * Function computes tag information of all tags detected
+ * @param UserImage [the image prepared to detect tag]
+ * @param TagSize   [the physic size of tag unit meters]
+ * @return a vector contains all tag information detected, empty when no tags detected
+*/
 std::vector<TagDetectInfo> Servo::GetTargetPoseMatrix(Mat UserImage, double TagSize)
 {
     char TagFamilyName[20]="tag36h11"; //Tag family to use
@@ -171,40 +164,49 @@ std::vector<TagDetectInfo> Servo::GetTargetPoseMatrix(Mat UserImage, double TagS
     }
     return TagsDetected;
 }
+
+/*
+ * Function computes the end effector motion when achieving camera motion as a transform matrix
+ * @param Trans_C2T         [the target pose with respect to camera described as a transform matrix]
+ * @param Trans_E2C         [the camera pose with respect to end effector described as a transform matrix]
+ * @param ExpectTrans_C2T   [the desired target pose with respect to camera described as a transform matrix]
+ * @return the end effector motion described as a homogeneous matrix and its position error
+*/
 Destination_t Servo::GetCameraDestination(Eigen::Affine3d Trans_C2T,Eigen::Affine3d Trans_E2C, Eigen::Affine3d ExpectTrans_C2T)
 {
     Eigen::Affine3d EndMotion;
     EndMotion=Trans_E2C*Trans_C2T*ExpectTrans_C2T.inverse()*Trans_E2C.inverse();
-    //动态插值
+    //dynamic interpolation
 
-    //插值分割比例
+    //interpolate scale factor
     double lambda=0.8;
-    //需要插值的最小值
+    //the minimum tolerance of interpolation
     double Interpolate_tolerance=0.05;
     Eigen::Matrix3d R=EndMotion.rotation();
     Eigen::Vector3d t=EndMotion.translation();
     Sophus::SE3 DestinationSE3(R,t);
-    //旋转插值
+    //rotation sphere interpolate
     Eigen::Quaterniond Td=Sophus::SE3(Eigen::Matrix3d::Identity(),Eigen::Vector3d(0,0,0)).unit_quaternion().slerp(lambda,
             DestinationSE3.unit_quaternion());
 
-    //平移插值
+    //translation linear interpolate
     for(int i=0;i<3;++i)
     {
      if(abs(t(i))>Interpolate_tolerance)
          t(i)=lambda*t(i);
     }
     Sophus::SE3 EndMotionDelta(Td,t);
-    Eigen::Vector3d EndTranslation=EndMotionDelta.translation();
-    Eigen::Vector3d EndRotation=EndMotionDelta.rotation_matrix().eulerAngles(0,1,2);//rpy
-    //增量操作
+    //increment
     Destination_t EndDestinationDelta{};
     EndDestinationDelta.EE_Motion.matrix()=EndMotionDelta.matrix();
-    //cout<<EndDestinationDelta.EE_Motion<<endl;
     EndDestinationDelta.error=sqrt(EndMotion(0,3)*EndMotion(0,3)+EndMotion(1,3)*EndMotion(1,3)+
                                               EndMotion(2,3)*EndMotion(2,3));
     return EndDestinationDelta;
 }
+/*
+ * Function sets camera intrinsic parameter
+ * @param fx,fy,u0,v0   [camera intrinsic parameter]
+ */
 void Servo::SetCameraParameter(double fx, double fy,  double u0,  double v0)
 {
     this->fx=fx;

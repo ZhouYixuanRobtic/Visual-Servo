@@ -22,24 +22,41 @@
 class RealSense
 {
 private:
+    //camera intrinsic parameter
+    const double fx=615.3072,fy=616.1456,u0=333.4404,v0=236.2650;
+    //april tag physic size unit meter
+    const double tag_size_=0.10;
+
     ros::NodeHandle n_;
     image_transport::ImageTransport *it_;
     image_transport::Subscriber image_sub_,depth_sub_;
     ros::Publisher tag_pub_;
     ros::ServiceServer service_;
-    double fx,fy,u0,v0;
+
+    //Servo class for detecting april tag and computing tag pose with respect to camera
     Servo *realSense_;
-    double tag_size_;
+    //Detector class for detecting knife trace and its begin point
     Detector *detector_;
+
     cv_bridge::CvImagePtr cv_ptr_,depth_ptr_;
     cv::Mat subscribed_rgb_,subscribed_depth_;
 
+    //Tags information detected from camera, vector is empty when no tags are detected
     std::vector<TagDetectInfo> Tags_detected_;
+    //begin point of knife trace
     cv::Point beginPoint_;
+    /* Function computing the real 3-dimensional position of a pixel point in image with respect to camera
+     * @param TargetPoint   [Homogeneous coordinate of pixel point]
+     * @return real 3-dimensional coordinate in camera coordinate system
+     */
     Eigen::Vector3d inverse_project(Eigen::Vector3d TargetPoint);
+    /* Function computing the real 3-dimensional position of knife trace begin point
+     * and fill service response
+     */
     bool detect_once(visual_servo::detect_once::Request  &req,
                     visual_servo::detect_once::Response &res);
 public:
+    //type definition of detect_once service call back function handle
     typedef boost::function<bool (visual_servo::detect_once::Request&,visual_servo::detect_once::Response& res)>
             detect_once_callback_t;
     bool image_received,depth_received;
@@ -52,12 +69,7 @@ public:
 };
 RealSense::RealSense()
 {
-    this->fx=615.3072;
-    this->fy=616.1456;
-    this->u0=333.4404;
-    this->v0=236.2650;
     this->image_received= false;
-    this->tag_size_= 0.10;
     detect_once_callback_t detect_once_callback =
             boost::bind(&RealSense::detect_once, this, _1, _2);
     it_ = new image_transport::ImageTransport(n_);
@@ -67,7 +79,6 @@ RealSense::RealSense()
     depth_sub_ = it_->subscribe("/camera/aligned_depth_to_color/image_raw", 1,&RealSense::DepthCallback,this);
     tag_pub_ = n_.advertise<visual_servo::TagsDetection_msg>("TagsDetected",1000);
     service_ =n_.advertiseService("detect_once",detect_once_callback);
-
 }
 RealSense::~RealSense()
 {
@@ -158,11 +169,8 @@ bool RealSense::detect_once(visual_servo::detect_once::Request  &req,
 {
     beginPoint_ = detector_->get_BeginPoint(subscribed_rgb_);
     std::cout<<beginPoint_.x<<beginPoint_.y<<std::endl;
-    Eigen::Vector3d TargetPoint,RealPoint;
-    TargetPoint[0]=beginPoint_.x;
-    TargetPoint[1]=beginPoint_.y;
-    TargetPoint[2]=1;
-    RealPoint=inverse_project(TargetPoint);
+    Eigen::Vector3d RealPoint;
+    RealPoint=inverse_project(Eigen::Vector3d(beginPoint_.x,beginPoint_.y,1));
     res.beginPoint.x=RealPoint[0];
     res.beginPoint.y=RealPoint[1];
     res.beginPoint.z=RealPoint[2];

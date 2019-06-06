@@ -1,94 +1,147 @@
-#include <iostream>
-
 #include "Servo.h"
+
 #include <unistd.h>
 #include <ros/ros.h>
 #include <ros/forwards.h>
 #include <ros/single_subscriber_publisher.h>
-#include <sensor_msgs/Image.h>
-#include <image_transport/image_transport.h>
-#include <cv_bridge/cv_bridge.h>
-#include <sensor_msgs/image_encodings.h>
+#include "ros/callback_queue.h"
 
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
-
 #include <moveit_msgs/DisplayRobotState.h>
 #include <moveit_msgs/DisplayTrajectory.h>
-
 #include <moveit_msgs/AttachedCollisionObject.h>
 #include <moveit_msgs/CollisionObject.h>
 
-
-#include <moveit_visual_tools/moveit_visual_tools.h>
 #include <geometry_msgs/PoseStamped.h>
-#include <Eigen/Core>
 #include <tf2_eigen/tf2_eigen.h>
+#include <tf2_ros/transform_listener.h>
 
-#include "ros/callback_queue.h"
-#include  <math.h>
 #include "visual_servo/TagDetection_msg.h"
 #include "visual_servo/TagsDetection_msg.h"
-#include <tf2_ros/transform_listener.h>
 #include "visual_servo/detect_once.h"
+
 
 #define _USE_MATH_DEFINES
 
-
-//全局变量
+/*Global variables action in multi threads
+ * @param Tags_detected [Tags information received from camera thread, vector is empty when no tags were detected]
+ * @param ready_go      [The knife trace detect service trigger]
+ * @param BeginPoint    [The knife trace begin point returned by trace detect service]
+ */
 std::vector<TagDetectInfo> Tags_detected;
-
-Servo astra;
-
-pthread_t camera_id;
 bool ready_go=false;
 Eigen::Vector3d BeginPoint;
-//函数声明
+
 void *camera_thread(void *data);
 
-//操作器类声明，物理上对应机械臂的一系列操作
 class Manipulator
 {
 private:
+    /*
+     * Specifies search operations
+     * The enum specifies three search operations,FLAT,DOWN,UP
+     * of searching tags when no tags detected.
+     * Default for doing nothing.
+     */
     enum SearchType{
         FLAT=0,
         DOWN=1,
         UP=2,
         DEFAULT=3
     };
+
+    //the planning_group name specified by the moveit_config package
     const std::string PLANNING_GROUP = "manipulator_i5";
+
+    //the name of rubber three
+    const std::string TREE_NAME = "Heava";
+
     moveit::planning_interface::MoveGroupInterface *move_group;
     moveit::planning_interface::PlanningSceneInterface *planning_scene_interface;
     const robot_state::JointModelGroup* joint_model_group;
 
-    geometry_msgs::PoseStamped current_pose;
-    Eigen::Affine3d Trans_W2E,Trans_W2EP;
-    Eigen::Affine3d Trans_E2C;
     double goal_tolerance;
 
+    //Servo class for computing the servo related transform matrix
+    Servo *astra;
+
+    geometry_msgs::PoseStamped current_pose;
+
+    /*
+     * The transform matrix of A with respect to B named as Trans_B2A.
+     * W-world,E-end effector,C-camera,EP-desired end effector,B-base_link,T-target
+     */
+    Eigen::Affine3d Trans_W2E,Trans_W2EP,Trans_E2C;
+
+    /* Function for computing the joint space Euclidean distance,
+     * between the given goal and now joint states.
+     * @param goal  [the given joint space goal]
+     * @return the joint space Euclidean distance as a double number,
+     *  Unit-radian
+     */
     double all_close(std::vector<double> goal);
+    /* Function for computing the matrix of desired end effector motion.
+     * @param search_type   [define the reference coordinate system of desired motion,
+     *                      UP for end effector, DOWN for world, DEFAULT for end effector]
+     * @param Translation   [motion's translation part]
+     * @param RPY           [motion's rotation part described by RPY values]
+     * @return the desired end effector motion matrix.
+     */
     Eigen::Affine3d get_EndMotion(  int search_type,
                                     Eigen::Vector3d Translation=Eigen::Vector3d(0.0,0.0,0.0),
                                     Eigen::Vector3d RPY=Eigen::Vector3d(0.0,0.0,0.0));
 
 public:
-    double radius=0.2;
+    //the radius of rubber three, used as a reference for constructing planning constraints,and generating the cut locus.
+    double radius=0.1;
+
     Manipulator();
+
     virtual ~Manipulator();
-    void add_planning_constraint();
+
+    // Function aims at adding static virtual walls to restrict planning
+    void add_static_planning_constraint();
+    // Function aims at adding dynamic virtual cylinder as tree to restrict planning
+    void add_dynamic_planning_constraint();
+    // Function makes all robot joints go to zero
     void go_up(double velocity_scale=0.5);
+    // Function makes robot go to a preset position
     void go_home(double velocity_scale=0.5);
-    bool go_search_once(int search_type,double search_angle=M_PI,double velocity_scale=0.5);
-    bool go_search(double search_angle=M_PI,double velocity_scale=0.5);
-    bool go_servo(Eigen::Affine3d ExpectMatrix,double velocity_scale=0.5);
+    /* Function makes robot go search once with a defined search angle range
+     * @param search_type       [define the search type,UP for looking up,DOWN for looking down,
+     *                          FLAT for looking flat,DEFAULT for doing nothing]
+     * @param search_angle      [define the search angle range 0-pi]
+     * @param velocity_scale    [velocity scaling factor 0-1]
+     * @return true if any tag searched else false
+     */
+    bool go_search_once(int search_type,double search_angle=M_PI/3,double velocity_scale=0.5);
+    //Function makes robot search all three types
+    bool go_search(double search_angle=M_PI/3,double velocity_scale=0.5);
+    /*Function makes robot camera servo to pointed pose or position
+     * @param ExpectMatrix  [the desired pose of camera describing as transform matrix]
+     * @param enable_pose   [true for enable pose servo mode which costs more adjust and may makes end effector rotate,
+     *                      false for position servo only]
+     * @return true if achieved the desired pose or position
+     */
+    bool go_servo(Eigen::Affine3d ExpectMatrix,bool enable_pose=false,double velocity_scale=0.5);
+    //Function makes robot accomplish cut task
     void go_cut(double velocity_scale=0.05);
-    void go_test(double velocity_scale=0.5);
+    //Function makes end effector joint goes to zero position.
     void go_zero(double velocity_scale=1.0);
+    /*Function makes the end effector goes to a position defined by a array with respect to camera
+     * @param target_array  [describes a position with respect to camera]
+     * @return true if achieved the desired position.
+     */
     bool go_camera(Eigen::Vector3d target_array,double velocity_scale=0.1);
 
+    //debug preserved functions
+    void go_test(double velocity_scale=0.5);
+    void go_cut1(double velocity_scale=0.1);
+    void go_cut2(double velocity_scale=0.1);
 };
 
-//相机相关类声明，负责相机有关操作
+//all ros topics and services related functions
 class Listener
 {
 private:
@@ -104,7 +157,6 @@ private:
 
 public:
     bool tag_info_received;
-
     Listener();
     virtual ~Listener();
     void CalibrateInfoPublish();
@@ -114,12 +166,12 @@ public:
 int main(int argc, char** argv)
 {
 
-    Eigen::Affine3d ExpectMatrix,Trans_E2C;
+    Eigen::Affine3d ExpectMatrix;
     ExpectMatrix.matrix() << 1,0,0,0,
             0,1,0,0,
-            0,0,1,0.20,
+            0,0,1,0.30,
             0,0,0,1;
-
+    pthread_t camera_id;
     ros::init(argc, argv, "visual_servo");
     ros::NodeHandle n;
 
@@ -130,15 +182,14 @@ int main(int argc, char** argv)
 
     Manipulator robot_manipulator;
 
-    //robot_manipulator.go_up();
-    //robot_manipulator.add_planning_constraint();
+    robot_manipulator.add_static_planning_constraint();
     robot_manipulator.go_home();
+
     if(Tags_detected.empty())
     {
-
         if(robot_manipulator.go_search())
         {
-            robot_manipulator.add_planning_constraint();
+            robot_manipulator.add_dynamic_planning_constraint();
             bool servo_success=robot_manipulator.go_servo(ExpectMatrix);
             if(servo_success)
             {
@@ -157,7 +208,7 @@ int main(int argc, char** argv)
 
     }
     else
-    {   robot_manipulator.add_planning_constraint();
+    {   robot_manipulator.add_dynamic_planning_constraint();
         while(ros::ok())
         {
             ROS_INFO("ANOTHER ONE");
@@ -165,11 +216,22 @@ int main(int argc, char** argv)
             if (servo_success)
             {
                 robot_manipulator.go_zero();
-                ready_go=true;
+                //robot_manipulator.go_cut();
+
+                Eigen::Vector3d Center3d=Tags_detected[0].Trans_C2T.translation();
+                Center3d[2]+=0.029;
+                Center3d[1]+=0.15;
+                robot_manipulator.go_camera(Center3d,0.5);
+                sleep(2);
+                robot_manipulator.go_cut1();
+                sleep(2);
+                robot_manipulator.go_cut2(0.005);
+                /*ready_go=true;
                 while(ready_go);
                 robot_manipulator.go_camera(BeginPoint,0.1);
                 BeginPoint=Eigen::Vector3d(0.0,0.0,0.0);
-                //robot_manipulator.go_cut();
+
+                 */
             }
             //robot_manipulator.go_up();
             robot_manipulator.go_home();
@@ -182,9 +244,7 @@ int main(int argc, char** argv)
 
 void *camera_thread(void *data)
 {
-
     Listener listener;
-
     ros::Rate loop_rate(30);
     int counter;
     while(ros::ok())
@@ -207,7 +267,6 @@ void *camera_thread(void *data)
         }
         ros::spinOnce();
         loop_rate.sleep();
-
     }
     ros::shutdown();
 }
@@ -216,38 +275,43 @@ void *camera_thread(void *data)
 Manipulator::Manipulator()
 {
     goal_tolerance=0.001;
-    move_group = new moveit::planning_interface::MoveGroupInterface(PLANNING_GROUP);
-    planning_scene_interface = new  moveit::planning_interface::PlanningSceneInterface;
-    joint_model_group = move_group->getCurrentState()->getJointModelGroup(PLANNING_GROUP);
-    ROS_INFO_NAMED("Visual Servo", "Reference frame: %s", move_group->getPlanningFrame().c_str());
-    ROS_INFO_NAMED("Visual Servo", "End effector link: %s", move_group->getEndEffectorLink().c_str());
     Trans_E2C.matrix()<<    -0.0102032,0.00213213,-0.999946,0.109,
                             0.999923,  0.00702205,-0.010188,0.184,
                             0.00699994,-0.999973, -0.00220362,0.065,
                             0,        0,           0,           1;
+    move_group = new moveit::planning_interface::MoveGroupInterface(PLANNING_GROUP);
+    planning_scene_interface = new  moveit::planning_interface::PlanningSceneInterface;
+    joint_model_group = move_group->getCurrentState()->getJointModelGroup(PLANNING_GROUP);
+    astra =new Servo;
 
-
-
+    ROS_INFO_NAMED("Visual Servo", "Reference frame: %s", move_group->getPlanningFrame().c_str());
+    ROS_INFO_NAMED("Visual Servo", "End effector link: %s", move_group->getEndEffectorLink().c_str());
 }
 Manipulator::~Manipulator()
 {
     delete move_group;
     delete planning_scene_interface;
+    delete astra;
 }
-void Manipulator::add_planning_constraint()
+void Manipulator::add_static_planning_constraint()
 {
-    Eigen::Affine3d Trans_B2E,Trans_B2T;
-    current_pose=move_group->getCurrentPose();
-    Eigen::fromMsg(current_pose.pose,Trans_B2E);
-    Trans_B2T=Trans_B2E*Trans_E2C*Tags_detected[0].Trans_C2T;
     std::vector<std::string> object_names;
     object_names=planning_scene_interface->getKnownObjectNames();
     if(!object_names.empty())
     {
+        for(auto & object_name : object_names)
+        {
+            if(object_name==TREE_NAME)
+            {
+                object_names.erase(std::remove(std::begin(object_names),std::end(object_names),object_name),\
+                std::end(object_names));
+            }
+        }
         planning_scene_interface->removeCollisionObjects(object_names);
     }
     std::vector<moveit_msgs::CollisionObject> objects;
-    //添加地面以限制规划
+
+    //virtual ground
     moveit_msgs::CollisionObject collision_object;
     collision_object.header.frame_id = move_group->getPlanningFrame();
     collision_object.id = "ground";
@@ -256,42 +320,62 @@ void Manipulator::add_planning_constraint()
     geometry_msgs::Pose object_pose;
     object_pose.position.x=0;
     object_pose.position.y=0;
-    object_pose.position.z=-0.08;
+    object_pose.position.z=0.0;
     object_pose.orientation.w=1.0;
     collision_object.planes.push_back(plane);
     collision_object.plane_poses.push_back(object_pose);
     collision_object.operation = collision_object.ADD;
     objects.push_back(collision_object);
-    //侧边虚拟墙
+
+    //virtual left side wall
     moveit_msgs::CollisionObject collision_object2;
     collision_object2.header.frame_id = move_group->getPlanningFrame();
     collision_object2.id = "virtual_wall";
-    shape_msgs::Plane plane1;
-    plane1.coef={1,0,0,-0.6};
-    object_pose.position.x=0;
-    object_pose.position.y=0;
-    object_pose.position.z=0;
-    object_pose.orientation.w=1.0;
-    collision_object2.planes.push_back(plane1);
+    plane.coef={1,0,0,-0.8};
+    collision_object2.planes.push_back(plane);
     collision_object2.plane_poses.push_back(object_pose);
     collision_object2.operation = collision_object2.ADD;
     objects.push_back(collision_object2);
 
-    //添加柱子以限制规划
-    moveit_msgs::CollisionObject collision_object1;
-    collision_object1.header.frame_id = move_group->getPlanningFrame();
-    collision_object1.id = "Heava";
+    planning_scene_interface->addCollisionObjects(objects);
+}
+void Manipulator ::add_dynamic_planning_constraint()
+{
+    Eigen::Affine3d Trans_B2E,Trans_B2T;
+    current_pose=move_group->getCurrentPose();
+    Eigen::fromMsg(current_pose.pose,Trans_B2E);
+    Trans_B2T=Trans_B2E*Trans_E2C*Tags_detected[0].Trans_C2T;
+
+    std::vector<std::string> object_names;
+    object_names=planning_scene_interface->getKnownObjectNames();
+    if(!object_names.empty())
+    {
+        for(auto & object_name : object_names)
+        {
+            if(object_name!=TREE_NAME)
+            {
+                object_names.erase(std::remove(std::begin(object_names),std::end(object_names),object_name),\
+                std::end(object_names));
+            }
+        }
+        planning_scene_interface->removeCollisionObjects(object_names);
+    }
+    std::vector<moveit_msgs::CollisionObject> objects;
+    moveit_msgs::CollisionObject collision_object;
+    collision_object.header.frame_id = move_group->getPlanningFrame();
+    collision_object.id = TREE_NAME;
     shape_msgs::SolidPrimitive primitive;
     primitive.type = primitive.CYLINDER;
     primitive.dimensions.resize(2);
     primitive.dimensions[0] = 5;
     primitive.dimensions[1] = radius;
+    geometry_msgs::Pose object_pose;
     object_pose.position.x=Trans_B2T.translation()[0];
-    object_pose.position.y=Trans_B2T.translation()[1]+radius*boost::math::sign(Trans_B2T.translation()[1]);
-    collision_object1.primitives.push_back(primitive);
-    collision_object1.primitive_poses.push_back(object_pose);
-    collision_object1.operation = collision_object.ADD;
-    objects.push_back(collision_object1);
+    object_pose.position.y=Trans_B2T.translation()[1]+(radius+0.030)*boost::math::sign(Trans_B2T.translation()[1]);
+    collision_object.primitives.push_back(primitive);
+    collision_object.primitive_poses.push_back(object_pose);
+    collision_object.operation = collision_object.ADD;
+    objects.push_back(collision_object);
 
     planning_scene_interface->addCollisionObjects(objects);
 }
@@ -301,7 +385,6 @@ void Manipulator::go_up(double velocity_scale)
     move_group->setMaxVelocityScalingFactor(velocity_scale);
     move_group->setNamedTarget("up");
     move_group->move();
-
 }
 void Manipulator::go_home(double velocity_scale)
 {
@@ -347,7 +430,6 @@ Eigen::Affine3d Manipulator::get_EndMotion(int search_type ,Eigen::Vector3d Tran
 }
 bool Manipulator::go_search_once(int search_type,double search_angle,double velocity_scale)
 {
-    //旋转关节以搜索tag
     move_group->setGoalTolerance(goal_tolerance);
     move_group->setMaxVelocityScalingFactor(velocity_scale);
     std::vector<double> goal;
@@ -355,22 +437,22 @@ bool Manipulator::go_search_once(int search_type,double search_angle,double velo
     {
         case FLAT:
             goal = move_group->getCurrentJointValues();
-            goal[4]-=search_angle/3;
+            goal[4]-=search_angle;
             move_group->setJointValueTarget(goal);
             move_group->move();
-            goal[4]+=2*search_angle/3;
+            goal[4]+=2*search_angle;
             break;
         case DOWN:
             move_group->setPoseTarget(get_EndMotion(DOWN,Eigen::Vector3d(0.0,0.0,-0.10)));
             move_group->move();
             goal=move_group->getCurrentJointValues();
-            goal[4]-=2*search_angle/3;
+            goal[4]-=2*search_angle;
             break;
         case UP:
             move_group->setPoseTarget(get_EndMotion(UP,Eigen::Vector3d(0.0,0.0,0.0),Eigen::Vector3d(M_PI/6,0,0)));
             move_group->move();
             goal=move_group->getCurrentJointValues();
-            goal[4]+=2*search_angle/3;
+            goal[4]+=2*search_angle;
             break;
         default:
             ROS_ERROR("Wrong search type!!!!");
@@ -385,7 +467,7 @@ bool Manipulator::go_search_once(int search_type,double search_angle,double velo
         if(all_close(goal)<=goal_tolerance*2)
             return false;
     }
-    //真实机器人不能使用stop函数；
+    //a real aubo robot can't use the stop function
     //move_group->stop();
     move_group->rememberJointValues("tag");
     while(all_close(goal)>goal_tolerance*2);
@@ -401,12 +483,12 @@ bool Manipulator::go_search(double search_angle, double goal_tolerance)
             go_search_once(DOWN,search_angle,goal_tolerance) ||
             go_search_once(UP,search_angle,goal_tolerance);
 }
-bool Manipulator::go_servo(Eigen::Affine3d ExpectMatrix,double velocity_scale)
+bool Manipulator::go_servo(Eigen::Affine3d ExpectMatrix,bool enable_pose,double velocity_scale)
 {
     current_pose=move_group->getCurrentPose();
     Eigen::fromMsg(current_pose.pose,Trans_W2E);
 
-    double error=100;
+    double error=100.0;
     Destination_t EndDestination;
 
     move_group->setGoalTolerance(goal_tolerance);
@@ -416,10 +498,16 @@ bool Manipulator::go_servo(Eigen::Affine3d ExpectMatrix,double velocity_scale)
     {
         if(!Tags_detected.empty()||go_search())
         {
-            EndDestination=astra.GetCameraDestination(Tags_detected[0].Trans_C2T,Trans_E2C,ExpectMatrix);
+            EndDestination=astra->GetCameraDestination(Tags_detected[0].Trans_C2T,Trans_E2C,ExpectMatrix);
             error=EndDestination.error;
-           //if(error>goal_tolerance*2)
+            if(enable_pose)
+            {
+                if(error>goal_tolerance*2)
+                    EndDestination.EE_Motion.linear()=Eigen::Matrix3d::Identity();
+            }
+            else
                 EndDestination.EE_Motion.linear()=Eigen::Matrix3d::Identity();
+
             Trans_W2EP=Trans_W2E*EndDestination.EE_Motion;
             move_group->setPoseTarget(Trans_W2EP);
             moveit::planning_interface::MoveGroupInterface::Plan my_plan;
@@ -462,7 +550,7 @@ void Manipulator::go_cut(double velocity_scale)
         target_pose3.position.x = radius*sin(init_th+th);
         target_pose3.position.y = init_y+radius*cos(init_th+th) ;
         target_pose3.position.z -=0.01;
-        init_beta -=0.05;
+        init_beta -=0.08;
         q=(Trans_B2E*Eigen::AngleAxisd(init_beta,Eigen::Vector3d::UnitY())).linear();
         target_pose3.orientation.x=q.x();
         target_pose3.orientation.y=q.y();
@@ -491,37 +579,6 @@ void Manipulator::go_cut(double velocity_scale)
     {
         my_plan.trajectory_=trajectory;
         move_group->execute(my_plan);
-    }
-}
-void Manipulator::go_test( double goal_tolerance)
-{
-    Eigen::Vector3d x_previous,x_now;
-    Eigen::Vector3d ea(-1.572, -0.007, -3.132);
-    move_group->setGoalTolerance(goal_tolerance);
-    //3.1 欧拉角转换为旋转矩阵
-    Eigen::Matrix3d rotation_matrix3;
-    rotation_matrix3 = Eigen::AngleAxisd(ea[2], Eigen::Vector3d::UnitZ()) *
-                       Eigen::AngleAxisd(ea[1], Eigen::Vector3d::UnitY()) *
-                       Eigen::AngleAxisd(ea[0], Eigen::Vector3d::UnitX());
-    Eigen::Affine3d Trans_B2C;
-    Trans_B2C.linear()=rotation_matrix3;
-    Eigen::Vector3d B=Eigen::Vector3d(0.0,0.0,-0.1);
-    Eigen::Vector3d A=Trans_B2C*B;
-
-    if(!Tags_detected.empty())
-    {
-        x_previous=Tags_detected[0].Trans_C2T.translation();
-        current_pose=move_group->getCurrentPose();
-        current_pose.pose.position.x +=B[0];
-        current_pose.pose.position.y +=B[1];
-        current_pose.pose.position.z +=B[2];
-        move_group->setPoseTarget(current_pose);
-        move_group->move();
-        sleep(2);
-        x_now=Tags_detected[0].Trans_C2T.translation();
-        x_now=x_now-x_previous+A;
-        std::cout<<"error:"<<(abs(x_now[0])+abs(x_now[1])+abs(x_now[2]))/3*1000.0<<std::endl;
-        std::cout<<"error vector"<<x_now*1000.0<<std::endl;
     }
 }
 void Manipulator::go_zero(double velocity_scale)
@@ -558,6 +615,53 @@ bool Manipulator::go_camera(Eigen::Vector3d target_array, double velocity_scale)
         return false;
     }
 }
+void Manipulator::go_test( double goal_tolerance)
+{
+    Eigen::Vector3d x_previous,x_now;
+    Eigen::Vector3d ea(-1.572, -0.007, -3.132);
+    move_group->setGoalTolerance(goal_tolerance);
+    Eigen::Matrix3d rotation_matrix3;
+    rotation_matrix3 = Eigen::AngleAxisd(ea[2], Eigen::Vector3d::UnitZ()) *
+                       Eigen::AngleAxisd(ea[1], Eigen::Vector3d::UnitY()) *
+                       Eigen::AngleAxisd(ea[0], Eigen::Vector3d::UnitX());
+    Eigen::Affine3d Trans_B2C;
+    Trans_B2C.linear()=rotation_matrix3;
+    Eigen::Vector3d B=Eigen::Vector3d(0.0,0.0,-0.1);
+    Eigen::Vector3d A=Trans_B2C*B;
+
+    if(!Tags_detected.empty())
+    {
+        x_previous=Tags_detected[0].Trans_C2T.translation();
+        current_pose=move_group->getCurrentPose();
+        current_pose.pose.position.x +=B[0];
+        current_pose.pose.position.y +=B[1];
+        current_pose.pose.position.z +=B[2];
+        move_group->setPoseTarget(current_pose);
+        move_group->move();
+        sleep(2);
+        x_now=Tags_detected[0].Trans_C2T.translation();
+        x_now=x_now-x_previous+A;
+        std::cout<<"error:"<<(abs(x_now[0])+abs(x_now[1])+abs(x_now[2]))/3*1000.0<<std::endl;
+        std::cout<<"error vector"<<x_now*1000.0<<std::endl;
+    }
+}
+void Manipulator::go_cut1(double velocity_scale)
+{
+    move_group->setMaxVelocityScalingFactor(velocity_scale);
+    current_pose=move_group->getCurrentPose();
+    current_pose.pose.position.y-=0.003;
+    move_group->setPoseTarget(current_pose);
+    move_group->move();
+}
+void Manipulator::go_cut2(double velocity_scale)
+{
+    current_pose=move_group->getCurrentPose();
+    current_pose.pose.position.z-=0.05;
+    move_group->setMaxVelocityScalingFactor(velocity_scale);
+    move_group->setPoseTarget(current_pose);
+    move_group->move();
+}
+
 Listener::Listener()
 {
     this->tag_info_received=false;
@@ -635,3 +739,7 @@ bool Listener::callSrv()
         return false;
     }
 }
+/*
+ * 0.949088096619 0.0506779626012 2.77839660645 0.261449694633 0.031603731215 -0.00739841256291
+ * joint state when car is moving
+ */

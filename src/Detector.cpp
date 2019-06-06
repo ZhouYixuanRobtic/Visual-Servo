@@ -12,6 +12,12 @@ Detector::~Detector()
 {
 
 }
+/*
+ * Function thresholds the input oblique image in three channels
+ * @param src   [the input image]
+ * @return none
+ * note: the input image is modified in this function
+*/
 void Detector::oblique_threshold(cv::Mat src)
 {
     const int R_MAX_1=170;
@@ -33,6 +39,12 @@ void Detector::oblique_threshold(cv::Mat src)
         it1++;
     }
 }
+/*
+ * Function thresholds the input vertical image in three channels
+ * @param src   [the input image]
+ * @return none
+ * note: the input image is modified in this function
+*/
 void Detector::vertical_threshold(cv::Mat src)
 {
     cv::Mat_<Vec3b>::iterator it1 = src.begin<Vec3b>();
@@ -53,6 +65,11 @@ void Detector::vertical_threshold(cv::Mat src)
         it1++;
     }
 }
+/*
+ * Function processes the private variable test_image in defined process type
+ * @param processType   [process type, OBLIQUE for oblique knife image, VERTICAL for vertical knife image]
+ * note: the private variable test_image is modified in this function
+*/
 cv::Mat Detector::pretreatment(int processType)
 {
     double minVal, maxVal;
@@ -81,6 +98,11 @@ cv::Mat Detector::pretreatment(int processType)
 
     return grayImg;
 }
+/*
+ * Function gets the intersection of
+ * the oblique line and the vertical line
+ * @return the pixel coordinate of the intersection
+*/
 cv::Point Detector::getBeginLoc()
 {
     int x0,y0,x1,y1,x2,y2;
@@ -101,6 +123,11 @@ cv::Point Detector::getBeginLoc()
 
     return cv::Point(x_1,-(k*(x_1-x0)+y0));
 }
+/*
+ * Function computes the begin point of knife trace which is the intersection of
+ * the oblique knife trace and the vertical knife trace
+ * @return the pixel coordinate of the begin point.
+*/
 cv::Point Detector::get_BeginPoint(cv::Mat test_image)
 {
     this->test_image=test_image.clone();
@@ -111,10 +138,10 @@ cv::Point Detector::get_BeginPoint(cv::Mat test_image)
     double minVal,maxVal;
     cv::Point minLoc,maxLoc;
 
-    minMaxLoc(obliqueImg, &minVal, &maxVal, &minLoc, &maxLoc);
+    cv::minMaxLoc(obliqueImg, &minVal, &maxVal, &minLoc, &maxLoc);
     obliqueMaxLoc=maxLoc;
 
-    minMaxLoc(verticalImg.col(0), &minVal, &maxVal, &minLoc, &maxLoc);
+    cv::minMaxLoc(verticalImg.col(0), &minVal, &maxVal, &minLoc, &maxLoc);
     verticalMaxLoc=maxLoc;
 
     cv::Point beginPoint=getBeginLoc();
