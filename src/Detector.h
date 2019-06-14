@@ -32,8 +32,9 @@ private:
         VERTICAL=2
     };
 
-    cv::Mat test_image,obliqueImg,verticalImg;
+    cv::Mat test_image,display_image,obliqueImg,verticalImg;
     cv::Point obliqueMaxLoc,verticalMaxLoc;
+    cv::Point beginPoint,borderPoint;
 
     /* Function thresholds the input oblique image in three channels
      * @param src   [the input image]
@@ -59,7 +60,13 @@ private:
      * the oblique line and the vertical line
      * @return the pixel coordinate of the intersection
      */
-    cv::Point getBeginLoc();
+    cv::Point getPointOnline(const cv::Size& priorRadonImgSize,const cv::Size& subsequentRadonImgSize,
+                            const cv::Point& referencePoint,const int& targetPointX,const int& targetPointY=-1);
+
+    void refineLoc();
+
+    std::vector<cv::Point> trace_segement();
+    std::vector<cv::Point> get_knife_trace();
 
 public:
     Detector();
@@ -71,7 +78,8 @@ public:
      * the oblique knife trace and the vertical knife trace
      * @return the pixel coordinate of the begin point.
      */
-    cv::Point get_BeginPoint(cv::Mat test_image);
+    cv::Point get_BeginPoint(const cv::Mat& test_image_);
+    std::vector<cv::Point> get_knifeTrace(const cv::Mat& test_image_);
 };
 
 
