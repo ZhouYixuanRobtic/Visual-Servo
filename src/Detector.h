@@ -90,13 +90,13 @@ public:
      * the oblique knife trace and the vertical knife trace
      * @return the pixel coordinate of the begin point.
      */
-    cv::Point get_BeginPoint(const cv::Mat& test_image_);
+    cv::Point get_BeginPoint(const cv::Mat& test_image_,bool show_result=false);
     /*
      * Function gets the complete knife Trace (the oblique one)
      * @param test_image_   [the input test image]
      * @return all coordinates of the knife trace
      */
-    std::vector<cv::Point> get_knifeTrace(const cv::Mat& test_image_);
+    std::vector<cv::Point> get_knifeTrace(const cv::Mat& test_image_,bool show_result=false);
 };
 
 

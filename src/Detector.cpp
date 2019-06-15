@@ -180,7 +180,7 @@ static void DrawBox(CvBox2D box, cv::Mat img)
  * the oblique knife trace and the vertical knife trace
  * @return the pixel coordinate of the begin point.
 */
-cv::Point Detector::get_BeginPoint(const cv::Mat& test_image_)
+cv::Point Detector::get_BeginPoint(const cv::Mat& test_image_,bool show_result)
 {
     cv::Mat clone_image;
     cv::resize(test_image_,clone_image,cv::Size(640,480));
@@ -190,6 +190,8 @@ cv::Point Detector::get_BeginPoint(const cv::Mat& test_image_)
     obliqueImg=pretreatment(OBLIQUE);
     verticalImg=pretreatment(VERTICAL);
 
+    assert(obliqueImg.empty());
+    assert(verticalImg.empty());
     cv::minMaxLoc(obliqueImg, nullptr, nullptr, nullptr, &obliqueMaxLoc);
     cv::minMaxLoc(verticalImg.col(0), nullptr, nullptr, nullptr, &verticalMaxLoc);
 
@@ -202,7 +204,13 @@ cv::Point Detector::get_BeginPoint(const cv::Mat& test_image_)
     if(this->borderPoint.x<0 || this->borderPoint.x>this->operate_image.cols)
         this->borderPoint=getPointOnline(this->operate_image.size(),obliqueImg.size(),obliqueMaxLoc,0,-1);
 
-    cv::circle(this->display_image,beginPoint,5,Scalar(255,0,0),-1);
+
+    if(show_result)
+    {
+        cv::circle(this->display_image,beginPoint,5,Scalar(255,0,0),-1);
+        imshow("detection result",this->display_image);
+        waitKey(0);
+    }
     return beginPoint;
 
 }
@@ -211,17 +219,21 @@ cv::Point Detector::get_BeginPoint(const cv::Mat& test_image_)
  * @param test_image_   [the input test image]
  * @return all coordinates of the knife trace
 */
-std::vector<cv::Point> Detector::get_knifeTrace(const cv::Mat &test_image_)
+std::vector<cv::Point> Detector::get_knifeTrace(const cv::Mat &test_image_,bool show_result)
 {
 
     if(beginPoint==cv::Point(-1,-1))
-        get_BeginPoint(test_image_);
+        get_BeginPoint(test_image_,false);
 
     std::vector<cv::Point> knife_trace=get_knife_trace(false);
-    cv::polylines(this->display_image,knife_trace,false,Scalar(0,255,0),2);
-    imshow("detection result",this->display_image);
-    waitKey(0);
-    cv::destroyAllWindows();
+
+    if(show_result)
+    {
+        cv::polylines(this->display_image,knife_trace,false,Scalar(0,255,0),2);
+        imshow("detection result",this->display_image);
+        waitKey(0);
+        cv::destroyAllWindows();
+    }
     return knife_trace;
 }
 /*
