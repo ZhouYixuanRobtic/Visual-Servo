@@ -190,11 +190,11 @@ cv::Point Detector::get_BeginPoint(const cv::Mat& test_image_,bool show_result)
     obliqueImg=pretreatment(OBLIQUE);
     verticalImg=pretreatment(VERTICAL);
 
-    assert(obliqueImg.empty());
-    assert(verticalImg.empty());
-    cv::minMaxLoc(obliqueImg, nullptr, nullptr, nullptr, &obliqueMaxLoc);
-    cv::minMaxLoc(verticalImg.col(0), nullptr, nullptr, nullptr, &verticalMaxLoc);
 
+    cv::minMaxLoc(obliqueImg, nullptr, nullptr, nullptr, &obliqueMaxLoc);
+    assert(0<obliqueMaxLoc.x);
+    cv::minMaxLoc(verticalImg.col(0), nullptr, nullptr, nullptr, &verticalMaxLoc);
+    assert(0<verticalMaxLoc.x);
     verticalMaxLoc.x=verticalImg.size().height/2-verticalMaxLoc.y+this->operate_image.size().width/2;
     beginPoint=getPointOnline(this->operate_image.size(),obliqueImg.size(),obliqueMaxLoc,verticalMaxLoc.x);
 
@@ -229,6 +229,7 @@ std::vector<cv::Point> Detector::get_knifeTrace(const cv::Mat &test_image_,bool 
 
     if(show_result)
     {
+        cv::circle(this->display_image,beginPoint,5,Scalar(255,0,0),-1);
         cv::polylines(this->display_image,knife_trace,false,Scalar(0,255,0),2);
         imshow("detection result",this->display_image);
         waitKey(0);
