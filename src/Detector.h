@@ -32,9 +32,9 @@ private:
         VERTICAL=2
     };
 
-    cv::Mat test_image,display_image,obliqueImg,verticalImg;
+    cv::Mat operate_image,display_image,obliqueImg,verticalImg;
     cv::Point obliqueMaxLoc,verticalMaxLoc;
-    cv::Point beginPoint,borderPoint;
+    cv::Point borderPoint;
 
     /* Function thresholds the input oblique image in three channels
      * @param src   [the input image]
@@ -50,35 +50,52 @@ private:
      */
     void vertical_threshold(cv::Mat src);
 
-    /* Function processes the private variable test_image in defined process type
+    /* Function processes the private variable operate_image in defined process type
      * @param processType   [process type, OBLIQUE for oblique knife image, VERTICAL for vertical knife image]
-     * note: the private variable test_image is modified in this function
+     * note: the private variable operate_image is modified in this function
      */
     cv::Mat pretreatment(int processType);
 
-    /* Function gets the intersection of
-     * the oblique line and the vertical line
-     * @return the pixel coordinate of the intersection
+    /* Function gets the radon transform corresponding line
+     * look up the complete coordinate online by (x,-1) or (-1,y).
+     * @param priorRadonImgSize         [The size of the image not transformed]
+     * @param subsequentRadonImgSize    [The size of the image already transformed]
+     * @param referencePoint            [The randon transform maximum point]
+     * @param targetPointX              [The x coordinate of point online you wanna get,-1 for non-use]
+     * @param targetPointY              [The y coordinate of point online you wanna get,-1 for non-use]
+     * @return the complete coordinate of a point online known one coordinate.
      */
     cv::Point getPointOnline(const cv::Size& priorRadonImgSize,const cv::Size& subsequentRadonImgSize,
                             const cv::Point& referencePoint,const int& targetPointX,const int& targetPointY=-1);
-
+    /*
+     * Function refines the intersection coordinate
+     */
     void refineLoc();
 
-    std::vector<cv::Point> trace_segement();
-    std::vector<cv::Point> get_knife_trace();
+
+    /*
+     * Function computes all coordinates of the knife trace
+     */
+    std::vector<cv::Point> get_knife_trace(bool debug=false);
 
 public:
     Detector();
     virtual ~Detector();
     int radonAngleRange;
     int radonOperation;
+
+    cv::Point beginPoint;
     /*
      * Function computes the begin point of knife trace which is the intersection of
      * the oblique knife trace and the vertical knife trace
      * @return the pixel coordinate of the begin point.
      */
     cv::Point get_BeginPoint(const cv::Mat& test_image_);
+    /*
+     * Function gets the complete knife Trace (the oblique one)
+     * @param test_image_   [the input test image]
+     * @return all coordinates of the knife trace
+     */
     std::vector<cv::Point> get_knifeTrace(const cv::Mat& test_image_);
 };
 
