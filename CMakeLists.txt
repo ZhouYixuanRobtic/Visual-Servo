@@ -65,6 +65,7 @@ add_message_files(
 add_service_files(
         FILES
         detect_once.srv
+        manipulate.srv
  )
 
 ## Generate actions in the 'action' folder
@@ -190,6 +191,8 @@ add_executable(real_sense src/camera.cpp)
 target_link_libraries(real_sense detector ${catkin_LIBRARIES} servo ${OpenCV_LIBRARIES} ${Boost_LIBRARIES})
 add_executable(newtest src/newtest.cpp)
 target_link_libraries(newtest detector ${OpenCV_LIBS} ${catkin_LIBRARIES} )
+add_executable(maTest src/maTest.cpp)
+target_link_libraries(maTest ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 #############
 ## Install ##
 #############

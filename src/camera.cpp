@@ -43,13 +43,12 @@ private:
 
     //Tags information detected from camera, vector is empty when no tags are detected
     std::vector<TagDetectInfo> Tags_detected_;
-    //begin point of knife trace
-    cv::Point beginPoint_;
+
     /* Function computing the real 3-dimensional position of a pixel point in image with respect to camera
      * @param TargetPoint   [Homogeneous coordinate of pixel point]
      * @return real 3-dimensional coordinate in camera coordinate system
      */
-    Eigen::Vector3d inverse_project(Eigen::Vector3d TargetPoint);
+    geometry_msgs::Point inverse_project(Eigen::Vector3d TargetPoint);
     /* Function computing the real 3-dimensional position of knife trace begin point
      * and fill service response
      */
@@ -139,41 +138,53 @@ void RealSense::TagsInfoPublish()
     }
     tag_pub_.publish(TagsDetection);
 }
-Eigen::Vector3d RealSense::inverse_project(Eigen::Vector3d TargetPoint)
+geometry_msgs::Point RealSense::inverse_project(Eigen::Vector3d TargetPoint)
 {
-    Eigen::Vector3d coordinate_3d;
+    Eigen::Vector3d coordinate_3d_;
     Eigen::Matrix3d intrinsic_matrix;
     intrinsic_matrix<<  this->fx,0.0,this->u0,
                         0.0,this->fy,this->v0,
                         0.0,0.0,1.0;
 
-    coordinate_3d = intrinsic_matrix.inverse()*TargetPoint;
+    coordinate_3d_ = intrinsic_matrix.inverse()*TargetPoint;
 
-    coordinate_3d[2]=0;
+    coordinate_3d_[2]=0;
     int counter=0;
     for (int v = TargetPoint[1]-2; v <= TargetPoint[1]+2; ++v)
     {
         for (int u = TargetPoint[0]-2; u <= TargetPoint[0]+2; ++u)
         {
             counter++;
-            coordinate_3d[2] += subscribed_depth_.at<float>(v, u)*0.001f;
+            coordinate_3d_[2] += subscribed_depth_.at<float>(v, u)*0.001f;
         }
     }
-    coordinate_3d[2] /=25.0;
-    coordinate_3d[0] *=coordinate_3d[2];
-    coordinate_3d[1] *=coordinate_3d[2];
+    coordinate_3d_[2] /=25.0;
+    coordinate_3d_[0] *=coordinate_3d_[2];
+    coordinate_3d_[1] *=coordinate_3d_[2];
+    geometry_msgs::Point coordinate_3d;
+    coordinate_3d.x=coordinate_3d_[0];
+    coordinate_3d.y=coordinate_3d_[1];
+    coordinate_3d.z=coordinate_3d_[2];
     return coordinate_3d;
 }
 bool RealSense::detect_once(visual_servo::detect_once::Request  &req,
                           visual_servo::detect_once::Response &res)
 {
-    beginPoint_ = detector_->get_BeginPoint(subscribed_rgb_);
-    std::cout<<beginPoint_.x<<beginPoint_.y<<std::endl;
-    Eigen::Vector3d RealPoint;
-    RealPoint=inverse_project(Eigen::Vector3d(beginPoint_.x,beginPoint_.y,1));
-    res.beginPoint.x=RealPoint[0];
-    res.beginPoint.y=RealPoint[1];
-    res.beginPoint.z=RealPoint[2];
+    cv::Point beginPoint;
+    std::vector<cv::Point> knife_trace=Detector::get_traceSegments(detector_->get_knifeTrace(subscribed_rgb_));
+    if(knife_trace.empty())
+        return false;
+    beginPoint = detector_->beginPoint;
+    geometry_msgs::Point RealPoint;
+    RealPoint=inverse_project(Eigen::Vector3d(beginPoint.x,beginPoint.y,1));
+    res.knife_trace.push_back(RealPoint);
+    std::cout<<beginPoint.x<<beginPoint.y<<std::endl;
+    for(auto & point :knife_trace)
+    {
+        RealPoint=inverse_project(Eigen::Vector3d(point.x,point.y,1));
+        res.knife_trace.push_back(RealPoint);
+    }
+    return true;
 }
 
 int main(int argc, char** argv)
@@ -181,7 +192,7 @@ int main(int argc, char** argv)
    ros::init(argc,argv,"real_sense");
    RealSense real_sense;
    ros::Rate loop_rate(30);
-   int counter;
+   int counter=0;
 
    while(ros::ok())
    {

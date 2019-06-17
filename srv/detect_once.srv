@@ -2,5 +2,6 @@
 int64 ready_go
 
 ---
-#knfie point in real 3d world
-geometry_msgs/Point beginPoint
+#knfie trace points in real 3d world
+#the index 0 is preserved for the begin point
+geometry_msgs/Point[] knife_trace

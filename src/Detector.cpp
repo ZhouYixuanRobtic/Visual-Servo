@@ -1,5 +1,5 @@
 //
-// Created by xcy on 19-6-4.
+// Created by zyx on 19-6-4.
 //
 
 #include "Detector.h"
@@ -194,7 +194,7 @@ cv::Point Detector::get_BeginPoint(const cv::Mat& test_image_,bool show_result)
     cv::minMaxLoc(obliqueImg, nullptr, nullptr, nullptr, &obliqueMaxLoc);
     assert(0<obliqueMaxLoc.x);
     cv::minMaxLoc(verticalImg.col(0), nullptr, nullptr, nullptr, &verticalMaxLoc);
-    assert(0<verticalMaxLoc.x);
+    assert(0<=verticalMaxLoc.x);
     verticalMaxLoc.x=verticalImg.size().height/2-verticalMaxLoc.y+this->operate_image.size().width/2;
     beginPoint=getPointOnline(this->operate_image.size(),obliqueImg.size(),obliqueMaxLoc,verticalMaxLoc.x);
 
@@ -210,6 +210,7 @@ cv::Point Detector::get_BeginPoint(const cv::Mat& test_image_,bool show_result)
         cv::circle(this->display_image,beginPoint,5,Scalar(255,0,0),-1);
         imshow("detection result",this->display_image);
         waitKey(0);
+        cv::destroyAllWindows();
     }
     return beginPoint;
 
@@ -222,8 +223,7 @@ cv::Point Detector::get_BeginPoint(const cv::Mat& test_image_,bool show_result)
 std::vector<cv::Point> Detector::get_knifeTrace(const cv::Mat &test_image_,bool show_result)
 {
 
-    if(beginPoint==cv::Point(-1,-1))
-        get_BeginPoint(test_image_,false);
+    get_BeginPoint(test_image_,false);
 
     std::vector<cv::Point> knife_trace=get_knife_trace(false);
 
@@ -309,6 +309,22 @@ std::vector<cv::Point> Detector::get_knife_trace(bool debug)
     std::vector<cv::Point> knife_trace;
     knife_trace=maxContour;
     knife_trace.resize(knife_trace.size()/2);
-
     return knife_trace;
+}
+std::vector<cv::Point> Detector::get_traceSegments(std::vector<cv::Point> knife_trace,int segement_number)
+{
+    std::vector<cv::Point> segments;
+
+    if(!knife_trace.empty())
+    {
+        int interval=knife_trace.size()/segement_number;
+        if(segement_number==0)
+            return knife_trace;
+        for(int i=0;i<segement_number;++i)
+        {
+            segments.push_back(knife_trace[i*interval]);
+        }
+
+    }
+    return segments;
 }

@@ -97,6 +97,12 @@ public:
      * @return all coordinates of the knife trace
      */
     std::vector<cv::Point> get_knifeTrace(const cv::Mat& test_image_,bool show_result=false);
+
+    /*
+     * Function segments the knife trace into given parts
+     * @param segement_number   [the number of parts wanted]
+     */
+    static std::vector<cv::Point>get_traceSegments(std::vector<cv::Point> knife_trace,int segement_number=10);
 };
 
 

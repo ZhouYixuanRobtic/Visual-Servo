@@ -20,6 +20,7 @@
 #include "visual_servo/TagDetection_msg.h"
 #include "visual_servo/TagsDetection_msg.h"
 #include "visual_servo/detect_once.h"
+#include "visual_servo/manipulate.h"
 
 
 #define _USE_MATH_DEFINES
@@ -31,7 +32,12 @@
  */
 std::vector<TagDetectInfo> Tags_detected;
 bool ready_go=false;
-Eigen::Vector3d BeginPoint;
+bool ready_manipulate=false;
+std::vector<Eigen::Vector3d> knife_trace;
+struct manipulateSrv{
+    int srv_type;
+    int srv_status;
+}ManipulateSrv;
 
 void *camera_thread(void *data);
 
@@ -117,7 +123,7 @@ public:
      */
     bool go_search_once(int search_type,double search_angle=M_PI/3,double velocity_scale=0.5);
     //Function makes robot search all three types
-    bool go_search(double search_angle=M_PI/3,double velocity_scale=0.5);
+    bool go_search(double search_angle=M_PI/3,double goal_tolerance=0.5);
     /*Function makes robot camera servo to pointed pose or position
      * @param ExpectMatrix  [the desired pose of camera describing as transform matrix]
      * @param enable_pose   [true for enable pose servo mode which costs more adjust and may makes end effector rotate,
@@ -151,11 +157,16 @@ private:
     ros::Subscriber tf_sub;
     tf2_ros::Buffer tfBuffer;
     tf2_ros::TransformListener *tfListener;
+    ros::ServiceServer service_;
     visual_servo::detect_once srv;
     void TagInfoCallback(const visual_servo::TagsDetection_msg& msg);
     void TfCallback(const tf2_msgs::TFMessage &msg);
+    bool manipulate(visual_servo::manipulate::Request &req,
+                    visual_servo::manipulate::Response &res);
 
 public:
+    typedef boost::function<bool (visual_servo::manipulate::Request&,visual_servo::manipulate::Response& res)>
+            manipulate_callback_t;
     bool tag_info_received;
     Listener();
     virtual ~Listener();
@@ -183,60 +194,88 @@ int main(int argc, char** argv)
     Manipulator robot_manipulator;
 
     robot_manipulator.add_static_planning_constraint();
-    robot_manipulator.go_home();
-
-    if(Tags_detected.empty())
+    robot_manipulator.go_home(1.0);
+    while(ros::ok())
     {
-        if(robot_manipulator.go_search())
+        if(ready_manipulate)
         {
-            robot_manipulator.add_dynamic_planning_constraint();
-            bool servo_success=robot_manipulator.go_servo(ExpectMatrix);
-            if(servo_success)
+            switch (ManipulateSrv.srv_type)
             {
-                robot_manipulator.go_zero();
-                robot_manipulator.go_cut();
+                case visual_servo::manipulate::Request::CUT:
+                    /*
+                    if(Tags_detected.empty())
+                    {
+                        if(robot_manipulator.go_search())
+                        {
+                            robot_manipulator.add_dynamic_planning_constraint();
+                            bool servo_success=robot_manipulator.go_servo(ExpectMatrix);
+                            if(servo_success)
+                            {
+                                robot_manipulator.go_zero();
+                                robot_manipulator.go_cut();
+                            }
+                            robot_manipulator.go_up();
+                            ManipulateSrv.srv_status=visual_servo::manipulate::Response::SUCCESS;
+                        }
+                        else
+                        {
+                            ROS_INFO("!!!!!!NO TAG SEARCHED!!!!!");
+                            /*
+                             * PRESERVE SPACE FOR ACT WITH NAVIGATION;
+                            *
+                        }
+
+                    }
+                    else
+                    {   robot_manipulator.add_dynamic_planning_constraint();
+                        ROS_INFO("ANOTHER ONE");
+                        bool servo_success = robot_manipulator.go_servo(ExpectMatrix,0.5);
+                        if (servo_success)
+                        {
+                            robot_manipulator.go_zero();
+                            //robot_manipulator.go_cut();
+
+                            Eigen::Vector3d Center3d=Tags_detected[0].Trans_C2T.translation();
+                            Center3d[2]+=0.029;
+                            Center3d[1]+=0.15;
+                            robot_manipulator.go_camera(Center3d,0.5);
+                            sleep(2);
+                            robot_manipulator.go_cut1();
+                            sleep(2);
+                            robot_manipulator.go_cut2(0.005);
+                            /*ready_go=true;
+                            while(ready_go);
+                            robot_manipulator.go_camera(BeginPoint,0.1);
+                            BeginPoint=Eigen::Vector3d(0.0,0.0,0.0);
+
+
+                        }
+                        //robot_manipulator.go_up();
+                        robot_manipulator.go_home();
+                        ManipulateSrv.srv_status=visual_servo::manipulate::Response::SUCCESS;
+                    }*/
+                    robot_manipulator.go_home(1.0);
+                    robot_manipulator.go_up();
+                    ManipulateSrv.srv_status=visual_servo::manipulate::Response::SUCCESS;
+                    break;
+                case visual_servo::manipulate::Request::SEARCH:
+                    if(robot_manipulator.go_search())
+                        ManipulateSrv.srv_status=visual_servo::manipulate::Response::SUCCESS;
+                    else
+                    {
+                        ROS_INFO("CHECK HERE");
+                        ManipulateSrv.srv_status=visual_servo::manipulate::Response::ERROR;
+                    }
+                    robot_manipulator.go_home();
+
+                    break;
+                default:
+                    break;
             }
-            robot_manipulator.go_up();
-        }
-        else
-        {
-            ROS_INFO("!!!!!!NO TAG SEARCHED!!!!!");
-            /*
-             * PRESERVE SPACE FOR ACT WITH NAVIGATION;
-            */
-        }
-
-    }
-    else
-    {   robot_manipulator.add_dynamic_planning_constraint();
-        while(ros::ok())
-        {
-            ROS_INFO("ANOTHER ONE");
-            bool servo_success = robot_manipulator.go_servo(ExpectMatrix,0.5);
-            if (servo_success)
-            {
-                robot_manipulator.go_zero();
-                //robot_manipulator.go_cut();
-
-                Eigen::Vector3d Center3d=Tags_detected[0].Trans_C2T.translation();
-                Center3d[2]+=0.029;
-                Center3d[1]+=0.15;
-                robot_manipulator.go_camera(Center3d,0.5);
-                sleep(2);
-                robot_manipulator.go_cut1();
-                sleep(2);
-                robot_manipulator.go_cut2(0.005);
-                /*ready_go=true;
-                while(ready_go);
-                robot_manipulator.go_camera(BeginPoint,0.1);
-                BeginPoint=Eigen::Vector3d(0.0,0.0,0.0);
-
-                 */
-            }
-            //robot_manipulator.go_up();
-            robot_manipulator.go_home();
+            ready_manipulate=false;
         }
     }
+
     ros::waitForShutdown();
     return 0;
 
@@ -444,13 +483,15 @@ bool Manipulator::go_search_once(int search_type,double search_angle,double velo
             break;
         case DOWN:
             move_group->setPoseTarget(get_EndMotion(DOWN,Eigen::Vector3d(0.0,0.0,-0.10)));
-            move_group->move();
+            if(move_group->move()!=moveit_msgs::MoveItErrorCodes::SUCCESS)
+                return false;
             goal=move_group->getCurrentJointValues();
             goal[4]-=2*search_angle;
             break;
         case UP:
             move_group->setPoseTarget(get_EndMotion(UP,Eigen::Vector3d(0.0,0.0,0.0),Eigen::Vector3d(M_PI/6,0,0)));
-            move_group->move();
+            if(move_group->move()!=moveit_msgs::MoveItErrorCodes::SUCCESS)
+                return false;
             goal=move_group->getCurrentJointValues();
             goal[4]+=2*search_angle;
             break;
@@ -479,9 +520,10 @@ bool Manipulator::go_search_once(int search_type,double search_angle,double velo
 }
 bool Manipulator::go_search(double search_angle, double goal_tolerance)
 {
-    return  go_search_once(FLAT,search_angle,goal_tolerance) ||
+    return  go_search_once(FLAT,search_angle,goal_tolerance);
+        /*||
             go_search_once(DOWN,search_angle,goal_tolerance) ||
-            go_search_once(UP,search_angle,goal_tolerance);
+            go_search_once(UP,search_angle,goal_tolerance);*/
 }
 bool Manipulator::go_servo(Eigen::Affine3d ExpectMatrix,bool enable_pose,double velocity_scale)
 {
@@ -669,6 +711,9 @@ Listener::Listener()
     //tf_sub = nh.subscribe("/tf_static",1000,&Listener::TfCallback,this);
     client =nh.serviceClient<visual_servo::detect_once>("detect_once");
     srv.request.ready_go=(int)ready_go;
+    manipulate_callback_t manipulate_callback =
+            boost::bind(&Listener::manipulate, this, _1, _2);
+    service_ = nh.advertiseService("manipulate",manipulate_callback);
 }
 Listener::~Listener()
 {
@@ -727,10 +772,14 @@ bool Listener::callSrv()
 {
     if (client.call(srv))
     {
-        std::cout<<srv.response.beginPoint<<std::endl;
-        BeginPoint[0]=srv.response.beginPoint.x;
-        BeginPoint[1]=srv.response.beginPoint.y;
-        BeginPoint[2]=srv.response.beginPoint.z;
+        Eigen::Vector3d eigen_point;
+        for(auto & point : srv.response.knife_trace)
+        {
+            eigen_point[0]=point.x;
+            eigen_point[1]=point.y;
+            eigen_point[2]=point.z;
+            knife_trace.push_back(eigen_point);
+        }
         return true;
     }
     else
@@ -738,6 +787,17 @@ bool Listener::callSrv()
         ROS_ERROR("Failed to call service detect_once");
         return false;
     }
+}
+bool Listener::manipulate(visual_servo::manipulate::Request &req,
+                        visual_servo::manipulate::Response &res)
+{
+    ready_manipulate=true;
+    ManipulateSrv.srv_type=req.type;
+    while(ready_manipulate);
+    res.status=ManipulateSrv.srv_status;
+    ManipulateSrv.srv_status=0;
+    ManipulateSrv.srv_type=0;
+    return true;
 }
 /*
  * 0.949088096619 0.0506779626012 2.77839660645 0.261449694633 0.031603731215 -0.00739841256291

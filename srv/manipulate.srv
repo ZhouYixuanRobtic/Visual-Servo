@@ -1,0 +1,12 @@
+#request
+int32 CUT=1
+int32 SEARCH=2
+#request type
+int32 type
+
+---
+int32 ERROR=-1
+int32 ABORT=-2
+int32 SUCCESS=-3
+#feedback status
+int32 status

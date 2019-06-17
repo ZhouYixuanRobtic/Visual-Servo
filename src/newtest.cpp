@@ -8,13 +8,12 @@
 
 int main(int argc, const char ** argv)
 {
-    cv::Mat test_image = cv::imread("/home/xcy/test/test4.jpg");
+    cv::Mat test_image = cv::imread("/home/xcy/test/1.JPG");
     if(test_image.empty())
     {
         cout<<"unable to load image"<<endl;
         return -1;
     }
-
     int radonAngleRange=63,radonOperation=radon::RT_SUM;
     Detector knife_detector;
     knife_detector.radonAngleRange=radonAngleRange;
@@ -25,5 +24,11 @@ int main(int argc, const char ** argv)
     long double time_elapsed_ms =1000.0*(c_end-c_start) / CLOCKS_PER_SEC;
     cout<<"result x:"<<knife_detector.beginPoint.x<<"result y:"<<knife_detector.beginPoint.y<<endl;
     std::cout << "CPU time used: " << time_elapsed_ms << " ms\n";
+    std::vector<cv::Point> segments=knife_detector.get_traceSegments(knife_trace,10);
+    std::cout<<"the segments numbers:"<<segments.size()<<std::endl;
+    for(auto & segment : segments)
+    {
+        cout<<segment.x<<segment.y<<endl;
+    }
     return 0;
 }
