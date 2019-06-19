@@ -42,7 +42,7 @@ private:
     cv::Mat subscribed_rgb_,subscribed_depth_;
 
     //Tags information detected from camera, vector is empty when no tags are detected
-    std::vector<TagDetectInfo> Tags_detected_;
+    std::vector<TagDetectInfo> tags_detected_;
 
     /* Function computing the real 3-dimensional position of a pixel point in image with respect to camera
      * @param TargetPoint   [Homogeneous coordinate of pixel point]
@@ -99,7 +99,7 @@ void RealSense::ImageCallback(const sensor_msgs::ImageConstPtr &msg)
     }
     subscribed_rgb_=cv_ptr_->image;
     realSense_->SetCameraParameter(fx,fy,u0,v0);
-    Tags_detected_ = realSense_->GetTargetPoseMatrix(subscribed_rgb_,tag_size_);
+    tags_detected_ = realSense_->GetTargetPoseMatrix(subscribed_rgb_,tag_size_);
 }
 void RealSense::DepthCallback(const sensor_msgs::ImageConstPtr &msg)
 {
@@ -121,18 +121,18 @@ void RealSense::TagsInfoPublish()
 {
     visual_servo::TagsDetection_msg TagsDetection;
     visual_servo::TagDetection_msg TagDetection;
-    if(!Tags_detected_.empty())
+    if(!tags_detected_.empty())
     {
-        //std::cout<<Tags_detected_[0].Trans_C2T.matrix()<<std::endl;
+        //std::cout<<tags_detected_[0].Trans_C2T.matrix()<<std::endl;
 
         TagsDetection.header.frame_id="camera_color_optical_frame";
-        for(int i=0;i<Tags_detected_.size();++i)
+        for(int i=0;i<tags_detected_.size();++i)
         {
-            TagDetection.id = Tags_detected_[i].id;
-            TagDetection.pose = Eigen::toMsg(Tags_detected_[i].Trans_C2T);
-            TagDetection.PixelCoef = Tags_detected_[i].PixelCoef;
-            TagDetection.center.x = Tags_detected_[i].Center.x;
-            TagDetection.center.y = Tags_detected_[i].Center.y;
+            TagDetection.id = tags_detected_[i].id;
+            TagDetection.pose = Eigen::toMsg(tags_detected_[i].Trans_C2T);
+            TagDetection.PixelCoef = tags_detected_[i].PixelCoef;
+            TagDetection.center.x = tags_detected_[i].Center.x;
+            TagDetection.center.y = tags_detected_[i].Center.y;
             TagsDetection.tags_information.push_back(TagDetection);
         }
     }
@@ -207,6 +207,6 @@ int main(int argc, char** argv)
        ros::spinOnce();
        loop_rate.sleep();
    }
-   ros::shutdown();
+    ros::shutdown();
 }
 

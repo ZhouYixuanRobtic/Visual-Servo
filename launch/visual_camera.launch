@@ -1,0 +1,16 @@
+<launch>
+    <arg name="sim" default="false"/>
+    <arg name="enable_infra1" default="false"/>
+    <arg name="enable_infra2" default="false"/>
+
+
+    <!--Launch the realsense ros wrapper-->
+    <include file="$(find realsense2_camera)/launch/rs_rgbd.launch">
+        <arg name="enable_infra1" default="$(arg enable_infra1)"/>
+        <arg name="enable_infra2" default="$(arg enable_infra2)"/>
+    </include>
+
+
+    <!-- run our own node -->
+    <node pkg="visual_servo" type="real_sense" name="real_sense"/>
+</launch>

@@ -18,24 +18,37 @@ private:
 public:
     Listener();
     virtual ~Listener();
-    bool callSrv();
+    bool callSrv(int SrvRequestType);
 };
 Listener::Listener()
 {
     client =nh.serviceClient<visual_servo::manipulate>("manipulate");
-    srv.request.type=visual_servo::manipulate::Request::CUT;
+
 }
 Listener::~Listener()
 {
 }
-bool Listener::callSrv()
+bool Listener::callSrv(int SrvRequestType)
 {
+    srv.request.type=SrvRequestType;
     if (client.call(srv))
     {
-        if(srv.response.status==visual_servo::manipulate::Response::SUCCESS)
-            ROS_INFO("TEST SUCCESS");
-        else
-            ROS_INFO("TEST ERROR");
+        switch (srv.response.status)
+        {
+            case visual_servo::manipulate::Response::SUCCESS:
+                ROS_INFO("SUCCESS");
+                /*Do something when success*/
+                break;
+            case visual_servo::manipulate::Response::ERROR:
+                ROS_INFO("ERROR");
+                break;
+            case visual_servo::manipulate::Response::ABORT:
+                /*Do something when abort*/
+                break;
+            default:
+                ROS_ERROR("Wrong response status");
+                return false;
+        }
         return true;
     }
     else
@@ -47,10 +60,8 @@ bool Listener::callSrv()
 int main(int argc, char** argv)
 {
     ros::init(argc, argv, "maTest");
-    bool ready_go=true;
     Listener listener;
-    if(ready_go)
-        ready_go=!listener.callSrv();
+    listener.callSrv(visual_servo::manipulate::Request::SEARCH);
     ros::spin();
     ros::shutdown();
     return 0;
