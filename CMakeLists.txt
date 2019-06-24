@@ -2,7 +2,8 @@ cmake_minimum_required(VERSION 2.8.3)
 project(visual_servo)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-add_compile_options(-std=c++14)
+add_compile_options(-std=c++11)
+
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -70,6 +71,12 @@ catkin_package(
                  EIGEN3
 )
 
+set(AUBO_INCLUDE_PATH /home/xcy/WorkSpace/src/Visual-Servo/include/dependents/robotSDK/inc)
+set(AUBO_LINK_DIRS /home/xcy/WorkSpace/src/Visual-Servo/include/dependents/protobuf/linux-x64/lib;
+        /home/xcy/WorkSpace/src/Visual-Servo/include/dependents/robotController/lib-linux64;
+        /home/xcy/WorkSpace/src/Visual-Servo/include/dependents/log4cplus/linux_x64/lib;
+        /home/xcy/WorkSpace/src/Visual-Servo/include/dependents/libconfig/linux_x64/lib;
+        /home/xcy/WorkSpace/src/Visual-Servo/include/dependents/robotSDK/lib/linux_x64)
 
 include_directories (
         SYSTEM
@@ -80,11 +87,13 @@ include_directories (
         /usr/local/include/apriltag
         /usr/local/include/sophus
         ${catkin_INCLUDE_DIRS}
+        ${AUBO_INCLUDE_PATH}
 )
 link_directories(
         ${OpenCV_LIB_DIR}
         ${catkin_LIBRARY_DIRS}
         /user/local/lib
+        ${AUBO_LINK_DIRS}
 )
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
@@ -95,6 +104,13 @@ link_directories(
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
 # add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+FILE(GLOB_RECURSE sourcefiles "include/example/example_3.cpp")
+add_library(auboA ${sourcefiles})
+target_link_libraries(auboA protobuf our_alg_i5p log4cplus config auborobotcontroller)
+add_library(auboUtil include/example/util.cpp)
+target_link_libraries(auboUtil protobuf our_alg_i5p log4cplus config auborobotcontroller)
+add_executable(auboTest include/example/SDKmain.cpp)
+target_link_libraries(auboTest auboA protobuf our_alg_i5p log4cplus config auborobotcontroller auboUtil)
 
 add_library(servo src/Servo.cpp)
 target_link_libraries(servo apriltag ${OpenCV_LIBRARIES} Sophus)
@@ -111,4 +127,3 @@ target_link_libraries(newtest detector ${OpenCV_LIBS} ${catkin_LIBRARIES} )
 add_executable(maTest src/maTest.cpp)
 target_link_libraries(maTest ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 add_dependencies(maTest ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)
-
