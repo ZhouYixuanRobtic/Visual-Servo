@@ -61,7 +61,12 @@ int main(int argc, char** argv)
 {
     ros::init(argc, argv, "maTest");
     Listener listener;
-    listener.callSrv(visual_servo::manipulate::Request::SEARCH);
+    while(ros::ok())
+    {
+        listener.callSrv(visual_servo::manipulate::Request::CUT);
+        sleep(5);
+    }
+
     ros::spin();
     ros::shutdown();
     return 0;

@@ -21,6 +21,7 @@
 #include "visual_servo/TagsDetection_msg.h"
 #include "visual_servo/detect_once.h"
 #include "visual_servo/manipulate.h"
+#include "unistd.h"
 
 
 #define _USE_MATH_DEFINES
@@ -181,10 +182,21 @@ int main(int argc, char** argv)
 
     Eigen::Affine3d ExpectMatrix;
     ExpectMatrix.matrix() << 1,0,0,0,
-            0,1,0,0,
-            0,0,1,0.30,
-            0,0,0,1;
+                            0,1,0,-0.08,
+                            0,0,1,0.40,
+                            0,0,0,1;
     pthread_t camera_id;
+/*
+    Eigen::Affine3d Trans_E2C;
+    Eigen::Vector3d RPY=Eigen::Vector3d(-1.573, -0.007, -3.132);
+    Eigen::Matrix3d rotation_matrix;
+    rotation_matrix=Eigen::AngleAxisd(RPY[2], Eigen::Vector3d::UnitZ())*
+                    Eigen::AngleAxisd(RPY[1], Eigen::Vector3d::UnitY())*
+                    Eigen::AngleAxisd(RPY[0], Eigen::Vector3d::UnitX());
+    Trans_E2C.linear()=rotation_matrix;
+    Trans_E2C.translation()=Eigen::Vector3d(0.030, 0.373, 0.113);
+    std::cout<<Trans_E2C.matrix()<<std::endl;
+    */
     ros::init(argc, argv, "visual_servo");
     ros::NodeHandle n;
 
@@ -196,7 +208,7 @@ int main(int argc, char** argv)
     Manipulator robot_manipulator;
 
     robot_manipulator.addStaticPlanningConstraint();
-    robot_manipulator.goHome(1.0);
+    robot_manipulator.goUp(1.0);
     while(ros::ok())
     {
         if(manipulate_srv_on)
@@ -204,7 +216,6 @@ int main(int argc, char** argv)
             switch (ManipulateSrv.srv_type)
             {
                 case visual_servo::manipulate::Request::CUT:
-                    /*
                     if(Tags_detected.empty())
                     {
                         if(robot_manipulator.goSearch())
@@ -213,9 +224,18 @@ int main(int argc, char** argv)
                             bool servo_success=robot_manipulator.goServo(ExpectMatrix);
                             if(servo_success)
                             {
-                                robot_manipulator.goZero();
+                                //robot_manipulator.goZero();
+                                Eigen::Vector3d Center3d=Tags_detected[0].Trans_C2T.translation();
+                                Center3d[1]+=0.30;
+                                Center3d[0]-=0.05;
+                                Center3d[2]-=0.018;
+                                robot_manipulator.goCamera(Center3d,0.5);
                                 robot_manipulator.goCut();
                             }
+                            //Eigen::Vector3d Center3d=Tags_detected[0].Trans_C2T.translation();
+
+                            //robot_manipulator.goCamera(Center3d,0.5);
+
                             robot_manipulator.goUp();
                             ManipulateSrv.srv_status=visual_servo::manipulate::Response::SUCCESS;
                         }
@@ -224,15 +244,15 @@ int main(int argc, char** argv)
                             ROS_INFO("!!!!!!NO TAG SEARCHED!!!!!");
                             /*
                              * PRESERVE SPACE FOR ACT WITH NAVIGATION;
-                            /
+                            */
                         }
 
                     }
                     else
                     {   robot_manipulator.addDynamicPlanningConstraint();
                         ROS_INFO("ANOTHER ONE");
-                        bool servo_success = robot_manipulator.goServo(ExpectMatrix,0.5);
-                        if (servo_success)
+                       // bool servo_success = robot_manipulator.goServo(ExpectMatrix,0.5);
+                        /*if (servo_success)
                         {
                             robot_manipulator.goZero();
                             //robot_manipulator.goCut();
@@ -249,14 +269,24 @@ int main(int argc, char** argv)
                             while(ready_go);
                             robot_manipulator.goCamera(BeginPoint,0.1);
                             BeginPoint=Eigen::Vector3d(0.0,0.0,0.0);
-                             /
-                        }/
-                        //robot_manipulator.goUp();
-                        robot_manipulator.goHome();
+                             *
+                        }*/
+                        bool servo_success=robot_manipulator.goServo(ExpectMatrix);
+                        if(servo_success)
+                        {
+                            //robot_manipulator.goZero();
+                            Eigen::Vector3d Center3d=Tags_detected[0].Trans_C2T.translation();
+                            Center3d[1]+=0.312;
+                            Center3d[0]-=0.05;
+                            Center3d[2]-=0.07;
+                            robot_manipulator.goCamera(Center3d,0.5);
+                            robot_manipulator.goCut();
+                        }
+                        robot_manipulator.goUp();
+                        //robot_manipulator.goHome();
                         ManipulateSrv.srv_status=visual_servo::manipulate::Response::SUCCESS;
-                    }*/
-                    robot_manipulator.goHome(1.0);
-                    robot_manipulator.goUp();
+                    }
+
                     ManipulateSrv.srv_status=visual_servo::manipulate::Response::SUCCESS;
                     break;
                 case visual_servo::manipulate::Request::SEARCH:
@@ -318,10 +348,11 @@ void *camera_thread(void *data)
 Manipulator::Manipulator()
 {
     goal_tolerance=0.001;
-    Trans_E2C.matrix()<<    -0.0102032,0.00213213,-0.999946,0.109,
-                            0.999923,  0.00702205,-0.010188,0.184,
-                            0.00699994,-0.999973, -0.00220362,0.065,
-                            0,        0,           0,           1;
+    Trans_E2C.matrix()<<    -0.999929,-0.00702074,0.00957706,0.03,
+                            -0.00959227,0.00213642,-0.999952,0.373,
+                            0.00699994, -0.999973, -0.00220362,0.113,
+                            0,           0,           0,           1;
+
     move_group = new moveit::planning_interface::MoveGroupInterface(PLANNING_GROUP);
     planning_scene_interface = new  moveit::planning_interface::PlanningSceneInterface;
     joint_model_group = move_group->getCurrentState()->getJointModelGroup(PLANNING_GROUP);
@@ -371,14 +402,19 @@ void Manipulator::addStaticPlanningConstraint()
     objects.push_back(collision_object);
 
     //virtual left side wall
-    moveit_msgs::CollisionObject collision_object2;
-    collision_object2.header.frame_id = move_group->getPlanningFrame();
-    collision_object2.id = "virtual_wall";
-    plane.coef={1,0,0,-0.8};
-    collision_object2.planes.push_back(plane);
-    collision_object2.plane_poses.push_back(object_pose);
-    collision_object2.operation = collision_object2.ADD;
-    objects.push_back(collision_object2);
+    moveit_msgs::CollisionObject collision_object_LIDAR;
+    collision_object_LIDAR.header.frame_id = move_group->getPlanningFrame();
+    collision_object_LIDAR.id = "LIDAR";
+    shape_msgs::SolidPrimitive primitive;
+    primitive.type = primitive.CYLINDER;
+    primitive.dimensions.resize(2);
+    primitive.dimensions[0] = 0.073;
+    primitive.dimensions[1] = 0.05;
+    object_pose.position.x=-0.34;
+    collision_object_LIDAR.primitives.push_back(primitive);
+    collision_object_LIDAR.primitive_poses.push_back(object_pose);
+    collision_object_LIDAR.operation = collision_object.ADD;
+    objects.push_back(collision_object_LIDAR);
 
     planning_scene_interface->addCollisionObjects(objects);
 }
@@ -388,7 +424,6 @@ void Manipulator ::addDynamicPlanningConstraint()
     current_pose=move_group->getCurrentPose();
     Eigen::fromMsg(current_pose.pose,Trans_B2E);
     Trans_B2T=Trans_B2E*Trans_E2C*Tags_detected[0].Trans_C2T;
-
     std::vector<std::string> object_names;
     object_names=planning_scene_interface->getKnownObjectNames();
     if(!object_names.empty())
@@ -414,7 +449,7 @@ void Manipulator ::addDynamicPlanningConstraint()
     primitive.dimensions[1] = radius;
     geometry_msgs::Pose object_pose;
     object_pose.position.x=Trans_B2T.translation()[0];
-    object_pose.position.y=Trans_B2T.translation()[1]+(radius+0.030)*boost::math::sign(Trans_B2T.translation()[1]);
+    object_pose.position.y=Trans_B2T.translation()[1]+(radius+0.15)*boost::math::sign(Trans_B2T.translation()[1]);
     collision_object.primitives.push_back(primitive);
     collision_object.primitive_poses.push_back(object_pose);
     collision_object.operation = collision_object.ADD;
@@ -487,7 +522,7 @@ bool Manipulator::goSearchOnce(int search_type, double search_angle, double velo
             goal[4]+=2*search_angle;
             break;
         case DOWN:
-            move_group->setPoseTarget(getEndMotion(DOWN, Eigen::Vector3d(0.0, 0.0, -0.10)));
+            move_group->setPoseTarget(getEndMotion(DOWN, Eigen::Vector3d(0.0, 0.0, -0.20)));
             if(move_group->move()!=moveit_msgs::MoveItErrorCodes::SUCCESS)
                 return false;
             goal=move_group->getCurrentJointValues();
@@ -505,12 +540,15 @@ bool Manipulator::goSearchOnce(int search_type, double search_angle, double velo
             return false;
     }
     move_group->setJointValueTarget(goal);
-    move_group->setMaxVelocityScalingFactor(0.1);
+    move_group->setMaxVelocityScalingFactor(0.2);
     if(move_group->asyncMove()!=moveit_msgs::MoveItErrorCodes::SUCCESS)
         return false;
-    while(Tags_detected.empty())
+    int counter=0;
+    while(Tags_detected.empty()||counter<10)
     {
         //ROS_INFO("Searching tag!!!!!");
+        if(!Tags_detected.empty())
+            counter++;
         if(allClose(goal)<=goal_tolerance*2)
             return false;
     }
@@ -519,7 +557,7 @@ bool Manipulator::goSearchOnce(int search_type, double search_angle, double velo
     move_group->rememberJointValues("tag");
     while(allClose(goal)>goal_tolerance*2);
     sleep(1);
-    move_group->setMaxVelocityScalingFactor(velocity_scale);
+    move_group->setMaxVelocityScalingFactor(1.0);
     move_group->setNamedTarget("tag");
     return (move_group->move() == moveit_msgs::MoveItErrorCodes::SUCCESS);
 }
@@ -553,8 +591,8 @@ bool Manipulator::goServo(Eigen::Affine3d expect_matrix, bool enable_pose, doubl
             }
             else
                 EndDestination.EE_Motion.linear()=Eigen::Matrix3d::Identity();
-
             Trans_W2EP=Trans_W2E*EndDestination.EE_Motion;
+            std::cout<<"check the traget position"<<Trans_W2EP.matrix()<<std::endl;
             move_group->setPoseTarget(Trans_W2EP);
             moveit::planning_interface::MoveGroupInterface::Plan my_plan;
             bool success = (move_group->plan(my_plan) == moveit::planning_interface::MoveItErrorCode::SUCCESS);
@@ -578,26 +616,49 @@ bool Manipulator::goServo(Eigen::Affine3d expect_matrix, bool enable_pose, doubl
 }
 void Manipulator::goCut(double velocity_scale)
 {
-    move_group->setPoseTarget(getEndMotion(DEFAULT, Eigen::Vector3d(0.0, 0.0, 0.0), Eigen::Vector3d(0.0, 0.0, M_PI / 2)));
-    move_group->move();
+    //move_group->setPoseTarget(getEndMotion(DEFAULT, Eigen::Vector3d(0.0, 0.0, 0.0), Eigen::Vector3d(0.0, 0.0, M_PI / 2)));
+    //move_group->move();
     geometry_msgs::Pose target_pose3 = move_group->getCurrentPose().pose;
     std::vector<geometry_msgs::Pose> waypoints;
-
-    double init_th=asin(target_pose3.position.x/radius);
-    double init_y=target_pose3.position.y-radius*cos(init_th);
-
-    Eigen::Affine3d Trans_B2E;
+    Eigen::Affine3d Trans_B2E,Trans_B2EP;
     Eigen::fromMsg(target_pose3,Trans_B2E);
     Eigen::Quaterniond q;
     double init_beta=Trans_B2E.linear().eulerAngles(2,1,0)[0];
-
-    for(double th=0.0;th<M_PI/3;th+=0.08)
+    //调整方位
+    double init_theta=asin(target_pose3.position.x/(radius+0.02));
+    q=Eigen::Matrix3d::Identity()*Eigen::AngleAxisd(-init_theta,Eigen::Vector3d::UnitZ());
+    target_pose3.orientation.x=q.x();
+    target_pose3.orientation.y=q.y();
+    target_pose3.orientation.z=q.z();
+    target_pose3.orientation.w=q.w();
+    move_group->setPoseTarget(target_pose3);
+    move_group->move();
+    //进刀
+    target_pose3 = move_group->getCurrentPose().pose;
+    Eigen::fromMsg(target_pose3,Trans_B2E);
+    Trans_B2EP.linear()=Eigen::Matrix3d::Identity();
+    Trans_B2EP.translation()=Eigen::Vector3d(0.0,boost::math::sign(target_pose3.position.y)*0.02,0.0);
+    Trans_B2E=Trans_B2E*Trans_B2EP;
+    move_group->setPoseTarget(Trans_B2E);
+    move_group->move();
+    target_pose3 = move_group->getCurrentPose().pose;
+    Eigen::fromMsg(target_pose3,Trans_B2E);
+    Trans_B2EP.linear()=Eigen::Matrix3d::Identity();
+    Trans_B2EP.translation()=Eigen::Vector3d(0.0,0.0,-0.002);
+    Trans_B2E=Trans_B2E*Trans_B2EP;
+    move_group->setPoseTarget(Trans_B2E);
+    move_group->move();
+    //切割轨迹
+    target_pose3 = move_group->getCurrentPose().pose;
+    Eigen::fromMsg(target_pose3,Trans_B2E);
+    double init_th=asin(target_pose3.position.x/radius);
+    double init_x=target_pose3.position.y+radius*cos(init_th)*boost::math::sign(target_pose3.position.y);
+    for(double th=0.0;th<M_PI/3.0;th+=M_PI/3.0/10.0)
     {
-        target_pose3.position.x = radius*sin(init_th+th);
-        target_pose3.position.y = init_y+radius*cos(init_th+th) ;
-        target_pose3.position.z -=0.01;
-        init_beta -=0.08;
-        q=(Trans_B2E*Eigen::AngleAxisd(init_beta,Eigen::Vector3d::UnitY())).linear();
+        target_pose3.position.x = radius*sin(init_th-th);
+        target_pose3.position.y = init_x+radius*cos(init_th-th) ;
+        target_pose3.position.z +=0.002;
+        q=Eigen::Matrix3d::Identity()*Eigen::AngleAxisd(-(init_theta-th),Eigen::Vector3d::UnitZ());
         target_pose3.orientation.x=q.x();
         target_pose3.orientation.y=q.y();
         target_pose3.orientation.z=q.z();
@@ -626,6 +687,21 @@ void Manipulator::goCut(double velocity_scale)
         my_plan.trajectory_=trajectory;
         move_group->execute(my_plan);
     }
+    //退刀
+    target_pose3 = move_group->getCurrentPose().pose;
+    Eigen::fromMsg(target_pose3,Trans_B2E);
+    Trans_B2EP.linear()=Eigen::Matrix3d::Identity();
+    Trans_B2EP.translation()=Eigen::Vector3d(0.0,0.0,0.002);
+    Trans_B2E=Trans_B2E*Trans_B2EP;
+    move_group->setPoseTarget(Trans_B2E);
+    move_group->move();
+    target_pose3 = move_group->getCurrentPose().pose;
+    Eigen::fromMsg(target_pose3,Trans_B2E);
+    Trans_B2EP.linear()=Eigen::Matrix3d::Identity();
+    Trans_B2EP.translation()=Eigen::Vector3d(0.0,-boost::math::sign(target_pose3.position.y)*0.05,0.0);
+    Trans_B2E=Trans_B2E*Trans_B2EP;
+    move_group->setPoseTarget(Trans_B2E);
+    move_group->move();
 }
 void Manipulator::goZero(double velocity_scale)
 {
@@ -761,7 +837,7 @@ void Listener::calibrateInfoPublish()
     geometry_msgs::TransformStamped transformStamped;
     try
     {
-        transformStamped = tfBuffer.lookupTransform("camera_link", "camera_color_optical_frame",
+        transformStamped = tfBuffer.lookupTransform("ee_link", "camera_color_optical_frame",
                                                     ros::Time(0));
     }
     catch (tf2::TransformException &ex)
