@@ -21,7 +21,7 @@
 #include "visual_servo/TagsDetection_msg.h"
 #include "visual_servo/detect_once.h"
 #include "visual_servo/manipulate.h"
-#include "unistd.h"
+
 
 
 #define _USE_MATH_DEFINES
@@ -135,7 +135,7 @@ public:
      */
     bool goServo(Eigen::Affine3d expect_matrix, bool enable_pose = false, double velocity_scale = 0.5);
     //Function makes robot accomplish cut task
-    void goCut(double velocity_scale = 0.05);
+    void goCut(Eigen::Affine3d referTag,double velocity_scale = 0.05);
     //Function makes end effector joint goes to zero position.
     void goZero(double velocity_scale = 1.0);
     /*Function makes the end effector goes to a position defined by a array with respect to camera
@@ -144,10 +144,12 @@ public:
      */
     bool goCamera(Eigen::Vector3d target_array, double velocity_scale = 0.1);
 
+    Eigen::Affine3d getTagPosition(Eigen::Affine3d Trans_C2T);
     //debug preserved functions
     void goTest(double goal_tolerance);
     void goCut1(double velocity_scale = 0.1);
     void goCut2(double velocity_scale = 0.1);
+
 };
 
 //all ros topics and services related functions
@@ -226,11 +228,12 @@ int main(int argc, char** argv)
                             {
                                 //robot_manipulator.goZero();
                                 Eigen::Vector3d Center3d=Tags_detected[0].Trans_C2T.translation();
-                                Center3d[1]+=0.30;
+                                Eigen::Affine3d tagTransform=robot_manipulator.getTagPosition(Tags_detected[0].Trans_C2T);
+                                Center3d[1]+=0.295;
                                 Center3d[0]-=0.05;
-                                Center3d[2]-=0.018;
+                                Center3d[2]-=0.025;
                                 robot_manipulator.goCamera(Center3d,0.5);
-                                robot_manipulator.goCut();
+                                robot_manipulator.goCut(tagTransform);
                             }
                             //Eigen::Vector3d Center3d=Tags_detected[0].Trans_C2T.translation();
 
@@ -276,11 +279,12 @@ int main(int argc, char** argv)
                         {
                             //robot_manipulator.goZero();
                             Eigen::Vector3d Center3d=Tags_detected[0].Trans_C2T.translation();
+
                             Center3d[1]+=0.312;
                             Center3d[0]-=0.05;
-                            Center3d[2]-=0.07;
+                            Center3d[2]-=0.05;
                             robot_manipulator.goCamera(Center3d,0.5);
-                            robot_manipulator.goCut();
+                            robot_manipulator.goCut(Tags_detected[0].Trans_C2T);
                         }
                         robot_manipulator.goUp();
                         //robot_manipulator.goHome();
@@ -420,10 +424,7 @@ void Manipulator::addStaticPlanningConstraint()
 }
 void Manipulator ::addDynamicPlanningConstraint()
 {
-    Eigen::Affine3d Trans_B2E,Trans_B2T;
-    current_pose=move_group->getCurrentPose();
-    Eigen::fromMsg(current_pose.pose,Trans_B2E);
-    Trans_B2T=Trans_B2E*Trans_E2C*Tags_detected[0].Trans_C2T;
+    Eigen::Affine3d Trans_B2T=getTagPosition(Tags_detected[0].Trans_C2T);
     std::vector<std::string> object_names;
     object_names=planning_scene_interface->getKnownObjectNames();
     if(!object_names.empty())
@@ -614,18 +615,17 @@ bool Manipulator::goServo(Eigen::Affine3d expect_matrix, bool enable_pose, doubl
     }
     return true;
 }
-void Manipulator::goCut(double velocity_scale)
+void Manipulator::goCut(Eigen::Affine3d referTag,double velocity_scale)
 {
-    //move_group->setPoseTarget(getEndMotion(DEFAULT, Eigen::Vector3d(0.0, 0.0, 0.0), Eigen::Vector3d(0.0, 0.0, M_PI / 2)));
-    //move_group->move();
-    geometry_msgs::Pose target_pose3 = move_group->getCurrentPose().pose;
-    std::vector<geometry_msgs::Pose> waypoints;
     Eigen::Affine3d Trans_B2E,Trans_B2EP;
+    geometry_msgs::Pose target_pose3 = move_group->getCurrentPose().pose;
     Eigen::fromMsg(target_pose3,Trans_B2E);
+
+    std::vector<geometry_msgs::Pose> waypoints;
+
     Eigen::Quaterniond q;
-    double init_beta=Trans_B2E.linear().eulerAngles(2,1,0)[0];
     //调整方位
-    double init_theta=asin(target_pose3.position.x/(radius+0.02));
+    double init_theta=asin((target_pose3.position.x-referTag.translation()[0])/(radius+0.02));
     q=Eigen::Matrix3d::Identity()*Eigen::AngleAxisd(-init_theta,Eigen::Vector3d::UnitZ());
     target_pose3.orientation.x=q.x();
     target_pose3.orientation.y=q.y();
@@ -651,13 +651,19 @@ void Manipulator::goCut(double velocity_scale)
     //切割轨迹
     target_pose3 = move_group->getCurrentPose().pose;
     Eigen::fromMsg(target_pose3,Trans_B2E);
-    double init_th=asin(target_pose3.position.x/radius);
+    double init_th=asin((target_pose3.position.x-referTag.translation()[0])/radius);
     double init_x=target_pose3.position.y+radius*cos(init_th)*boost::math::sign(target_pose3.position.y);
-    for(double th=0.0;th<M_PI/3.0;th+=M_PI/3.0/10.0)
+    std::cout<<"check the init_theta is "<<init_th<<std::endl;
+    std::cout<<"the origin target position x is "<<target_pose3.position.x<<std::endl;
+    std::cout<<"the origin target position y is: "<<init_x<<std::endl;
+    for(double th=M_PI/3.0/20.0;th<=M_PI/3.0;th+=M_PI/3.0/20.0)
     {
-        target_pose3.position.x = radius*sin(init_th-th);
+        target_pose3.position.x = referTag.translation()[0]+radius*sin(init_th-th);
         target_pose3.position.y = init_x+radius*cos(init_th-th) ;
-        target_pose3.position.z +=0.002;
+        std::cout<<"check the generated x is "<< target_pose3.position.x<<std::endl;
+        std::cout<<"check the yaw is "<<init_th-th<<std::endl;
+        std::cout<<"check the generated y is "<<target_pose3.position.y<<std::endl;
+        target_pose3.position.z +=0.00/20.0;
         q=Eigen::Matrix3d::Identity()*Eigen::AngleAxisd(-(init_theta-th),Eigen::Vector3d::UnitZ());
         target_pose3.orientation.x=q.x();
         target_pose3.orientation.y=q.y();
@@ -698,7 +704,7 @@ void Manipulator::goCut(double velocity_scale)
     target_pose3 = move_group->getCurrentPose().pose;
     Eigen::fromMsg(target_pose3,Trans_B2E);
     Trans_B2EP.linear()=Eigen::Matrix3d::Identity();
-    Trans_B2EP.translation()=Eigen::Vector3d(0.0,-boost::math::sign(target_pose3.position.y)*0.05,0.0);
+    Trans_B2EP.translation()=Eigen::Vector3d(0.0,-boost::math::sign(target_pose3.position.y)*0.2,0.0);
     Trans_B2E=Trans_B2E*Trans_B2EP;
     move_group->setPoseTarget(Trans_B2E);
     move_group->move();
@@ -736,6 +742,12 @@ bool Manipulator::goCamera(Eigen::Vector3d target_array, double velocity_scale)
         ROS_INFO("FAILED");
         return false;
     }
+}
+Eigen::Affine3d Manipulator::getTagPosition(Eigen::Affine3d Trans_C2T)
+{
+    Eigen::Affine3d Trans_B2E;
+    Eigen::fromMsg(move_group->getCurrentPose().pose,Trans_B2E);
+    return Trans_B2E*Trans_E2C*Trans_C2T;
 }
 void Manipulator::goTest(double goal_tolerance)
 {

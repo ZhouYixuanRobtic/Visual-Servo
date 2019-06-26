@@ -71,7 +71,8 @@ catkin_package(
                  EIGEN3
 )
 
-set(AUBO_INCLUDE_PATH /home/xcy/WorkSpace/src/Visual-Servo/include/dependents/robotSDK/inc)
+set(AUBO_INCLUDE_PATH /home/xcy/WorkSpace/src/Visual-Servo/include/dependents/robotSDK/inc;
+                        /home/xcy/WorkSpace/src/Visual-Servo/include/example/)
 set(AUBO_LINK_DIRS /home/xcy/WorkSpace/src/Visual-Servo/include/dependents/protobuf/linux-x64/lib;
         /home/xcy/WorkSpace/src/Visual-Servo/include/dependents/robotController/lib-linux64;
         /home/xcy/WorkSpace/src/Visual-Servo/include/dependents/log4cplus/linux_x64/lib;
@@ -104,13 +105,14 @@ link_directories(
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
 # add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-FILE(GLOB_RECURSE sourcefiles "include/example/example_3.cpp")
-add_library(auboA ${sourcefiles})
-target_link_libraries(auboA protobuf our_alg_i5p log4cplus config auborobotcontroller)
+
+
 add_library(auboUtil include/example/util.cpp)
 target_link_libraries(auboUtil protobuf our_alg_i5p log4cplus config auborobotcontroller)
-add_executable(auboTest include/example/SDKmain.cpp)
-target_link_libraries(auboTest auboA protobuf our_alg_i5p log4cplus config auborobotcontroller auboUtil)
+add_library(auboA src/AuboSDK.cpp)
+target_link_libraries(auboA auboUtil protobuf our_alg_i5p log4cplus config auborobotcontroller )
+add_executable(auboTest src/auboSDKTest.cpp)
+target_link_libraries(auboTest auboA protobuf our_alg_i5p log4cplus config auborobotcontroller auboUtil ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 
 add_library(servo src/Servo.cpp)
 target_link_libraries(servo apriltag ${OpenCV_LIBRARIES} Sophus)
