@@ -21,6 +21,8 @@
 #include "visual_servo/TagsDetection_msg.h"
 #include "visual_servo/detect_once.h"
 #include "visual_servo/manipulate.h"
+#include "visual_servo/VisualServoMetaTypeMsg.h"
+#include "VisualServoMetaType.h"
 
 
 
@@ -35,7 +37,9 @@
 std::vector<TagDetectInfo> Tags_detected;
 bool detect_srv_on=false;
 bool manipulate_srv_on=false;
+bool RobotAllRight,RobotSwitchOn;
 std::vector<Eigen::Vector3d> knife_trace;
+
 
 struct manipulateSrv{
     int srv_type;
@@ -135,7 +139,7 @@ public:
      */
     bool goServo(Eigen::Affine3d expect_matrix, bool enable_pose = false, double velocity_scale = 0.5);
     //Function makes robot accomplish cut task
-    void goCut(Eigen::Affine3d referTag,double velocity_scale = 0.05);
+    bool goCut(Eigen::Affine3d referTag,double velocity_scale = 0.05);
     //Function makes end effector joint goes to zero position.
     void goZero(double velocity_scale = 1.0);
     /*Function makes the end effector goes to a position defined by a array with respect to camera
@@ -160,12 +164,14 @@ private:
     ros::ServiceClient client;
     ros::Subscriber tag_info_sub;
     ros::Subscriber tf_sub;
+    ros::Subscriber vs_status_sub;
     tf2_ros::Buffer tfBuffer;
     tf2_ros::TransformListener *tfListener;
     ros::ServiceServer service_;
     visual_servo::detect_once srv;
     void tagInfoCallback(const visual_servo::TagsDetection_msg &msg);
     void tfCallback(const tf2_msgs::TFMessage &msg);
+    void statusCallback(const visual_servo::VisualServoMetaTypeMsg &msg);
     bool manipulate(visual_servo::manipulate::Request &req,
                     visual_servo::manipulate::Response &res);
 
@@ -210,7 +216,7 @@ int main(int argc, char** argv)
     Manipulator robot_manipulator;
 
     robot_manipulator.addStaticPlanningConstraint();
-    robot_manipulator.goUp(1.0);
+    robot_manipulator.goUp(0.2);
     while(ros::ok())
     {
         if(manipulate_srv_on)
@@ -220,11 +226,18 @@ int main(int argc, char** argv)
                 case visual_servo::manipulate::Request::CUT:
                     if(Tags_detected.empty())
                     {
-                        if(robot_manipulator.goSearch())
+                        if(!robot_manipulator.goSearch())
+                        {
+                            ROS_INFO("!!!!!!NO TAG SEARCHED!!!!!");
+                            ManipulateSrv.srv_status=visual_servo_namespace::SERVICE_STATUS_NO_TAG;
+                        }
+                        else
                         {
                             robot_manipulator.addDynamicPlanningConstraint();
                             bool servo_success=robot_manipulator.goServo(ExpectMatrix);
-                            if(servo_success)
+                            if(!servo_success)
+                                ManipulateSrv.srv_status=visual_servo_namespace::SERVICE_STATUS_SERVO_FAILED;
+                            else
                             {
                                 //robot_manipulator.goZero();
                                 Eigen::Vector3d Center3d=Tags_detected[0].Trans_C2T.translation();
@@ -232,86 +245,54 @@ int main(int argc, char** argv)
                                 Center3d[1]+=0.295;
                                 Center3d[0]-=0.05;
                                 Center3d[2]-=0.025;
-                                robot_manipulator.goCamera(Center3d,0.5);
-                                robot_manipulator.goCut(tagTransform);
+                                if(!robot_manipulator.goCamera(Center3d,0.5))
+                                    ManipulateSrv.srv_status=visual_servo_namespace::SERVICE_STATUS_CLOSE_FAILED;
+                                else
+                                    if(!robot_manipulator.goCut(tagTransform))
+                                        ManipulateSrv.srv_status=visual_servo_namespace::SERVICE_STATUS_CUT_FAILED;
+
                             }
-                            //Eigen::Vector3d Center3d=Tags_detected[0].Trans_C2T.translation();
-
-                            //robot_manipulator.goCamera(Center3d,0.5);
-
                             robot_manipulator.goUp();
-                            ManipulateSrv.srv_status=visual_servo::manipulate::Response::SUCCESS;
-                        }
-                        else
-                        {
-                            ROS_INFO("!!!!!!NO TAG SEARCHED!!!!!");
-                            /*
-                             * PRESERVE SPACE FOR ACT WITH NAVIGATION;
-                            */
+                            ManipulateSrv.srv_status=visual_servo_namespace::SERVICE_STATUS_SUCCEED;
                         }
 
                     }
                     else
                     {   robot_manipulator.addDynamicPlanningConstraint();
-                        ROS_INFO("ANOTHER ONE");
-                       // bool servo_success = robot_manipulator.goServo(ExpectMatrix,0.5);
-                        /*if (servo_success)
-                        {
-                            robot_manipulator.goZero();
-                            //robot_manipulator.goCut();
-
-                            Eigen::Vector3d Center3d=Tags_detected[0].Trans_C2T.translation();
-                            Center3d[2]+=0.029;
-                            Center3d[1]+=0.15;
-                            robot_manipulator.goCamera(Center3d,0.5);
-                            sleep(2);
-                            robot_manipulator.goCut1();
-                            sleep(2);
-                            robot_manipulator.goCut2(0.005);
-                            /*ready_go=true;
-                            while(ready_go);
-                            robot_manipulator.goCamera(BeginPoint,0.1);
-                            BeginPoint=Eigen::Vector3d(0.0,0.0,0.0);
-                             *
-                        }*/
                         bool servo_success=robot_manipulator.goServo(ExpectMatrix);
-                        if(servo_success)
+                        if(!servo_success)
+                            ManipulateSrv.srv_status=visual_servo_namespace::SERVICE_STATUS_SERVO_FAILED;
+                        else
                         {
                             //robot_manipulator.goZero();
                             Eigen::Vector3d Center3d=Tags_detected[0].Trans_C2T.translation();
-
-                            Center3d[1]+=0.312;
+                            Eigen::Affine3d tagTransform=robot_manipulator.getTagPosition(Tags_detected[0].Trans_C2T);
+                            Center3d[1]+=0.295;
                             Center3d[0]-=0.05;
-                            Center3d[2]-=0.05;
-                            robot_manipulator.goCamera(Center3d,0.5);
-                            robot_manipulator.goCut(Tags_detected[0].Trans_C2T);
+                            Center3d[2]-=0.025;
+                            if(!robot_manipulator.goCamera(Center3d,0.5))
+                                ManipulateSrv.srv_status=visual_servo_namespace::SERVICE_STATUS_CLOSE_FAILED;
+                            else
+                            if(!robot_manipulator.goCut(tagTransform))
+                                ManipulateSrv.srv_status=visual_servo_namespace::SERVICE_STATUS_CUT_FAILED;
+
                         }
                         robot_manipulator.goUp();
-                        //robot_manipulator.goHome();
-                        ManipulateSrv.srv_status=visual_servo::manipulate::Response::SUCCESS;
+                        ManipulateSrv.srv_status=visual_servo_namespace::SERVICE_STATUS_SUCCEED;
                     }
-
-                    ManipulateSrv.srv_status=visual_servo::manipulate::Response::SUCCESS;
                     break;
                 case visual_servo::manipulate::Request::SEARCH:
-                    if(robot_manipulator.goSearch())
-                        ManipulateSrv.srv_status=visual_servo::manipulate::Response::SUCCESS;
-                    else
-                    {
-                        ROS_INFO("CHECK HERE");
-                        ManipulateSrv.srv_status=visual_servo::manipulate::Response::ERROR;
-                    }
-                    robot_manipulator.goHome();
-
+                    ManipulateSrv.srv_status  = robot_manipulator.goSearch() ?
+                                                visual_servo_namespace::SERVICE_STATUS_SUCCEED :
+                                                visual_servo_namespace::SERVICE_STATUS_NO_TAG;
                     break;
                 default:
-                    ManipulateSrv.srv_status=visual_servo::manipulate::Response::EMPTY;
+                    ManipulateSrv.srv_status=visual_servo_namespace::SERVICE_STATUS_EMPTY;
                     break;
             }
             manipulate_srv_on=false;
         }
     }
-
     ros::waitForShutdown();
     return 0;
 
@@ -320,7 +301,7 @@ int main(int argc, char** argv)
 void *camera_thread(void *data)
 {
     Listener listener;
-    ros::AsyncSpinner spinner(3);
+    ros::AsyncSpinner spinner(4);
     spinner.start();
     ros::Rate loop_rate(30);
     int counter;
@@ -565,8 +546,8 @@ bool Manipulator::goSearchOnce(int search_type, double search_angle, double velo
 bool Manipulator::goSearch(double search_angle, double goal_tolerance)
 {
     return goSearchOnce(FLAT, search_angle, goal_tolerance)||
-            goSearchOnce(DOWN, search_angle, goal_tolerance) ||
-            goSearchOnce(UP, search_angle, goal_tolerance);
+            goSearchOnce(DOWN, search_angle, goal_tolerance);// ||
+            //goSearchOnce(UP, search_angle, goal_tolerance);
 }
 bool Manipulator::goServo(Eigen::Affine3d expect_matrix, bool enable_pose, double velocity_scale)
 {
@@ -615,14 +596,11 @@ bool Manipulator::goServo(Eigen::Affine3d expect_matrix, bool enable_pose, doubl
     }
     return true;
 }
-void Manipulator::goCut(Eigen::Affine3d referTag,double velocity_scale)
+bool Manipulator::goCut(Eigen::Affine3d referTag,double velocity_scale)
 {
     Eigen::Affine3d Trans_B2E,Trans_B2EP;
     geometry_msgs::Pose target_pose3 = move_group->getCurrentPose().pose;
-    Eigen::fromMsg(target_pose3,Trans_B2E);
-
     std::vector<geometry_msgs::Pose> waypoints;
-
     Eigen::Quaterniond q;
     //调整方位
     double init_theta=asin((target_pose3.position.x-referTag.translation()[0])/(radius+0.02));
@@ -632,7 +610,8 @@ void Manipulator::goCut(Eigen::Affine3d referTag,double velocity_scale)
     target_pose3.orientation.z=q.z();
     target_pose3.orientation.w=q.w();
     move_group->setPoseTarget(target_pose3);
-    move_group->move();
+    if(move_group->move()!=moveit::planning_interface::MoveItErrorCode::SUCCESS)
+        return false;
     //进刀
     target_pose3 = move_group->getCurrentPose().pose;
     Eigen::fromMsg(target_pose3,Trans_B2E);
@@ -640,29 +619,24 @@ void Manipulator::goCut(Eigen::Affine3d referTag,double velocity_scale)
     Trans_B2EP.translation()=Eigen::Vector3d(0.0,boost::math::sign(target_pose3.position.y)*0.02,0.0);
     Trans_B2E=Trans_B2E*Trans_B2EP;
     move_group->setPoseTarget(Trans_B2E);
-    move_group->move();
+    if(move_group->move()!=moveit::planning_interface::MoveItErrorCode::SUCCESS)
+        return false;
     target_pose3 = move_group->getCurrentPose().pose;
     Eigen::fromMsg(target_pose3,Trans_B2E);
     Trans_B2EP.linear()=Eigen::Matrix3d::Identity();
     Trans_B2EP.translation()=Eigen::Vector3d(0.0,0.0,-0.002);
     Trans_B2E=Trans_B2E*Trans_B2EP;
     move_group->setPoseTarget(Trans_B2E);
-    move_group->move();
+    if(move_group->move()!=moveit::planning_interface::MoveItErrorCode::SUCCESS)
+        return false;
     //切割轨迹
     target_pose3 = move_group->getCurrentPose().pose;
-    Eigen::fromMsg(target_pose3,Trans_B2E);
     double init_th=asin((target_pose3.position.x-referTag.translation()[0])/radius);
     double init_x=target_pose3.position.y+radius*cos(init_th)*boost::math::sign(target_pose3.position.y);
-    std::cout<<"check the init_theta is "<<init_th<<std::endl;
-    std::cout<<"the origin target position x is "<<target_pose3.position.x<<std::endl;
-    std::cout<<"the origin target position y is: "<<init_x<<std::endl;
     for(double th=M_PI/3.0/20.0;th<=M_PI/3.0;th+=M_PI/3.0/20.0)
     {
         target_pose3.position.x = referTag.translation()[0]+radius*sin(init_th-th);
         target_pose3.position.y = init_x+radius*cos(init_th-th) ;
-        std::cout<<"check the generated x is "<< target_pose3.position.x<<std::endl;
-        std::cout<<"check the yaw is "<<init_th-th<<std::endl;
-        std::cout<<"check the generated y is "<<target_pose3.position.y<<std::endl;
         target_pose3.position.z +=0.00/20.0;
         q=Eigen::Matrix3d::Identity()*Eigen::AngleAxisd(-(init_theta-th),Eigen::Vector3d::UnitZ());
         target_pose3.orientation.x=q.x();
@@ -687,7 +661,10 @@ void Manipulator::goCut(Eigen::Affine3d referTag,double velocity_scale)
     ROS_INFO_NAMED("visual servo", "Visualizing plan 4 (Cartesian path) (%.2f%% acheived)", fraction * 100.0);
     moveit::planning_interface::MoveGroupInterface::Plan my_plan;
     if(fraction<1.0)
+    {
         ROS_INFO("NO Trajectory");
+        return false;
+    }
     else
     {
         my_plan.trajectory_=trajectory;
@@ -700,14 +677,15 @@ void Manipulator::goCut(Eigen::Affine3d referTag,double velocity_scale)
     Trans_B2EP.translation()=Eigen::Vector3d(0.0,0.0,0.002);
     Trans_B2E=Trans_B2E*Trans_B2EP;
     move_group->setPoseTarget(Trans_B2E);
-    move_group->move();
+    if(move_group->move()!=moveit::planning_interface::MoveItErrorCode::SUCCESS)
+        return false;
     target_pose3 = move_group->getCurrentPose().pose;
     Eigen::fromMsg(target_pose3,Trans_B2E);
     Trans_B2EP.linear()=Eigen::Matrix3d::Identity();
     Trans_B2EP.translation()=Eigen::Vector3d(0.0,-boost::math::sign(target_pose3.position.y)*0.2,0.0);
     Trans_B2E=Trans_B2E*Trans_B2EP;
     move_group->setPoseTarget(Trans_B2E);
-    move_group->move();
+    return !(move_group->move() != moveit::planning_interface::MoveItErrorCode::SUCCESS);
 }
 void Manipulator::goZero(double velocity_scale)
 {
@@ -800,6 +778,7 @@ Listener::Listener()
 {
     this->tag_info_received=false;
     tag_info_sub =nh.subscribe("TagsDetected",1000, &Listener::tagInfoCallback,this);
+    vs_status_sub = nh.subscribe("VisualServoStatus",100,&Listener::statusCallback,this);
     //tf_sub = nh.subscribe("/tf_static",1000,&Listener::tfCallback,this);
     client =nh.serviceClient<visual_servo::detect_once>("detect_once");
     srv.request.ready_go=(int)detect_srv_on;
@@ -842,6 +821,12 @@ void Listener::tfCallback(const tf2_msgs::TFMessage &msg)
             Trans_CC_CCO=tf2::transformToEigen(transform);
     }
 
+}
+void Listener::statusCallback(const visual_servo::VisualServoMetaTypeMsg &msg)
+{
+    RobotAllRight=msg.RobotAllRight;
+    RobotSwitchOn=msg.RobotSwitchOn;
+    std::cout<<"RobotAllRight: "<<(int) RobotAllRight<<"RobotSwitchOn: "<< (int) RobotSwitchOn<<std::endl;
 }
 void Listener::calibrateInfoPublish()
 {
@@ -887,7 +872,7 @@ bool Listener::manipulate(visual_servo::manipulate::Request &req,
     ManipulateSrv.srv_type=req.type;
     while(manipulate_srv_on);
     res.status=ManipulateSrv.srv_status;
-    ManipulateSrv.srv_status=visual_servo::manipulate::Response::EMPTY;
+    ManipulateSrv.srv_status=visual_servo_namespace::SERVICE_STATUS_EMPTY;
     ManipulateSrv.srv_type=visual_servo::manipulate::Request::EMPTY;
     return true;
 }

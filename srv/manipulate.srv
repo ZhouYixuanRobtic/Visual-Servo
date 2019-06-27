@@ -6,9 +6,5 @@ int32 EMPTY=3
 int32 type
 
 ---
-int32 EMPTY=0
-int32 ERROR=-1
-int32 ABORT=-2
-int32 SUCCESS=-3
 #feedback status
 int32 status

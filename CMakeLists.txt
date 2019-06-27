@@ -24,12 +24,12 @@ find_package(
 
 find_package(Boost REQUIRED system filesystem date_time thread)
 
-
 ## Generate messages in the 'msg' folder
 add_message_files(
    FILES
   TagsDetection_msg.msg
    TagDetection_msg.msg
+        VisualServoMetaTypeMsg.msg
  )
 ## Generate services in the 'srv' folder
 add_service_files(
@@ -71,13 +71,13 @@ catkin_package(
                  EIGEN3
 )
 
-set(AUBO_INCLUDE_PATH /home/xcy/WorkSpace/src/Visual-Servo/include/dependents/robotSDK/inc;
-                        /home/xcy/WorkSpace/src/Visual-Servo/include/example/)
-set(AUBO_LINK_DIRS /home/xcy/WorkSpace/src/Visual-Servo/include/dependents/protobuf/linux-x64/lib;
-        /home/xcy/WorkSpace/src/Visual-Servo/include/dependents/robotController/lib-linux64;
-        /home/xcy/WorkSpace/src/Visual-Servo/include/dependents/log4cplus/linux_x64/lib;
-        /home/xcy/WorkSpace/src/Visual-Servo/include/dependents/libconfig/linux_x64/lib;
-        /home/xcy/WorkSpace/src/Visual-Servo/include/dependents/robotSDK/lib/linux_x64)
+set(AUBO_INCLUDE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/include/dependents/robotSDK/inc;
+                        ${CMAKE_CURRENT_SOURCE_DIR}/include/example/)
+set(AUBO_LINK_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include/dependents/protobuf/linux-x64/lib;
+                ${CMAKE_CURRENT_SOURCE_DIR}/include/dependents/robotController/lib-linux64;
+                ${CMAKE_CURRENT_SOURCE_DIR}/include/dependents/log4cplus/linux_x64/lib;
+                ${CMAKE_CURRENT_SOURCE_DIR}/include/dependents/libconfig/linux_x64/lib;
+                ${CMAKE_CURRENT_SOURCE_DIR}/include/dependents/robotSDK/lib/linux_x64)
 
 include_directories (
         SYSTEM
@@ -111,6 +111,7 @@ add_library(auboUtil include/example/util.cpp)
 target_link_libraries(auboUtil protobuf our_alg_i5p log4cplus config auborobotcontroller)
 add_library(auboA src/AuboSDK.cpp)
 target_link_libraries(auboA auboUtil protobuf our_alg_i5p log4cplus config auborobotcontroller )
+add_dependencies(auboA ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)
 add_executable(auboTest src/auboSDKTest.cpp)
 target_link_libraries(auboTest auboA protobuf our_alg_i5p log4cplus config auborobotcontroller auboUtil ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 
