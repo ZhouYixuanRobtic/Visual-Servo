@@ -61,7 +61,7 @@ bool Listener::callSrv(int SrvRequestType)
     srv.request.type=SrvRequestType;
     if (client.call(srv))
     {
-        printServiceStatus(srv.response.status);
+        visual_servo_namespace::printServiceStatus(srv.response.status);
         switch (srv.response.status)
         {
             case visual_servo_namespace::SERVICE_STATUS_SUCCEED:
