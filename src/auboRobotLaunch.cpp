@@ -14,8 +14,7 @@
 #include "visual_servo/VisualServoMetaTypeMsg.h"
 #include "VisualServoMetaType.h"
 extern bool ExitSoftEmergency;
-extern bool RobotStartup;
-extern bool RobotShutDown;
+extern bool RobotMoveStop;
 int main(int argc, char** argv)
 {
     ros::init(argc, argv, "auboSDK");
@@ -26,24 +25,30 @@ int main(int argc, char** argv)
     status_pub = nh.advertise<visual_servo::VisualServoMetaTypeMsg>("VisualServoStatus", 100);
     AuboSDK auboSdk;
     status.RobotAllRight = auboSdk.loginSucceed && auboSdk.robotStartUp();
+    std::cout<<"RobotAllRight "<<(int) status.RobotAllRight<<std::endl;
+
     while (ros::ok())
     {
         // auboSdk.getSwitchStatus();
-        if(RobotShutDown&&ExitSoftEmergency)
+        if(RobotMoveStop)
         {
             status.RobotAllRight=false;
-            if(status.RobotAllRight=auboSdk.robotStartUp())
-                ExitSoftEmergency=false;
+            if(ExitSoftEmergency)
+            {
+                if(status.RobotAllRight=auboSdk.robotStartUp())
+                    ExitSoftEmergency=false;
+            }
             /*急停时应中断所有操作*/
         }
-        if(status.RobotAllRight)
+        if(auboSdk.loginSucceed)
             status.RobotSwitchOn=auboSdk.getSwitchStatus();
 
         status_pub.publish(status);
         loop_rate.sleep();
         ros::spinOnce();
     }
-    if(status.RobotAllRight)
+    if(auboSdk.loginSucceed)
         auboSdk.robotShutDown();
+    sleep(5);
     ros::shutdown();
 }

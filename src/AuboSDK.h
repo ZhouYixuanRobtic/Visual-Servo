@@ -15,8 +15,7 @@
 #include "serviceinterface.h"
 #include "util.h"
 bool ExitSoftEmergency=false;
-bool RobotShutDown=false;
-bool RobotStartup=false;
+bool RobotMoveStop=false;
 class AuboSDK{
 private:
     ServiceInterface *robotService;
@@ -33,6 +32,7 @@ public:
     int robotShutDown();
     bool robotEventRegister();
     bool getSwitchStatus();
+
     int robotDiagno();
 
 

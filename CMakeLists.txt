@@ -112,8 +112,8 @@ target_link_libraries(auboUtil protobuf our_alg_i5p log4cplus config auborobotco
 add_library(auboA src/AuboSDK.cpp)
 target_link_libraries(auboA auboUtil protobuf our_alg_i5p log4cplus config auborobotcontroller )
 add_dependencies(auboA ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)
-add_executable(auboTest src/auboSDKTest.cpp)
-target_link_libraries(auboTest auboA protobuf our_alg_i5p log4cplus config auborobotcontroller auboUtil ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+add_executable(auboRobot src/auboRobotLaunch.cpp)
+target_link_libraries(auboRobot auboA protobuf our_alg_i5p log4cplus config auborobotcontroller auboUtil ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 
 add_library(servo src/Servo.cpp)
 target_link_libraries(servo apriltag ${OpenCV_LIBRARIES} Sophus)

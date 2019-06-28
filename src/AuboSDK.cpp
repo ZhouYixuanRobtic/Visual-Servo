@@ -9,12 +9,13 @@
 #include <fstream>
 #include "AuboSDK.h"
 
-#define SERVER_HOST "192.168.1.13"
+#define SERVER_HOST "192.168.2.13"
 #define SERVER_PORT 8899
 
 AuboSDK::AuboSDK()
 {
     robotService = new ServiceInterface;
+    loginSucceed= false;
     ret = robotService->robotServiceLogin(SERVER_HOST,SERVER_PORT,"aubo", "123456");
     if(ret == aubo_robot_namespace::InterfaceCallSuccCode)
     {
@@ -47,6 +48,7 @@ bool AuboSDK::robotStartUp()
                                                 result); /*机械臂初始化*/
     if(ret == aubo_robot_namespace::InterfaceCallSuccCode)
     {
+        return true;
         std::cerr<<"机械臂初始化成功."<<std::endl;
     }
     else
@@ -54,12 +56,13 @@ bool AuboSDK::robotStartUp()
         std::cerr<<"机械臂初始化失败."<<std::endl;
         return false;
     }
-    return true;
 }
 int AuboSDK::robotShutDown()
 {
     /** 机械臂Shutdown **/
     robotService->robotServiceRobotShutdown();
+    /** 机械臂电源控制 **/
+    robotService->robotServicePowerControl(false);
     /** 接口调用: 退出登录　**/
     robotService->robotServiceLogout();
 
@@ -76,14 +79,14 @@ void AuboSDK::RealTimeEventInfoCallback(const aubo_robot_namespace::RobotEventIn
     }
     else if(pEventInfo->eventType==aubo_robot_namespace::RobotEvent_robotStartupDoneResult)
     {
-        RobotShutDown=false;
-        RobotStartup=true;
+        RobotMoveStop=false;
     }
-    else if(pEventInfo->eventType==aubo_robot_namespace::RobotEventMoveEnterStopState)
+    else if(pEventInfo->eventType==aubo_robot_namespace::RobotEventMoveEnterStopState
+            ||pEventInfo->eventType==aubo_robot_namespace::RobotEvent_robotShutdownDone)
     {
-        RobotStartup=false;
-        RobotShutDown=true;
+        RobotMoveStop=true;
     }
+
 
 
 }
