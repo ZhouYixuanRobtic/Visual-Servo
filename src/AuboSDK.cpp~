@@ -123,4 +123,7 @@ bool AuboSDK::robotCollisionRecover()
     ret=robotService->robotServiceCollisionRecover();
     return ret == aubo_robot_namespace::InterfaceCallSuccCode;
 }
-
+bool AuboSDK::teachMode()
+{
+    ret=robotService->robotServiceTeachStart(aubo_robot_namespace::)
+}

@@ -24,6 +24,16 @@ find_package(
 
 find_package(Boost REQUIRED system filesystem date_time thread)
 
+find_package(PkgConfig)
+pkg_check_modules(NEW_YAMLCPP yaml-cpp>=0.5)
+if(NEW_YAMLCPP_FOUND)
+add_definitions(-DHAVE_NEW_YAMLCPP)
+endif(NEW_YAMLCPP_FOUND)
+
+
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(YAML REQUIRED yaml-cpp)
+
 ## Generate messages in the 'msg' folder
 add_message_files(
    FILES
@@ -69,6 +79,7 @@ catkin_package(
                  message_runtime
         DEPENDS
                  EIGEN3
+                 YAML
 )
 
 set(AUBO_INCLUDE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/include/dependents/robotSDK/inc;
@@ -89,12 +100,14 @@ include_directories (
         /usr/local/include/sophus
         ${catkin_INCLUDE_DIRS}
         ${AUBO_INCLUDE_PATH}
+        ${YAML_INCLUDE_DIRS}
 )
 link_directories(
         ${OpenCV_LIB_DIR}
         ${catkin_LIBRARY_DIRS}
         /user/local/lib
         ${AUBO_LINK_DIRS}
+        ${YAML_LIBRARIES}
 )
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
@@ -106,27 +119,42 @@ link_directories(
 ## either from message generation or dynamic reconfigure
 # add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
+#libraries
 
 add_library(auboUtil include/example/util.cpp)
 target_link_libraries(auboUtil protobuf our_alg_i5p log4cplus config auborobotcontroller)
+
 add_library(auboA src/AuboSDK.cpp)
 target_link_libraries(auboA auboUtil protobuf our_alg_i5p log4cplus config auborobotcontroller )
 add_dependencies(auboA ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)
-add_executable(auboRobot src/auboRobotLaunch.cpp)
-target_link_libraries(auboRobot auboA protobuf our_alg_i5p log4cplus config auborobotcontroller auboUtil ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 
 add_library(servo src/Servo.cpp)
 target_link_libraries(servo apriltag ${OpenCV_LIBRARIES} Sophus)
+
 add_library(detector src/Detector.cpp src/radon_transform.cpp)
 target_link_libraries(detector ${OpenCV_LIBS} ${catkin_LIBRARIES})
+
+add_library(KeyboardTeleop src/KeyboardTeleop.cpp)
+target_link_libraries(KeyboardTeleop ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+
+#application
+add_executable(auboRobot src/auboRobotLaunch.cpp)
+target_link_libraries(auboRobot auboA protobuf our_alg_i5p log4cplus config auborobotcontroller auboUtil ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop)
+
 add_executable(visual_servo src/main.cpp)
-target_link_libraries(visual_servo ${catkin_LIBRARIES} apriltag servo ${OpenCV_LIBRARIES} Sophus ${Boost_LIBRARIES})
+target_link_libraries(visual_servo ${catkin_LIBRARIES} apriltag servo ${OpenCV_LIBRARIES} Sophus ${Boost_LIBRARIES} ${YAML_LIBRARIES})
 add_dependencies(visual_servo ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)
+
 add_executable(real_sense src/camera.cpp)
-target_link_libraries(real_sense detector ${catkin_LIBRARIES} servo ${OpenCV_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(real_sense detector ${catkin_LIBRARIES} servo ${OpenCV_LIBRARIES} ${Boost_LIBRARIES} ${YAML_LIBRARIES})
 add_dependencies(real_sense ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)
+
 add_executable(newtest src/newtest.cpp)
 target_link_libraries(newtest detector ${OpenCV_LIBS} ${catkin_LIBRARIES} )
+
 add_executable(maTest src/maTest.cpp)
 target_link_libraries(maTest ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 add_dependencies(maTest ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)
+
+
+

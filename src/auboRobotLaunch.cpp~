@@ -17,6 +17,7 @@
 
 extern bool ExitSoftEmergency;
 extern bool RobotMoveStop;
+extern bool RobotCollisionRecover;
 int main(int argc, char** argv)
 {
     ros::init(argc, argv, "auboSDK");
@@ -33,7 +34,7 @@ int main(int argc, char** argv)
     while (ros::ok())
     {
         // auboSdk.getSwitchStatus();
-        if(RobotMoveStop)
+        if(RobotMoveStop||!RobotCollisionRecover)
         {
             status.RobotAllRight=false;
             if(ExitSoftEmergency)
@@ -41,6 +42,11 @@ int main(int argc, char** argv)
                 if(status.RobotAllRight=auboSdk.robotStartUp())
                     ExitSoftEmergency=false;
             }
+            if(RobotCollisionRecover)
+            {
+                std::cout<<"collision recovered"<<std::endl;
+                auboSdk.robotCollisionRecover();    
+            }  
             /*急停时应中断所有操作*/
         }
         if(auboSdk.loginSucceed)

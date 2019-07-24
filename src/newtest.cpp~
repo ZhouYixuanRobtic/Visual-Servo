@@ -8,7 +8,7 @@
 
 int main(int argc, const char ** argv)
 {
-    cv::Mat test_image = cv::imread("/home/xcy/image/1_Color.png");
+    cv::Mat test_image = cv::imread("/home/xcy/image/2_Color.png");
     if(test_image.empty())
     {
         cout<<"unable to load image"<<endl;

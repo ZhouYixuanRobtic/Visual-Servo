@@ -27,7 +27,7 @@ private:
     const double fx=615.3072,fy=616.1456,u0=333.4404,v0=236.2650;
     //april tag physic size unit meter
     double tag_size_ ;
-    bool traceResultOn_,traceDebugOn_,tagGraphOn_,colorOn_;
+    bool traceResultOn_,traceDebugOn_,tagGraphOn_;
 
     ros::NodeHandle n_;
     image_transport::ImageTransport *it_;

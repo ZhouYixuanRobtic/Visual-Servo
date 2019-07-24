@@ -243,7 +243,7 @@ cv::Point Detector::get_BeginPoint(const cv::Mat& test_image_)
     {
         cv::circle(this->display_image,beginPoint,5,Scalar(255,0,0),-1);
         cv::line(this->display_image,beginPoint,borderPoint,Scalar(0,0,255),2);
-        cv::line(this->display_image,cv::Point(verticalMaxLoc.x,this->operate_image.rows),cv::Point(verticalMaxLoc.x,0),Scalar(255,255,0),2);
+        cv::line(this->display_image,cv::Point(verticalMaxLoc.x,this->operate_image.rows),cv::Point(verticalMaxLoc.x,0),Scalar(0,255,0),2);
         imshow("detection result",this->display_image);
         waitKey(0);
         cv::destroyAllWindows();

@@ -80,7 +80,7 @@ private:
     std::vector<cv::Point> get_knife_trace(bool debug=false);
 
 public:
-    Detector(bool traceResultOn,bool traceDebugOn,bool colorOn);
+    Detector(bool traceResultOn,bool traceDebugOn);
     virtual ~Detector();
     int radonAngleRange;
     int radonOperation;

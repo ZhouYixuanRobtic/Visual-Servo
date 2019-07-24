@@ -56,7 +56,7 @@ namespace visual_servo_namespace
         SERVICE_STATUS_EMPTY,         //无法调用服务
         SERVICE_STATUS_SERVO_FAILED,      //伺服失败
         SERVICE_STATUS_CUT_FAILED,
-        SERVICE_STATUS_CHARGE_FAILED,    //CHARGE FILED
+        SERVICE_STATUS_CHARGE_FAILED,
     }ServiceStatus;
 
     static void printServiceStatus(const int & ServiceStatus)
