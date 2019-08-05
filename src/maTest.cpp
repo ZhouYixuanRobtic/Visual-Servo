@@ -1,7 +1,3 @@
-//
-// Created by zyx on 19-6-17.
-//
-
 #include <unistd.h>
 #include <ros/ros.h>
 #include <ros/forwards.h>
@@ -9,6 +5,7 @@
 #include "ros/callback_queue.h"
 #include "visual_servo/manipulate.h"
 #include "VisualServoMetaType.h"
+#include "KeyboardTeleop.h"
 
 class Listener
 {
@@ -87,11 +84,26 @@ int main(int argc, char** argv)
 {
     ros::init(argc, argv, "maTest");
     Listener listener;
+    KeyboardTeleop tbk;
+    boost::thread t= boost::thread(boost::bind(&KeyboardTeleop::keyboardLoop,&tbk));
 
-    listener.callSrv(visual_servo::manipulate::Request::CHARGE);
-    sleep(5);
+    while(ros::ok())
+    {
+        if(tbk.maOn)
+        {
+            listener.callSrv(visual_servo::manipulate::Request::CUT);
+            tbk.maOn=false;
+        }
+        if(tbk.chargeOn)
+        {
+            listener.callSrv(visual_servo::manipulate::Request::CHARGE);
+            tbk.chargeOn=false;
+        }
+    }
 
     ros::spin();
+    t.interrupt();
+    t.join();
     ros::shutdown();
     return 0;
 }

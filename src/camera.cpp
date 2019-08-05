@@ -92,21 +92,13 @@ RealSense::~RealSense()
 }
 void RealSense::initParameter()
 {
-    YAML::Node doc = YAML::LoadFile("/home/xcy/catkin_ws/src/Visual-Servo/config/parameter.yaml");
-    try 
-    { 
-         tag_size_ = doc["visual"]["tagSize"].as<double>();
-         traceResultOn_ = doc["visual"]["traceResultOn"].as<bool>();
-         traceDebugOn_ = doc["visual"]["traceDebugOn"].as<bool>();
-         tagGraphOn_ = doc["visual"]["tagGraphOn"].as<bool>();
-         colorOn_ = doc["visual"]["colorOn"].as<bool>();
-    } 
-    catch (YAML::InvalidScalar) 
-    { 
-        ROS_ERROR("parameter.yaml is invalid.");
-        exit(-1);
-    }
+    n_.getParam("/real_sense/visual/tagSize",tag_size_);
+    n_.getParam("/real_sense/visual/tagGraphOn",tagGraphOn_);
+    n_.getParam("/real_sense/visual/traceResultOn",traceResultOn_);
+    n_.getParam("/real_sense/visual/traceDebugOn",traceDebugOn_);
+    n_.getParam("/real_sense/visual/colorOn",colorOn_);
     std::cout<<"read parameter success"<<std::endl;
+    std::cout<<"tagGraphOn"<<tagGraphOn_<<std::endl;
 }
 void RealSense::ImageCallback(const sensor_msgs::ImageConstPtr &msg)
 {

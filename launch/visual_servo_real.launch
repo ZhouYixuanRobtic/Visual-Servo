@@ -1,0 +1,31 @@
+<launch>
+    <arg name="config_file" default="$(find visual_servo)/config/parameter.yaml"/>
+    <arg name="camera_config" default="$(find visual_servo)/config/camera.yaml"/>
+    <arg name="enable_infra1" default="false"/>
+    <arg name="enable_infra2" default="false"/>
+
+
+    <!--Launch the realsense ros wrapper-->
+    <include file="$(find realsense2_camera)/launch/rs_rgbd.launch">
+        <arg name="enable_infra1" value="$(arg enable_infra1)"/>
+        <arg name="enable_infra2" value="$(arg enable_infra2)"/>
+    </include>
+    <!--Launch the image processing node-->
+    <node pkg="visual_servo" type="real_sense" name="real_sense" respawn="true">
+            <rosparam command="load" file="$(arg camera_config)"/>
+    </node>
+
+    <!--Launch aubo node-->
+    <node pkg="visual_servo" type="auboRobot" name="auboRobot" required="true"/>
+
+    <!--Launch the aubo i5 real-->
+    <include file="$(find aubo_i5_moveit_config)/launch/moveit_planning_execution.launch">
+        <arg name="sim" value="false"/>
+        <arg name="robot_ip" value="192.168.2.13"/>
+    </include>
+
+    <!-- Launch our own node-->
+    <node pkg="visual_servo" type="visual_servo" name="visual_servo" output="screen" launch-prefix="gnome-terminal -e">
+        <rosparam command="load" file="$(arg config_file)"/>
+    </node>
+</launch>

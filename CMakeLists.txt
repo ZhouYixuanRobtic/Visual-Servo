@@ -90,6 +90,7 @@ set(AUBO_LINK_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include/dependents/protobuf/linux
                 ${CMAKE_CURRENT_SOURCE_DIR}/include/dependents/libconfig/linux_x64/lib;
                 ${CMAKE_CURRENT_SOURCE_DIR}/include/dependents/robotSDK/lib/linux_x64)
 
+set(VISUAL_SERVO_INCLUDE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/include/visual_servo/)
 include_directories (
         SYSTEM
         ${Boost_INCLUDE_DIR} 
@@ -101,6 +102,7 @@ include_directories (
         ${catkin_INCLUDE_DIRS}
         ${AUBO_INCLUDE_PATH}
         ${YAML_INCLUDE_DIRS}
+        ${VISUAL_SERVO_INCLUDE_PATH}
 )
 link_directories(
         ${OpenCV_LIB_DIR}
@@ -153,8 +155,9 @@ add_executable(newtest src/newtest.cpp)
 target_link_libraries(newtest detector ${OpenCV_LIBS} ${catkin_LIBRARIES} )
 
 add_executable(maTest src/maTest.cpp)
-target_link_libraries(maTest ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(maTest ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop)
 add_dependencies(maTest ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)
 
-
+add_executable(keyTest src/keyboardTest.cpp)
+target_link_libraries(keyTest ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop)
 

@@ -10,5 +10,5 @@ This is a visual servo application using MoveIt and AprilTag
 
 - **How to use**
 
-  ​	`roslaunch visual_servo visual_servo.launch`
+  ​	`roslaunch visual_servo visual_camera.launch`
 

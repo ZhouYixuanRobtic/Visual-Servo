@@ -7,7 +7,7 @@ KeyboardTeleop::KeyboardTeleop()
 }
 KeyboardTeleop::~KeyboardTeleop()
 {
-
+    tcsetattr(kfd, TCSANOW, &cooked);
 }
 void KeyboardTeleop::keyboardLoop()
 {
@@ -22,9 +22,13 @@ void KeyboardTeleop::keyboardLoop()
       tcsetattr(kfd, TCSANOW, &raw);  
 
       puts("Reading from keyboard");  
-      puts("Use D_CAP key to enable teach mode");  
-     
-      struct pollfd ufd;  
+      puts("Use D_CAP key to enable teach mode");
+      puts("Use q key to enable navigation mode");
+      puts("Use p key to pause the robot");
+      puts("Use c key to continue the robot");
+      puts("Use m key to enable cut mode");
+      puts("Use n key to enable charging mode");
+      struct pollfd ufd;
       ufd.fd = kfd;  
       ufd.events = POLLIN;  
       
@@ -63,23 +67,47 @@ void KeyboardTeleop::keyboardLoop()
                     dirty = false;  
             }  
             continue;  
-        }  
-        switch(c)  
-        {  
-            case 'w':
-                /*
-                * preserve some space for further requests
-                */   
-                break;
-            case 'D':
-                std::cout<<"under teach mode"<<std::endl;
-                teachModeOn=true; 
-                dirty = true;
-                break; 
-            default:  
-                teachModeOn=false; 
-                dirty = false;  
-                break;
-       }  
-    }  
+        }
+          switch(c)
+          {
+              case 'w':
+                  /*
+                  * preserve some space for further requests
+                  */
+                  break;
+              case 'D':
+                  std::cout<<"under teach mode"<<std::endl;
+                  teachModeOn=true;
+                  dirty = true;
+                  break;
+              case 'q':
+                  navOn=true;
+                  dirty=true;
+                  std::cout<<"navon"<<std::endl;
+                  break;
+              case 'p':
+                  dirty=true;
+                  pause=true;
+                  std::cout<<"pause"<<std::endl;
+                  break;
+              case 'c':
+                  dirty=true;
+                  pause=false;
+                  std::cout<<"go on"<<std::endl;
+                  break;
+              case 'm':
+                  dirty=true;
+                  maOn=true;
+                  std::cout<<"ma on"<<std::endl;
+                  break;
+              case 'n':
+                  dirty=true;
+                  chargeOn=true;
+                  std::cout<<"charge on"<<std::endl;
+              default:
+                  teachModeOn=false;
+                  dirty = false;
+                  break;
+          }
+      }
 }
