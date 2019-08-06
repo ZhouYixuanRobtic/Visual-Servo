@@ -52,6 +52,6 @@ int main(int argc, char** argv)
     }
     if(auboSdk.loginSucceed)
         auboSdk.robotShutDown();
-    sleep(5);
+    sleep(10);
     ros::shutdown();
 }

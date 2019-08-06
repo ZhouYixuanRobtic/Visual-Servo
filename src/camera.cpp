@@ -98,7 +98,6 @@ void RealSense::initParameter()
     n_.getParam("/real_sense/visual/traceDebugOn",traceDebugOn_);
     n_.getParam("/real_sense/visual/colorOn",colorOn_);
     std::cout<<"read parameter success"<<std::endl;
-    std::cout<<"tagGraphOn"<<tagGraphOn_<<std::endl;
 }
 void RealSense::ImageCallback(const sensor_msgs::ImageConstPtr &msg)
 {

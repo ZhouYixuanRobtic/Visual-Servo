@@ -1,3 +1,9 @@
+/* To Do:
+ * 1.charger_link 的变换矩阵Trans_E2CH需要验证（和parameter.yaml）不一致
+ * 2.如果轨迹生成很准确的话，实际上并不用考虑重新限制规划问题
+ * 3.goHome 函数可以写在srdf文件里
+ * 4.
+ */
 #include "Servo.h"
 
 #include <unistd.h>
@@ -79,17 +85,18 @@ private:
     moveit::planning_interface::PlanningSceneInterface *planning_scene_interface;
     const robot_state::JointModelGroup* joint_model_group;
 
+    bool charging;
+
     //Servo class for computing the servo related transform matrix
     Servo *astra;
-
-    geometry_msgs::PoseStamped current_pose;
 
     /*
      * The transform matrix of A with respect to B named as Trans_B2A.
      * W-world,E-end effector,C-camera,EP-desired end effector,B-base_link,T-target
      */
-    Eigen::Affine3d Trans_W2E,Trans_W2EP,Trans_E2C,Trans_E2CH;
+    Eigen::Affine3d Trans_W2E,Trans_W2EP,Trans_E2C,Trans_E2CH,Trans_B2T_;
 
+    //The desired camera pose matrix with respect to tag
     Eigen::Affine3d ExpectMatrix;
 
     /* Function for computing the joint space Euclidean distance,
@@ -109,10 +116,12 @@ private:
     Eigen::Affine3d getEndMotion(int search_type,
                                  Eigen::Vector3d Translation = Eigen::Vector3d(0.0, 0.0, 0.0),
                                  Eigen::Vector3d RPY = Eigen::Vector3d(0.0, 0.0, 0.0));
+    //read parameters and listen to tf
     void initParameter();
 
     //prameters
     struct{
+        //the radius of rubber tree, used as a reference for constructing planning constraints,and generating the cut locus.
         double radius;
         Eigen::Vector3d expectRPY;
         Eigen::Vector3d expectXYZ;
@@ -120,6 +129,7 @@ private:
         bool inverse;
         bool servoPoseOn;
         double searchDownHeight;
+        double chargeDownHeight;
         double basicVelocity;
         double servoTolerance;
         int traceNumber;
@@ -127,7 +137,6 @@ private:
         double traceAngle;
         double goal_tolerance;
     }Parameters;
-    //the radius of rubber tree, used as a reference for constructing planning constraints,and generating the cut locus.
 
 public:
 
@@ -138,12 +147,14 @@ public:
 
     // Function aims at adding static virtual walls to restrict planning
     void addStaticPlanningConstraint();
-    // Function aims at adding dynamic virtual cylinder as tree to restrict planning
-    void addDynamicPlanningConstraint();
+    /* Function aims at adding dynamic virtual cylinder as tree to restrict planning
+     * @param leave [true for more restrict when robot try to leave]
+     */
+    void addDynamicPlanningConstraint(bool leave=false);
     // Function aims at adding dynamic virtual cylinder as charger plane to restrict planning
     void addChargerDynamicPlanningConstraint();
     /* Function makes all robot joints go to zero
-     * @param reset [true for go up to from the other side]
+     * @param reset [true for go up to the other side]
      */
     bool goUp(double velocity_scale ,bool reset=true);
     // Function makes robot go to a preset position
@@ -157,7 +168,7 @@ public:
      */
     bool goSearchOnce(int search_type, double velocity_scale, double search_angle = M_PI / 3.0);
     //Function makes robot search all three types
-    bool goSearch( double velocity_scale,double search_angle = M_PI / 3.0);
+    bool goSearch( double velocity_scale,bool underServoing=false,double search_angle = M_PI / 3.0);
     /*Function makes robot camera servo to pointed pose or position
      * @param ExpectMatrix  [the desired pose of camera describing as transform matrix]
      * @param enable_pose   [true for enable pose servo mode which costs more adjust time and may makes end effector rotate,
@@ -174,12 +185,14 @@ public:
      * @return true if achieved the desired position.
      */
     bool goCamera(Eigen::Vector3d target_array, double velocity_scale = 0.1);
-
+    //Function makes the charger goes to a fixed position related to the tag
     bool goCharge(double velocity_scale = 0.5);
+    //Function makes the charger leave from the station
     bool leaveCharge(double velocity_scale=0.5);
-
+    //Function executes the service
     int executeService(int serviceType);
 
+    //Function computes the tag pose with respect to the planning frame
     Eigen::Affine3d getTagPosition(Eigen::Affine3d Trans_C2T);
     //debug preserved functions
 
@@ -190,16 +203,17 @@ class Listener
 {
 private:
     ros::NodeHandle nh;
+    //trace detection service client
     ros::ServiceClient client;
     ros::Subscriber tag_info_sub;
-    ros::Subscriber tf_sub;
     ros::Subscriber vs_status_sub;
     tf2_ros::Buffer tfBuffer;
     tf2_ros::TransformListener *tfListener;
+    //manipulate service server
     ros::ServiceServer service_;
     visual_servo::detect_once srv;
     void tagInfoCallback(const visual_servo::TagsDetection_msg &msg);
-    void tfCallback(const tf2_msgs::TFMessage &msg);
+    //arm controller status callback, published by auboRobot
     void statusCallback(const visual_servo::VisualServoMetaTypeMsg &msg);
     bool manipulate(visual_servo::manipulate::Request &req,
                     visual_servo::manipulate::Response &res);
@@ -210,7 +224,6 @@ public:
     bool tag_info_received;
     Listener();
     virtual ~Listener();
-    void calibrateInfoPublish();
     bool callSrv();
 };
 
@@ -233,8 +246,10 @@ int main(int argc, char** argv)
         {
             if(RobotAllRight)
             {
-                robot_manipulator.goUp(0.2,false);
-                ManipulateSrv.srv_status=robot_manipulator.executeService(ManipulateSrv.srv_type);
+                if(!robot_manipulator.goUp(0.2,false))
+                    ManipulateSrv.srv_status=visual_servo_namespace::SERVICE_STATUS_UP_FAILED;
+                else
+                    ManipulateSrv.srv_status=robot_manipulator.executeService(ManipulateSrv.srv_type);
             }
             else
                 ManipulateSrv.srv_status=visual_servo_namespace::SERVICE_STATUS_ROBOT_ABORT;
@@ -289,10 +304,10 @@ Manipulator::Manipulator()
     joint_model_group = move_group->getCurrentState()->getJointModelGroup(PLANNING_GROUP);
     tfListener = new tf2_ros::TransformListener(tfBuffer);
     astra =new Servo(false);
-
+    charging=false;
     ROS_INFO_NAMED("Visual Servo", "Reference frame: %s", move_group->getPlanningFrame().c_str());
-    EE_NAME=move_group->getEndEffectorLink().c_str();
     ROS_INFO_NAMED("Visual Servo", "End effector link: %s", move_group->getEndEffectorLink().c_str());
+    EE_NAME=move_group->getEndEffectorLink().c_str();
     initParameter();
 }
 Manipulator::~Manipulator()
@@ -314,12 +329,14 @@ void Manipulator::initParameter()
     n_.getParam("/visual_servo/user/inverse",Parameters.inverse);
     n_.getParam("/visual_servo/user/servoPoseOn",Parameters.servoPoseOn);
     n_.getParam("/visual_servo/user/searchDownHeight",Parameters.searchDownHeight);
+    n_.getParam("/visual_servo/user/chargeDownHeight",Parameters.chargeDownHeight);
     n_.getParam("/visual_servo/user/goCameraX",Parameters.cameraXYZ[0]);
     n_.getParam("/visual_servo/user/goCameraY",Parameters.cameraXYZ[1]);
     n_.getParam("/visual_servo/user/goCameraZ",Parameters.cameraXYZ[2]);
     n_.getParam("/visual_servo/user/angle",Parameters.traceAngle);
     n_.getParam("/visual_servo/user/distance",Parameters.traceDistance);
     n_.getParam("/visual_servo/user/pointsNumber",Parameters.traceNumber);
+
     n_.getParam("/visual_servo/robot/basicVelocity",Parameters.basicVelocity);
     n_.getParam("/visual_servo/robot/goalTolerance",Parameters.goal_tolerance);
     n_.getParam("/visual_servo/robot/servoTolerance",Parameters.servoTolerance);
@@ -352,6 +369,7 @@ void Manipulator::initParameter()
 
 void Manipulator::addStaticPlanningConstraint()
 {
+    //in case of repeat usage
     std::vector<std::string> object_names;
     object_names=planning_scene_interface->getKnownObjectNames();
     if(!object_names.empty())
@@ -384,7 +402,7 @@ void Manipulator::addStaticPlanningConstraint()
     collision_object.operation = collision_object.ADD;
     objects.push_back(collision_object);
 
-    //virtual left side wall
+    //virtual LIDAR
     moveit_msgs::CollisionObject collision_object_LIDAR;
     collision_object_LIDAR.header.frame_id = move_group->getPlanningFrame();
     collision_object_LIDAR.id = "LIDAR";
@@ -402,9 +420,15 @@ void Manipulator::addStaticPlanningConstraint()
     planning_scene_interface->addCollisionObjects(objects);
 
 }
-void Manipulator ::addDynamicPlanningConstraint()
+void Manipulator ::addDynamicPlanningConstraint(bool leave)
 {
-    Eigen::Affine3d Trans_B2T=getTagPosition(Tags_detected[0].Trans_C2T);
+    //如果轨迹生成的很精准的话实际上不用考虑重新限制问题
+    Eigen::Affine3d Trans_B2T;
+    if(!leave)
+    {
+        Trans_B2T=getTagPosition(Tags_detected[0].Trans_C2T);
+        Trans_B2T_=Trans_B2T;
+    }
     std::vector<std::string> object_names;
     object_names=planning_scene_interface->getKnownObjectNames();
     if(!object_names.empty())
@@ -430,7 +454,10 @@ void Manipulator ::addDynamicPlanningConstraint()
     primitive.dimensions[1] = Parameters.radius;
     geometry_msgs::Pose object_pose;
     object_pose.position.x=Trans_B2T.translation()[0];
-    object_pose.position.y=Trans_B2T.translation()[1]+(Parameters.radius+0.15)*boost::math::sign(Trans_B2T.translation()[1]);
+    if(!leave)
+        object_pose.position.y=Trans_B2T.translation()[1]+(Parameters.radius+0.07)*boost::math::sign(Trans_B2T.translation()[1]);
+    else
+        object_pose.position.y=Trans_B2T_.translation()[1]+(Parameters.radius-0.09)*boost::math::sign(Trans_B2T_.translation()[1]);
     collision_object.primitives.push_back(primitive);
     collision_object.primitive_poses.push_back(object_pose);
     collision_object.operation = collision_object.ADD;
@@ -477,25 +504,31 @@ bool Manipulator::goUp(double velocity_scale,bool reset)
 {
     move_group->setGoalTolerance(Parameters.goal_tolerance);
     move_group->setMaxVelocityScalingFactor(velocity_scale);
+    std::vector<double> goal;
+    bool success=false;
     if(Parameters.inverse)
     {
-        std::vector<double> goal;
-        goal={M_PI,0,0,0,0,0};
-        move_group->setJointValueTarget(goal);
-        return move_group->move()==moveit::planning_interface::MoveItErrorCode::SUCCESS;
+        move_group->setNamedTarget("up");
+        success=move_group->move()==moveit::planning_interface::MoveItErrorCode::SUCCESS;
+        if(!reset)
+        {
+            goal={M_PI,0,0,0,0,0};
+            move_group->setJointValueTarget(goal);
+            return move_group->move()==moveit::planning_interface::MoveItErrorCode::SUCCESS;
+        }
     }
     else
     {
+        goal={M_PI,0,0,0,0,0};
+        move_group->setJointValueTarget(goal);
+        success=move_group->move()==moveit::planning_interface::MoveItErrorCode::SUCCESS;
         if(!reset)
         {
-            std::vector<double> goal;
-            goal={M_PI,0,0,0,0,0};
-            move_group->setJointValueTarget(goal);
-            move_group->move();
+            move_group->setNamedTarget("up");
+            return move_group->move()==moveit::planning_interface::MoveItErrorCode::SUCCESS;
         }
-        move_group->setNamedTarget("up");
-        return move_group->move()==moveit::planning_interface::MoveItErrorCode::SUCCESS;
     }
+    return success;
 }
 void Manipulator::goHome(double velocity_scale)
 {
@@ -512,7 +545,7 @@ double Manipulator::allClose(std::vector<double> goal)
     current_joints=move_group->getCurrentJointValues();
     std::vector<double>	auxiliary;
 
-    std::transform (current_joints.begin(), current_joints.end(), goal.begin(), std::back_inserter(auxiliary),//
+    std::transform (current_joints.begin(), current_joints.end(), goal.begin(), std::back_inserter(auxiliary),\
                     [](double element1, double element2) {return pow((element1-element2),2);});
     auxiliary.shrink_to_fit();
     return sqrt(std::accumulate(auxiliary.begin(), auxiliary.end(), 0.0));
@@ -526,9 +559,8 @@ Eigen::Affine3d Manipulator::getEndMotion(int search_type, Eigen::Vector3d Trans
                     Eigen::AngleAxisd(RPY[1], Eigen::Vector3d::UnitY())*
                     Eigen::AngleAxisd(RPY[0], Eigen::Vector3d::UnitX());
     CameraMotion.linear()=rotation_matrix;
-    current_pose=move_group->getCurrentPose();
-    Eigen::fromMsg(current_pose.pose,Trans_B2E);
-
+    Eigen::fromMsg(move_group->getCurrentPose().pose,Trans_B2E);
+    //left multiply or right multiply
     switch (search_type)
     {
         case UP:
@@ -555,10 +587,18 @@ bool Manipulator::goSearchOnce(int search_type, double velocity_scale,double sea
             goal[4]+=2*search_angle;
             break;
         case DOWN:
-            move_group->setPoseTarget(getEndMotion(DOWN, Eigen::Vector3d(0.0, 0.0, -Parameters.searchDownHeight)));
+            goal = move_group->getCurrentJointValues();
+            goal[4]+=search_angle;
+            move_group->setJointValueTarget(goal);
             if(move_group->move()!=moveit_msgs::MoveItErrorCodes::SUCCESS)
                 return false;
-            goal=move_group->getCurrentJointValues();
+            if(charging)
+                move_group->setPoseTarget(getEndMotion(DOWN, Eigen::Vector3d(0.0, 0.0, Parameters.chargeDownHeight)));
+            else
+                move_group->setPoseTarget(getEndMotion(DOWN, Eigen::Vector3d(0.0, 0.0, Parameters.searchDownHeight)));
+            if(move_group->move()!=moveit_msgs::MoveItErrorCodes::SUCCESS)
+                return false;
+            goal = move_group->getCurrentJointValues();
             goal[4]-=2*search_angle;
             break;
         case UP:
@@ -576,7 +616,7 @@ bool Manipulator::goSearchOnce(int search_type, double velocity_scale,double sea
     move_group->setMaxVelocityScalingFactor(0.2);
     if(move_group->asyncMove()!=moveit_msgs::MoveItErrorCodes::SUCCESS)
         return false;
-    int counter=0;
+    int counter=0;//try to exclude some unstable situation,the bigger the more stable
     while(RobotAllRight&&(Tags_detected.empty()||counter<10))
     {
         //ROS_INFO("Searching tag!!!!!");
@@ -585,25 +625,32 @@ bool Manipulator::goSearchOnce(int search_type, double velocity_scale,double sea
         if(allClose(goal)<=Parameters.goal_tolerance*2)
             return false;
     }
-    //a real aubo robot can't use the stop function
+    //a real aubo robot can't use the stop function because of velocity singularity
     //move_group->stop();
     move_group->rememberJointValues("tag");
+    //wait until the robot finished the asyncMove task, can't be 0 because of goal_tolerance
     while(allClose(goal)>Parameters.goal_tolerance*2);
+    //wait one second to make sure all finished
     sleep(1);
     move_group->setMaxVelocityScalingFactor(1.0);
     move_group->setNamedTarget("tag");
     return (move_group->move() == moveit_msgs::MoveItErrorCodes::SUCCESS);
 }
-bool Manipulator::goSearch(double velocity_scale,double search_angle)
+bool Manipulator::goSearch(double velocity_scale,bool underServoing,double search_angle)
 {
+    /*
     return goSearchOnce(FLAT, velocity_scale,search_angle)||
-           goSearchOnce(DOWN, velocity_scale,search_angle);// ||
-    //goSearchOnce(UP, velocity_scale,search_angle);
+           goSearchOnce(DOWN, velocity_scale,search_angle)||
+           goSearchOnce(UP, velocity_scale,search_angle);
+    */
+    if(!underServoing)
+        return goSearchOnce(DOWN, velocity_scale,search_angle);
+    else
+        return goSearchOnce(FLAT, velocity_scale,search_angle);
 }
 bool Manipulator::goServo( double velocity_scale)
 {
-    current_pose=move_group->getCurrentPose();
-    Eigen::fromMsg(current_pose.pose,Trans_W2E);
+    Eigen::fromMsg(move_group->getCurrentPose().pose,Trans_W2E);
 
     double error=100.0;
     Destination_t EndDestination;
@@ -613,7 +660,7 @@ bool Manipulator::goServo( double velocity_scale)
 
     while(RobotAllRight&&error>Parameters.servoTolerance)
     {
-        if(!Tags_detected.empty()|| goSearch(0.2))
+        if(!Tags_detected.empty()|| goSearch(Parameters.basicVelocity,true))
         {
             EndDestination=astra->GetCameraDestination(Tags_detected[0].Trans_C2T,Trans_E2C,ExpectMatrix);
             error=EndDestination.error;
@@ -625,7 +672,6 @@ bool Manipulator::goServo( double velocity_scale)
             else
                 EndDestination.EE_Motion.linear()=Eigen::Matrix3d::Identity();
             Trans_W2EP=Trans_W2E*EndDestination.EE_Motion;
-            std::cout<<"check the traget position"<<Trans_W2EP.matrix()<<std::endl;
             move_group->setPoseTarget(Trans_W2EP);
             moveit::planning_interface::MoveGroupInterface::Plan my_plan;
             bool success = (move_group->plan(my_plan) == moveit::planning_interface::MoveItErrorCode::SUCCESS);
@@ -640,8 +686,7 @@ bool Manipulator::goServo( double velocity_scale)
                 ROS_ERROR("Failed");
                 return false;
             }
-            current_pose=move_group->getCurrentPose();
-            Eigen::fromMsg(current_pose.pose,Trans_W2E);
+            Eigen::fromMsg(move_group->getCurrentPose().pose,Trans_W2E);
         }
         else
             return false;
@@ -650,11 +695,11 @@ bool Manipulator::goServo( double velocity_scale)
 }
 bool Manipulator::goCut(Eigen::Affine3d referTag,double velocity_scale)
 {
-    Eigen::Affine3d Trans_B2E,Trans_B2EP;
+    Eigen::Affine3d Trans_B2E,Trans_E2EP;
     geometry_msgs::Pose target_pose3 = move_group->getCurrentPose().pose;
     std::vector<geometry_msgs::Pose> waypoints;
     Eigen::Quaterniond q;
-    //调整方位
+    //adjust orientation
     double init_theta=asin((target_pose3.position.x-referTag.translation()[0])/(Parameters.radius+0.02));
     q=Eigen::Matrix3d::Identity()*Eigen::AngleAxisd(-init_theta,Eigen::Vector3d::UnitZ());
     target_pose3.orientation.x=q.x();
@@ -667,17 +712,18 @@ bool Manipulator::goCut(Eigen::Affine3d referTag,double velocity_scale)
     //进刀
     target_pose3 = move_group->getCurrentPose().pose;
     Eigen::fromMsg(target_pose3,Trans_B2E);
-    Trans_B2EP.linear()=Eigen::Matrix3d::Identity();
-    Trans_B2EP.translation()=Eigen::Vector3d(0.0,boost::math::sign(target_pose3.position.y)*0.02,0.0);
-    Trans_B2E=Trans_B2E*Trans_B2EP;
+    Trans_E2EP.linear()=Eigen::Matrix3d::Identity();
+    Trans_E2EP.translation()=Eigen::Vector3d(0.0,boost::math::sign(target_pose3.position.y)*0.02,0.0);
+    Trans_B2E=Trans_B2E*Trans_E2EP;
     move_group->setPoseTarget(Trans_B2E);
     if(move_group->move()!=moveit::planning_interface::MoveItErrorCode::SUCCESS)
         return false;
+
     target_pose3 = move_group->getCurrentPose().pose;
     Eigen::fromMsg(target_pose3,Trans_B2E);
-    Trans_B2EP.linear()=Eigen::Matrix3d::Identity();
-    Trans_B2EP.translation()=Eigen::Vector3d(0.0,0.0,-0.002);
-    Trans_B2E=Trans_B2E*Trans_B2EP;
+    Trans_E2EP.linear()=Eigen::Matrix3d::Identity();
+    Trans_E2EP.translation()=Eigen::Vector3d(0.0,0.0,-0.002);
+    Trans_B2E=Trans_B2E*Trans_E2EP;
     move_group->setPoseTarget(Trans_B2E);
     if(move_group->move()!=moveit::planning_interface::MoveItErrorCode::SUCCESS)
         return false;
@@ -720,22 +766,23 @@ bool Manipulator::goCut(Eigen::Affine3d referTag,double velocity_scale)
     else
     {
         my_plan.trajectory_=trajectory;
-        move_group->execute(my_plan);
+        if(move_group->execute(my_plan)!=moveit::planning_interface::MoveItErrorCode::SUCCESS)
+            return false;
     }
     //退刀
     target_pose3 = move_group->getCurrentPose().pose;
     Eigen::fromMsg(target_pose3,Trans_B2E);
-    Trans_B2EP.linear()=Eigen::Matrix3d::Identity();
-    Trans_B2EP.translation()=Eigen::Vector3d(0.0,0.0,0.002);
-    Trans_B2E=Trans_B2E*Trans_B2EP;
+    Trans_E2EP.linear()=Eigen::Matrix3d::Identity();
+    Trans_E2EP.translation()=Eigen::Vector3d(0.0,0.0,0.002);
+    Trans_B2E=Trans_B2E*Trans_E2EP;
     move_group->setPoseTarget(Trans_B2E);
     if(move_group->move()!=moveit::planning_interface::MoveItErrorCode::SUCCESS)
         return false;
     target_pose3 = move_group->getCurrentPose().pose;
     Eigen::fromMsg(target_pose3,Trans_B2E);
-    Trans_B2EP.linear()=Eigen::Matrix3d::Identity();
-    Trans_B2EP.translation()=Eigen::Vector3d(-0.1,-boost::math::sign(target_pose3.position.y)*0.2,-0.005);
-    Trans_B2E=Trans_B2E*Trans_B2EP;
+    Trans_E2EP.linear()=Eigen::Matrix3d::Identity();
+    Trans_E2EP.translation()=Eigen::Vector3d(-0.1,-boost::math::sign(target_pose3.position.y)*0.2,-0.005);
+    Trans_B2E=Trans_B2E*Trans_E2EP;
     move_group->setPoseTarget(Trans_B2E);
     return !(move_group->move() != moveit::planning_interface::MoveItErrorCode::SUCCESS);
 }
@@ -753,8 +800,7 @@ bool Manipulator::goCamera(Eigen::Vector3d target_array, double velocity_scale)
 {
     move_group->setGoalTolerance(Parameters.goal_tolerance);
     move_group->setMaxVelocityScalingFactor(velocity_scale);
-    current_pose=move_group->getCurrentPose();
-    Eigen::fromMsg(current_pose.pose,Trans_W2E);
+    Eigen::fromMsg(move_group->getCurrentPose().pose,Trans_W2E);
 
     Trans_W2EP.translation()=Trans_E2C*target_array;
     Trans_W2EP.linear()=Eigen::Matrix3d::Identity();
@@ -782,8 +828,7 @@ bool Manipulator::goCharge(double velocity_scale)
 {
     move_group->setGoalTolerance(Parameters.goal_tolerance);
     move_group->setMaxVelocityScalingFactor(velocity_scale);
-    current_pose=move_group->getCurrentPose();
-    Eigen::fromMsg(current_pose.pose,Trans_W2E);
+    Eigen::fromMsg(move_group->getCurrentPose().pose,Trans_W2E);
     Eigen::Affine3d Trans_B2T=Trans_W2E*Trans_E2C*Tags_detected[0].Trans_C2T;
     Trans_B2T.translation() += Eigen::Vector3d(0.0,0.037,-0.250);
     Eigen::Matrix3d rotation_matrix;
@@ -794,26 +839,26 @@ bool Manipulator::goCharge(double velocity_scale)
     tempMatrix.translation()=Eigen::Vector3d(0.0,0.0,0.0);
     Trans_W2EP=Trans_B2T*tempMatrix*Trans_E2CH.inverse();
     move_group->setPoseTarget(Trans_W2EP);
-    move_group->move();
-    current_pose=move_group->getCurrentPose();
-    Eigen::fromMsg(current_pose.pose,Trans_W2E);
+    if(move_group->move()!=moveit::planning_interface::MoveItErrorCode::SUCCESS)
+        return false;
+    Eigen::fromMsg(move_group->getCurrentPose().pose,Trans_W2E);
     Trans_W2EP.linear()=Eigen::Matrix3d::Identity();
     Trans_W2EP.translation()=Eigen::Vector3d(0.020,0.00,0.00);
     Trans_W2E=Trans_W2E*Trans_W2EP;
     move_group->setPoseTarget(Trans_W2E);
-    return !(move_group->move() != moveit::planning_interface::MoveItErrorCode::SUCCESS);
+    return (move_group->move() == moveit::planning_interface::MoveItErrorCode::SUCCESS);
 }
 bool Manipulator::leaveCharge(double velocity_scale)
 {
-    current_pose=move_group->getCurrentPose();
-    Eigen::fromMsg(current_pose.pose,Trans_W2E);
+    Eigen::fromMsg(move_group->getCurrentPose().pose,Trans_W2E);
     Trans_W2EP.linear()=Eigen::Matrix3d::Identity();
     Trans_W2EP.translation()=Eigen::Vector3d(-0.10,0.00,0.00);
     Trans_W2E=Trans_W2E*Trans_W2EP;
     move_group->setPoseTarget(Trans_W2E);
-    move_group->move();
+    if(move_group->move()!=moveit::planning_interface::MoveItErrorCode::SUCCESS)
+        return false;
     move_group->setNamedTarget("up");
-    move_group->move();
+    return (move_group->move() == moveit::planning_interface::MoveItErrorCode::SUCCESS);
 }
 int Manipulator::executeService(int serviceType)
 {
@@ -823,7 +868,6 @@ int Manipulator::executeService(int serviceType)
         case visual_servo::manipulate::Request::CUT:
             if(Tags_detected.empty())
             {
-                ROS_ERROR("CHECK CHECK TAGS EMPTY");
                 if(!goSearch(0.2))
                 {
                     ROS_INFO("!!!!!!NO TAG SEARCHED!!!!!");
@@ -834,8 +878,7 @@ int Manipulator::executeService(int serviceType)
                 else
                 {
                     addDynamicPlanningConstraint();
-                    bool servo_success=goServo(Parameters.basicVelocity);
-                    if(!servo_success)
+                    if(!goServo(Parameters.basicVelocity))
                         serviceStatus=visual_servo_namespace::SERVICE_STATUS_SERVO_FAILED;
                     else
                     {
@@ -847,24 +890,22 @@ int Manipulator::executeService(int serviceType)
                             serviceStatus=visual_servo_namespace::SERVICE_STATUS_CLOSE_FAILED;
                         else
                         {
-                            if(!goCut(tagTransform,Parameters.basicVelocity/10.0))
-                                serviceStatus=visual_servo_namespace::SERVICE_STATUS_CUT_FAILED;
+                            serviceStatus=  goCut(tagTransform,Parameters.basicVelocity/10.0) ?
+                                            visual_servo_namespace::SERVICE_STATUS_SUCCEED :
+                                            visual_servo_namespace::SERVICE_STATUS_CUT_FAILED;
                         }
                     }
+                    addDynamicPlanningConstraint(true);
                     goUp(Parameters.basicVelocity);
                     goHome(Parameters.basicVelocity);
-                    serviceStatus=visual_servo_namespace::SERVICE_STATUS_SUCCEED;
                 }
-
             }
             else
             {   addDynamicPlanningConstraint();
-                bool servo_success=goServo(Parameters.basicVelocity);
-                if(!servo_success)
+                if(!goServo(Parameters.basicVelocity))
                     serviceStatus=visual_servo_namespace::SERVICE_STATUS_SERVO_FAILED;
                 else
                 {
-                    //robot_manipulator.goZero();
                     Eigen::Vector3d Center3d=Tags_detected[0].Trans_C2T.translation();
                     Eigen::Affine3d tagTransform=getTagPosition(Tags_detected[0].Trans_C2T);
                     Center3d+=Parameters.cameraXYZ;
@@ -872,13 +913,15 @@ int Manipulator::executeService(int serviceType)
                         serviceStatus=visual_servo_namespace::SERVICE_STATUS_CLOSE_FAILED;
                     else
                     {
-                        if(!goCut(tagTransform,Parameters.basicVelocity/10.0))
-                            serviceStatus=visual_servo_namespace::SERVICE_STATUS_CUT_FAILED;
+                        serviceStatus=  goCut(tagTransform,Parameters.basicVelocity/10.0) ?
+                                        visual_servo_namespace::SERVICE_STATUS_SUCCEED :
+                                        visual_servo_namespace::SERVICE_STATUS_CUT_FAILED;
+
                     }
                 }
+                addDynamicPlanningConstraint(true);
                 goUp(Parameters.basicVelocity);
                 goHome(Parameters.basicVelocity);
-                serviceStatus=visual_servo_namespace::SERVICE_STATUS_SUCCEED;
             }
             break;
         case visual_servo::manipulate::Request::SEARCH:
@@ -887,6 +930,7 @@ int Manipulator::executeService(int serviceType)
                              visual_servo_namespace::SERVICE_STATUS_NO_TAG;
             break;
         case visual_servo::manipulate::Request::CHARGE:
+            charging=true;
             if(Tags_detected.empty())
             {
                 ROS_ERROR("CHECK CHECK TAGS EMPTY");
@@ -911,11 +955,12 @@ int Manipulator::executeService(int serviceType)
                         else
                         {
                             sleep(10);
-                            leaveCharge(Parameters.basicVelocity);
+                            serviceStatus=   leaveCharge(Parameters.basicVelocity) ?
+                                            visual_servo_namespace::SERVICE_STATUS_SUCCEED :
+                                            visual_servo_namespace::SERVICE_STATUS_LEAVE_CHARGE_FAILED;
                         }
                     }
                     goHome(Parameters.basicVelocity);
-                    serviceStatus=visual_servo_namespace::SERVICE_STATUS_SUCCEED;
                 }
             }
             else
@@ -931,12 +976,14 @@ int Manipulator::executeService(int serviceType)
                     else
                     {
                         sleep(10);
-                        leaveCharge(Parameters.basicVelocity);
+                        serviceStatus=   leaveCharge(Parameters.basicVelocity) ?
+                                         visual_servo_namespace::SERVICE_STATUS_SUCCEED :
+                                         visual_servo_namespace::SERVICE_STATUS_LEAVE_CHARGE_FAILED;
                     }
                 }
                 goHome(Parameters.basicVelocity);
-                serviceStatus=visual_servo_namespace::SERVICE_STATUS_SUCCEED;
             }
+            charging=false;
             break;
         default:
             serviceStatus=visual_servo_namespace::SERVICE_STATUS_EMPTY;
@@ -952,17 +999,15 @@ Listener::Listener()
     this->tag_info_received=false;
     tag_info_sub =nh.subscribe("TagsDetected",1000, &Listener::tagInfoCallback,this);
     vs_status_sub = nh.subscribe("VisualServoStatus",100,&Listener::statusCallback,this);
-    //tf_sub = nh.subscribe("/tf_static",1000,&Listener::tfCallback,this);
     client =nh.serviceClient<visual_servo::detect_once>("detect_once");
     srv.request.ready_go=(int)detect_srv_on;
-    manipulate_callback_t manipulate_callback =
-            boost::bind(&Listener::manipulate, this, _1, _2);
+    manipulate_callback_t manipulate_callback = boost::bind(&Listener::manipulate, this, _1, _2);
     service_ = nh.advertiseService("manipulate",manipulate_callback);
-    tfListener = new tf2_ros::TransformListener(tfBuffer);
+    //tfListener = new tf2_ros::TransformListener(tfBuffer);
 }
 Listener::~Listener()
 {
-    delete tfListener;
+    //delete tfListener;
 }
 
 void Listener::tagInfoCallback(const visual_servo::TagsDetection_msg &msg)
@@ -980,43 +1025,10 @@ void Listener::tagInfoCallback(const visual_servo::TagsDetection_msg &msg)
         Tags_detected.push_back(Tag_detected);
     }
 }
-void Listener::tfCallback(const tf2_msgs::TFMessage &msg)
-{
-    Eigen::Affine3d Trans_E2C,Trans_C2T,Trans_W2_C,Trans_W3_K,Trans_K_E,Trans_C_CC,Trans_CC_CCO;
-    for (auto & transform : msg.transforms)
-    {
-        if(transform.header.frame_id=="wrist3_Link"&&transform.child_frame_id=="knife_link")
-            Trans_W3_K=tf2::transformToEigen(transform);
-        else if(transform.header.frame_id=="knife_link"&&transform.child_frame_id=="ee_link")
-            Trans_K_E=tf2::transformToEigen(transform);
-        else if(transform.header.frame_id=="camera_link"&&transform.child_frame_id=="camera_color_frame")
-            Trans_C_CC=tf2::transformToEigen(transform);
-        else if(transform.header.frame_id=="camera_color_frame"&&transform.child_frame_id=="camera_color_optical_frame")
-            Trans_CC_CCO=tf2::transformToEigen(transform);
-    }
-
-}
 void Listener::statusCallback(const visual_servo::VisualServoMetaTypeMsg &msg)
 {
     RobotAllRight=msg.RobotAllRight;
     //std::cout<<"RobotAllRight: "<<(int) RobotAllRight<<"RobotSwitchOn: "<< (int) RobotSwitchOn<<std::endl;
-}
-void Listener::calibrateInfoPublish()
-{
-    //geometry_msgs::Transform world_effector,camera_object;
-    geometry_msgs::TransformStamped transformStamped;
-    try
-    {
-        transformStamped = tfBuffer.lookupTransform("ee_link", "camera_color_optical_frame",
-                                                    ros::Time(0));
-    }
-    catch (tf2::TransformException &ex)
-    {
-        ROS_WARN("%s",ex.what());
-        //ros::Duration(1.0).sleep();
-    }
-    Eigen::Affine3d Trans_E2C=tf2::transformToEigen(transformStamped.transform);
-    std::cout<<"try"<<Trans_E2C.matrix()<<std::endl;
 }
 bool Listener::callSrv()
 {
@@ -1042,11 +1054,12 @@ bool Listener::manipulate(visual_servo::manipulate::Request &req,
                           visual_servo::manipulate::Response &res)
 {
     manipulate_srv_on=true;
-    ROS_INFO("CHECK CHECK I'M HERE");
     ManipulateSrv.srv_type=req.type;
     ros::Time temp;
     while(manipulate_srv_on)
     {
+        //warning: don't delete this line or no status returned!!!!!!!
+        //wait for a explain
         temp=ros::Time::now();
     }
     res.status=ManipulateSrv.srv_status;
@@ -1054,7 +1067,3 @@ bool Listener::manipulate(visual_servo::manipulate::Request &req,
     ManipulateSrv.srv_type=visual_servo::manipulate::Request::EMPTY;
     return true;
 }
-/*
- * 0.949088096619 0.0506779626012 2.77839660645 0.261449694633 0.031603731215 -0.00739841256291
- * joint state when car is moving
- */

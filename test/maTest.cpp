@@ -13,7 +13,6 @@ private:
     ros::NodeHandle nh;
     ros::ServiceClient client;
     visual_servo::manipulate srv;
-    static void printServiceStatus(const int & ServiceStatus);
 public:
     Listener();
     virtual ~Listener();
@@ -26,33 +25,7 @@ Listener::Listener()
 Listener::~Listener()
 {
 }
-void Listener::printServiceStatus(const int & ServiceStatus)
-{
-    switch(ServiceStatus)
-    {
-        case visual_servo_namespace::SERVICE_STATUS_SUCCEED:
-            std::cout<<"Service call succeed and manipulate succeed"<<std::endl;
-            break;
-        case visual_servo_namespace::SERVICE_STATUS_NO_TAG:
-            std::cout<<"Service call failed because no tag searched"<<std::endl;
-            break;
-        case visual_servo_namespace::SERVICE_STATUS_CLOSE_FAILED:
-            std::cout<<"Service call failed because can't get close"<<std::endl;
-            break;
-        case visual_servo_namespace::SERVICE_STATUS_SERVO_FAILED:
-            std::cout<<"Service call failed because can't servo to right place"<<std::endl;
-            break;
-        case visual_servo_namespace::SERVICE_STATUS_CUT_FAILED:
-            std::cout<<"Service call failed because can't cut "<<std::endl;
-            break;
-        case visual_servo_namespace::SERVICE_STATUS_ROBOT_ABORT:
-            std::cout<<"Service call failed because robot abort "<<std::endl;
-            break;
-        default:
-            std::cout<<"Service call succeed but no response"<<std::endl;
-            break;
-    }
-}
+
 bool Listener::callSrv(int SrvRequestType)
 {
     srv.request.type=SrvRequestType;

@@ -151,10 +151,10 @@ add_executable(real_sense src/camera.cpp)
 target_link_libraries(real_sense detector ${catkin_LIBRARIES} servo ${OpenCV_LIBRARIES} ${Boost_LIBRARIES} ${YAML_LIBRARIES})
 add_dependencies(real_sense ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)
 
-add_executable(newtest src/newtest.cpp)
+add_executable(newtest test/newtest.cpp)
 target_link_libraries(newtest detector ${OpenCV_LIBS} ${catkin_LIBRARIES} )
 
-add_executable(maTest src/maTest.cpp)
+add_executable(maTest test/maTest.cpp)
 target_link_libraries(maTest ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop)
 add_dependencies(maTest ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)
 

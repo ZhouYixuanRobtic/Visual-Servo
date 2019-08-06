@@ -57,6 +57,7 @@ namespace visual_servo_namespace
         SERVICE_STATUS_SERVO_FAILED,      //伺服失败
         SERVICE_STATUS_CUT_FAILED,
         SERVICE_STATUS_CHARGE_FAILED,    //CHARGE FILED
+        SERVICE_STATUS_LEAVE_CHARGE_FAILED,
     }ServiceStatus;
 
     static void printServiceStatus(const int & ServiceStatus)
@@ -80,6 +81,15 @@ namespace visual_servo_namespace
                 break;
             case visual_servo_namespace::SERVICE_STATUS_ROBOT_ABORT:
                 std::cout<<"Service call failed because robot abort "<<std::endl;
+                break;
+            case visual_servo_namespace::SERVICE_STATUS_UP_FAILED:
+                std::cout<<"Service call failed because can't get up"<<std::endl;
+                break;
+            case visual_servo_namespace::SERVICE_STATUS_CHARGE_FAILED:
+                std::cout<<"Service call failed because cant't charge"<<std::endl;
+                break;
+            case visual_servo_namespace::SERVICE_STATUS_LEAVE_CHARGE_FAILED:
+                std::cout<<"Service call failed because cant't leave charge"<<std::endl;
                 break;
             default:
                 std::cout<<"Service call succeed but no response"<<std::endl;

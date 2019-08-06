@@ -6,9 +6,9 @@
 #include "Detector.h"
 #include <ctime>
 
-int main(int argc, const char ** argv)
+int main(int argc, char *argv[])
 {
-    cv::Mat test_image = cv::imread("/home/xcy/image/1_Color.png");
+    cv::Mat test_image = cv::imread(argv[1]);
     if(test_image.empty())
     {
         cout<<"unable to load image"<<endl;

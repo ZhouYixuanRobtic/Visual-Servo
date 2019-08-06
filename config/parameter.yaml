@@ -6,6 +6,7 @@ user:
  expectX: 0.00000 #default 0.0 
  expectY: 0.00000 #default 0.0
  expectZ: 0.40000 #default 0.4
+ #notice: only if the servoPoseOn is true, these RPY is valid
  expectRoll: 0.00000 #default 0.0
  expectPitch: 0.00000 #default 0.0
  expectYaw: 0.00000 #default 0.0
@@ -14,7 +15,9 @@ user:
  #trigger for pose sevo mod
  servoPoseOn: false #default false
  #search down height
- searchDownHeight: 0.250000 #default 0.20
+ searchDownHeight: -0.150000 #default -0.20
+ #charge down height
+ chargeDownHeight: -0.30
  #prameters temp
  goCameraX: 0.000
  goCameraY: 0.243
@@ -24,34 +27,9 @@ user:
  distance: -0.05
  pointsNumber: 20
 robot:
- #parameters describes the matrix Trans_E2C calibrated the end effector and the cmaera
- E2CX: 0.03000
- E2CY: 0.195
- E2CZ: 0.112
- E2CRoll: -1.57200
- E2CPitch: -0.00700
- E2CYaw: -3.13200
-#parameters describes the matrix Trans_E2CH calibrated the end effector and the cmaera
- E2CHX: 0.107
- E2CHY: 0.165
- E2CHZ: 0.028
- E2CHRoll: 0.0000
- E2CHPitch: 0.0000
- E2CHYaw: 0.0000
  #parameter constrain the robot velocity 0.0-1.0
  basicVelocity: 0.50000 #default 0.5
  #parameters constrain the robot execute precision
  goalTolerance: 0.00010 #default 0.001
  servoTolerance: 0.00500 #default 0.001
-visual:
- tagSize: 0.10500 #default 0.10
- #camera tag graph interface trigger
- tagGraphOn: true #default false
- #camera trace result trigger
- traceResultOn: false #default true
- #camera trace debug trigger
- traceDebugOn: false #default false
- #detector color mode trigger
- colorOn: false #default false 
-  
   
