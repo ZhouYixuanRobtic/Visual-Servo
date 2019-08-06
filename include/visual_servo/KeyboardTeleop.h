@@ -19,8 +19,12 @@ class KeyboardTeleop
 
         bool done;  
           
-    public:  
+    public:
         bool teachModeOn;
+        bool navOn=false;
+        bool pause=false;
+        bool maOn=false;
+        bool chargeOn=false;
         KeyboardTeleop();
         virtual ~KeyboardTeleop();      
         void keyboardLoop();
