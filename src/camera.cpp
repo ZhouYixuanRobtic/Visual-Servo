@@ -1,6 +1,3 @@
-#include <Eigen/Core>
-#include "Servo.h"
-#include <unistd.h>
 #include <ros/ros.h>
 #include <ros/forwards.h>
 #include <ros/single_subscriber_publisher.h>
@@ -13,20 +10,50 @@
 
 #include <tf2_eigen/tf2_eigen.h>
 #include "ros/callback_queue.h"
-#include  <math.h>
-#include "visual_servo/TagDetection_msg.h"
-#include "visual_servo/TagsDetection_msg.h"
+
+
 #include "Detector.h"
-#include "visual_servo/detect_once.h"
-#include <yaml-cpp/yaml.h>
+#include "VisualServoMetaType.h"
+
+#include <dirent.h>
+
+extern "C" {
+#include "apriltag.h"
+#include "tag36h11.h"
+#include "tag25h9.h"
+#include "tag16h5.h"
+#include "tagCircle21h7.h"
+#include "tagCircle49h12.h"
+#include "tagCustom48h12.h"
+#include "tagStandard41h12.h"
+#include "tagStandard52h13.h"
+#include "common/getopt.h"
+#include "apriltag_pose.h"
+}
 
 class RealSense
 {
 private:
+    TagDetectInfo TagDetected_;
+
     //camera intrinsic parameter
     const double fx=615.3072,fy=616.1456,u0=333.4404,v0=236.2650;
+    //tag family name
+    const char TagFamilyName[20]="tag36h11";
+    //april tag handle
+    apriltag_family_t *tf;
+    //apriltag detecter handle
+    apriltag_detector_t *td;
+    //apriltag detection handle
+    apriltag_detection_t *det;
+    //apriltag detection info handle;
+    apriltag_detection_info_t info;
+    //apriltag pose handle
+    apriltag_pose_t pose;
+
     //april tag physic size unit meter
     double tag_size_ ;
+    //triggers
     bool traceResultOn_,traceDebugOn_,tagGraphOn_,colorOn_;
 
     ros::NodeHandle n_;
@@ -35,8 +62,6 @@ private:
     ros::Publisher tag_pub_;
     ros::ServiceServer service_;
 
-    //Servo class for detecting april tag and computing tag pose with respect to camera
-    Servo *realSense_;
     //Detector class for detecting knife trace and its begin point
     Detector *detector_;
 
@@ -44,7 +69,13 @@ private:
     cv::Mat subscribed_rgb_,subscribed_depth_;
 
     //Tags information detected from camera, vector is empty when no tags are detected
-    std::vector<TagDetectInfo> tags_detected_;
+    tag_detection_info_t tags_detected_;
+    /*
+     * Function computes tag information of all tags detected
+     * @param UserImage [the image prepared to detect tag]
+     * fill a vector contains all tag information detected, empty when no tags detected
+     */
+    void GetTargetPoseMatrix(Mat UserImage);
 
     /* Function computing the real 3-dimensional position of a pixel point in image with respect to camera
      * @param TargetPoint   [Homogeneous coordinate of pixel point]
@@ -58,6 +89,10 @@ private:
                     visual_servo::detect_once::Response &res);
                     
     void initParameter();
+
+
+
+
 public:
     //type definition of detect_once service call back function handle
     typedef boost::function<bool (visual_servo::detect_once::Request&,visual_servo::detect_once::Response& res)>
@@ -72,32 +107,111 @@ public:
 };
 RealSense::RealSense()
 {
+    tf = tag36h11_create();
+    td = apriltag_detector_create();
+    apriltag_detector_add_family(td, tf);
     this->image_received= false;
-    initParameter();
     detect_once_callback_t detect_once_callback =
             boost::bind(&RealSense::detect_once, this, _1, _2);
     it_ = new image_transport::ImageTransport(n_);
-    realSense_ = new Servo(tagGraphOn_);
     detector_ = new Detector(traceResultOn_,traceDebugOn_,colorOn_);
-    image_sub_ = it_->subscribe("/camera/color/image_raw", 1,&RealSense::ImageCallback,this);
-    depth_sub_ = it_->subscribe("/camera/aligned_depth_to_color/image_raw", 1,&RealSense::DepthCallback,this);
-    tag_pub_ = n_.advertise<visual_servo::TagsDetection_msg>("TagsDetected",1000);
+    image_sub_ = it_->subscribe("/camera/color/image_raw", 100,&RealSense::ImageCallback,this);
+    depth_sub_ = it_->subscribe("/camera/aligned_depth_to_color/image_raw", 100,&RealSense::DepthCallback,this);
+    tag_pub_ = n_.advertise<visual_servo::TagsDetection_msg>("TagsDetected",100);
     service_ =n_.advertiseService("detect_once",detect_once_callback);
+
+    initParameter();
 }
 RealSense::~RealSense()
 {
     delete it_;
-    delete realSense_;
     delete detector_;
+    apriltag_detector_destroy(td);
+    tag36h11_destroy(tf);
 }
 void RealSense::initParameter()
 {
-    n_.getParam("/real_sense/visual/tagSize",tag_size_);
-    n_.getParam("/real_sense/visual/tagGraphOn",tagGraphOn_);
-    n_.getParam("/real_sense/visual/traceResultOn",traceResultOn_);
-    n_.getParam("/real_sense/visual/traceDebugOn",traceDebugOn_);
-    n_.getParam("/real_sense/visual/colorOn",colorOn_);
-    std::cout<<"read parameter success"<<std::endl;
+    n_.param<double>("/visual/tagSize",tag_size_,0.10);
+    n_.param<bool>("/visual/tagGraphOn",tagGraphOn_,true);
+    n_.param<bool>("/visual/traceResultOn",traceResultOn_,false);
+    n_.param<bool>("/visual/traceDebugOn",traceDebugOn_,false);
+    n_.param<bool>("/visual/colorOn",colorOn_,false);
+    std::cout<<"read parameter accomplished"<<std::endl;
+
+    td->quad_decimate = 2.0;
+    td->quad_sigma = 0.0;
+    td->nthreads = 2;
+    td->debug = false;
+    td->refine_edges = true;
+
+    info.tagsize = tag_size_;
+    info.fx = fx;
+    info.fy = fy;
+    info.cx = u0;
+    info.cy = v0;
+}
+void RealSense::GetTargetPoseMatrix(Mat UserImage)
+{
+    cv::Mat gray;
+    tags_detected_.clear();
+    cvtColor(UserImage, gray, COLOR_BGR2GRAY);
+    // Make an image_u8_t header for the Mat data
+    image_u8_t im = { .width = gray.cols,
+            .height = gray.rows,
+            .stride = gray.cols,
+            .buf = gray.data
+    };
+    zarray_t *detections = apriltag_detector_detect(td, &im);
+    for (int i = 0; i < zarray_size(detections); i++)
+    {
+        zarray_get(detections, i, &det);
+        line(UserImage, Point(det->p[0][0], det->p[0][1]),
+             Point(det->p[1][0], det->p[1][1]),
+             Scalar(0, 0xff, 0), 2);
+        line(UserImage, Point(det->p[0][0], det->p[0][1]),
+             Point(det->p[3][0], det->p[3][1]),
+             Scalar(0, 0, 0xff), 2);
+        line(UserImage, Point(det->p[1][0], det->p[1][1]),
+             Point(det->p[2][0], det->p[2][1]),
+             Scalar(0xff, 0, 0), 2);
+        line(UserImage, Point(det->p[2][0], det->p[2][1]),
+             Point(det->p[3][0], det->p[3][1]),
+             Scalar(0xff, 0, 0), 2);
+
+        std::stringstream ss;
+        ss << det->id;
+        String text = ss.str();
+        int baseline;
+        Size textsize = getTextSize(text, FONT_HERSHEY_SCRIPT_SIMPLEX, 1.0, 2,
+                                    &baseline);
+        putText(UserImage, text, Point(det->c[0]-textsize.width/2,
+                                   det->c[1]+textsize.height/2),
+                FONT_HERSHEY_SCRIPT_SIMPLEX, 1.0, Scalar(0xff, 0x99, 0), 2);
+        //pose_estimation
+        info.det = det;
+        double err = estimate_tag_pose(&info, &pose);
+        TagDetected_.Trans_C2T.matrix() << pose.R->data[0],  pose.R->data[1],  pose.R->data[2],  pose.t->data[0],
+                pose.R->data[3],  pose.R->data[4],  pose.R->data[5],  pose.t->data[1],
+                pose.R->data[6],  pose.R->data[7],  pose.R->data[8],  pose.t->data[2],
+                0.0,  0.0,  0.0,  1.0;
+        TagDetected_.id=det->id;
+        TagDetected_.Center=Point2d(det->c[0],det->c[1]);
+        TagDetected_.PixelCoef=0.0;
+        TagDetected_.PixelCoef+=tag_size_/norm(Point(det->p[0][0]-det->p[1][0],det->p[0][1]-det->p[1][1]));
+        TagDetected_.PixelCoef+=tag_size_/norm(Point(det->p[0][0]-det->p[3][0],det->p[0][1]-det->p[3][1]));
+        TagDetected_.PixelCoef+=tag_size_/norm(Point(det->p[1][0]-det->p[2][0],det->p[1][1]-det->p[2][1]));
+        TagDetected_.PixelCoef+=tag_size_/norm(Point(det->p[2][0]-det->p[3][0],det->p[2][1]-det->p[3][1]));
+        TagDetected_.PixelCoef+=sqrt(2)*tag_size_/norm(Point(det->p[0][0]-det->p[2][0],det->p[0][1]-det->p[2][1]));
+        TagDetected_.PixelCoef+=sqrt(2)*tag_size_/norm(Point(det->p[1][0]-det->p[3][0],det->p[1][1]-det->p[3][1]));
+        TagDetected_.PixelCoef=TagDetected_.PixelCoef/6;
+        tags_detected_.push_back(TagDetected_);
+    }
+    zarray_destroy(detections);
+    if(tagGraphOn_)
+    {
+        imshow("Tag Detections", UserImage);
+        waitKey(3);
+    }
 }
 void RealSense::ImageCallback(const sensor_msgs::ImageConstPtr &msg)
 {
@@ -112,8 +226,7 @@ void RealSense::ImageCallback(const sensor_msgs::ImageConstPtr &msg)
         return;
     }
     subscribed_rgb_=cv_ptr_->image;
-    realSense_->SetCameraParameter(fx,fy,u0,v0);
-    tags_detected_ = realSense_->GetTargetPoseMatrix(subscribed_rgb_,tag_size_);
+    GetTargetPoseMatrix(subscribed_rgb_);
 }
 void RealSense::DepthCallback(const sensor_msgs::ImageConstPtr &msg)
 {

@@ -2,6 +2,7 @@
     <arg name="sim" default="false"/>
     <arg name="enable_infra1" default="false"/>
     <arg name="enable_infra2" default="false"/>
+    <arg name="camera_config" default="$(find visual_servo)/config/camera.yaml"/>
 
 
     <!--Launch the realsense ros wrapper-->
@@ -12,5 +13,6 @@
 
 
     <!-- run our own node -->
-    <node pkg="visual_servo" type="real_sense" name="real_sense"/>
+    <rosparam command="load" file="$(arg camera_config)"/>
+    <node pkg="visual_servo" type="real_sense" name="real_sense" respawn="true" output="screen"/>
 </launch>

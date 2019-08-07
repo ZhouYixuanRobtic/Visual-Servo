@@ -5,8 +5,35 @@
 #ifndef VISUAL_SERVO_VISUALSERVOMETATYPE_H
 #define VISUAL_SERVO_VISUALSERVOMETATYPE_H
 
-#include <iostream>
 #include <stdint.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <algorithm>
+#include <string>
+#include  <math.h>
+#include <ctime>
+
+#include "Eigen/Dense"
+#include "Eigen/Geometry"
+#include <Eigen/Core>
+
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/core/utility.hpp>
+#include <opencv2/ximgproc.hpp>
+#include "cv.h"
+#include "highgui.h"
+
+#include "visual_servo/TagDetection_msg.h"
+#include "visual_servo/TagsDetection_msg.h"
+#include "visual_servo/detect_once.h"
+#include "visual_servo/manipulate.h"
+#include "visual_servo/VisualServoMetaTypeMsg.h"
 
 /**
  * General types
@@ -23,6 +50,26 @@ typedef  uint64_t    uint64;
 typedef  float       float32;
 typedef  double      float64;
 
+struct TagDetectInfo{
+    //the tag pose with respect to camera described as a homogeneous matrix
+    Eigen::Affine3d Trans_C2T;
+    //the tag id
+    int id;
+    //the coefficient unit meters per pixel
+    double PixelCoef;
+    //the pixel point of tag center
+    cv::Point2d Center;
+};
+
+struct Destination_t{
+    //the end effector motion described as a homogeneous matrix
+    Eigen::Affine3d EE_Motion;
+    //the position error with respect to expected position
+    double error;
+};
+
+
+typedef std::vector<TagDetectInfo> tag_detection_info_t;
 /*
  * namespace
  */

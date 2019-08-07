@@ -1,12 +1,11 @@
 /* To Do:
  * 1.charger_link 的变换矩阵Trans_E2CH需要验证（和parameter.yaml）不一致
  * 2.如果轨迹生成很准确的话，实际上并不用考虑重新限制规划问题
- * 3.goHome 函数可以写在srdf文件里
+ * 3.goHome 函数可以写在srdf文件里 完成.
  * 4.
  */
 #include "Servo.h"
 
-#include <unistd.h>
 #include <ros/ros.h>
 #include <ros/forwards.h>
 #include <ros/single_subscriber_publisher.h>
@@ -22,14 +21,7 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <tf2_eigen/tf2_eigen.h>
 #include <tf2_ros/transform_listener.h>
-#include <yaml-cpp/yaml.h>
 
-#include "visual_servo/TagDetection_msg.h"
-#include "visual_servo/TagsDetection_msg.h"
-#include "visual_servo/detect_once.h"
-#include "visual_servo/manipulate.h"
-#include "visual_servo/VisualServoMetaTypeMsg.h"
-#include "VisualServoMetaType.h"
 
 
 
@@ -42,7 +34,7 @@
  * @param manipulate_srv_on [The manipulation service trigger]
  * @param RobotAllRight     [The robot status, false for something wrong]
  */
-std::vector<TagDetectInfo> Tags_detected;
+tag_detection_info_t Tags_detected;
 bool detect_srv_on=false;
 bool manipulate_srv_on=false;
 bool RobotAllRight;
@@ -303,7 +295,7 @@ Manipulator::Manipulator()
     planning_scene_interface = new  moveit::planning_interface::PlanningSceneInterface;
     joint_model_group = move_group->getCurrentState()->getJointModelGroup(PLANNING_GROUP);
     tfListener = new tf2_ros::TransformListener(tfBuffer);
-    astra =new Servo(false);
+    astra =new Servo();
     charging=false;
     ROS_INFO_NAMED("Visual Servo", "Reference frame: %s", move_group->getPlanningFrame().c_str());
     ROS_INFO_NAMED("Visual Servo", "End effector link: %s", move_group->getEndEffectorLink().c_str());
@@ -319,27 +311,27 @@ Manipulator::~Manipulator()
 }
 void Manipulator::initParameter()
 {
-    n_.getParam("/visual_servo/user/radius",Parameters.radius);
-    n_.getParam("/visual_servo/user/expectRoll",Parameters.expectRPY[0]);
-    n_.getParam("/visual_servo/user/expectPitch",Parameters.expectRPY[1]);
-    n_.getParam("/visual_servo/user/expectYaw",Parameters.expectRPY[2]);
-    n_.getParam("/visual_servo/user/expectX",Parameters.expectXYZ[0]);
-    n_.getParam("/visual_servo/user/expectY",Parameters.expectXYZ[1]);
-    n_.getParam("/visual_servo/user/expectZ",Parameters.expectXYZ[2]);
-    n_.getParam("/visual_servo/user/inverse",Parameters.inverse);
-    n_.getParam("/visual_servo/user/servoPoseOn",Parameters.servoPoseOn);
-    n_.getParam("/visual_servo/user/searchDownHeight",Parameters.searchDownHeight);
-    n_.getParam("/visual_servo/user/chargeDownHeight",Parameters.chargeDownHeight);
-    n_.getParam("/visual_servo/user/goCameraX",Parameters.cameraXYZ[0]);
-    n_.getParam("/visual_servo/user/goCameraY",Parameters.cameraXYZ[1]);
-    n_.getParam("/visual_servo/user/goCameraZ",Parameters.cameraXYZ[2]);
-    n_.getParam("/visual_servo/user/angle",Parameters.traceAngle);
-    n_.getParam("/visual_servo/user/distance",Parameters.traceDistance);
-    n_.getParam("/visual_servo/user/pointsNumber",Parameters.traceNumber);
+    n_.param<double>("/user/radius",Parameters.radius,0.10);
+    n_.param<double>("/user/expectRoll",Parameters.expectRPY[0],0.0);
+    n_.param<double>("/user/expectPitch",Parameters.expectRPY[1],0.0);
+    n_.param<double>("/user/expectYaw",Parameters.expectRPY[2],0.0);
+    n_.param<double>("/user/expectX",Parameters.expectXYZ[0],0.0);
+    n_.param<double>("/user/expectY",Parameters.expectXYZ[1],0.0);
+    n_.param<double>("/user/expectZ",Parameters.expectXYZ[2],0.4);
+    n_.param<bool>("/user/inverse",Parameters.inverse,false);
+    n_.param<bool>("/user/servoPoseOn",Parameters.servoPoseOn,false);
+    n_.param<double>("/user/searchDownHeight",Parameters.searchDownHeight,-0.15);
+    n_.param<double>("/user/chargeDownHeight",Parameters.chargeDownHeight,-0.30);
+    n_.param<double>("/user/goCameraX",Parameters.cameraXYZ[0],0.0);
+    n_.param<double>("/user/goCameraY",Parameters.cameraXYZ[1],0.0);
+    n_.param<double>("/user/goCameraZ",Parameters.cameraXYZ[2],-0.2);
+    n_.param<double>("/user/angle",Parameters.traceAngle,60.0);
+    n_.param<double>("/user/distance",Parameters.traceDistance,-0.08);
+    n_.param<int>("/user/pointsNumber",Parameters.traceNumber,20);
 
-    n_.getParam("/visual_servo/robot/basicVelocity",Parameters.basicVelocity);
-    n_.getParam("/visual_servo/robot/goalTolerance",Parameters.goal_tolerance);
-    n_.getParam("/visual_servo/robot/servoTolerance",Parameters.servoTolerance);
+    n_.param<double>("/robot/basicVelocity",Parameters.basicVelocity,0.5);
+    n_.param<double>("/robot/goalTolerance",Parameters.goal_tolerance,0.001);
+    n_.param<double>("/robot/servoTolerance",Parameters.servoTolerance,0.001);
 
     std::cout<<"read parameter success"<<std::endl;
 

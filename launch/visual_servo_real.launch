@@ -25,7 +25,6 @@
     </include>
 
     <!-- Launch our own node-->
-    <node pkg="visual_servo" type="visual_servo" name="visual_servo" output="screen" launch-prefix="gnome-terminal -e">
-        <rosparam command="load" file="$(arg config_file)"/>
-    </node>
+    <rosparam command="load" file="$(arg config_file)"/>
+    <node pkg="visual_servo" type="visual_servo" name="visual_servo" output="screen"/>
 </launch>
