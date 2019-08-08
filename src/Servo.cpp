@@ -6,11 +6,41 @@
 
 Servo::Servo()
 {
-
+    tfListener_ = new tf2_ros::TransformListener(tfBuffer_);
 }
 Servo::~Servo()
 {
-
+    delete tfListener_;
+}
+void Servo::getTransform(const std::string target_frame,const std::string source_frame,Eigen::Affine3d &transformMatrix)
+{
+    geometry_msgs::TransformStamped transformStamped;
+    try
+    {
+        transformStamped = tfBuffer_.lookupTransform(target_frame, source_frame,
+                                                ros::Time(0),ros::Duration(3.0));
+    }
+    catch (tf2::TransformException &ex)
+    {
+        ROS_WARN("%s",ex.what());
+        //ros::Duration(1.0).sleep();
+    }
+    transformMatrix=tf2::transformToEigen(transformStamped.transform);
+}
+Eigen::Affine3d Servo::getTransform(const std::string target_frame,const std::string source_frame)
+{
+    geometry_msgs::TransformStamped transformStamped;
+    try
+    {
+        transformStamped = tfBuffer_.lookupTransform(target_frame, source_frame,
+                                                     ros::Time(0),ros::Duration(3.0));
+    }
+    catch (tf2::TransformException &ex)
+    {
+        ROS_WARN("%s",ex.what());
+        //ros::Duration(1.0).sleep();
+    }
+    return tf2::transformToEigen(transformStamped.transform);
 }
 /*
  * Function computes the end effector motion when achieving camera motion as a transform matrix
@@ -19,14 +49,12 @@ Servo::~Servo()
  * @param ExpectTrans_C2T   [the desired target pose with respect to camera described as a transform matrix]
  * @return the end effector motion described as a homogeneous matrix and its position error
 */
-Destination_t Servo::GetCameraDestination(Eigen::Affine3d Trans_C2T,Eigen::Affine3d Trans_E2C, Eigen::Affine3d ExpectTrans_C2T)
+Destination_t Servo::getCameraEE(Eigen::Affine3d Trans_C2T,Eigen::Affine3d Trans_E2C, Eigen::Affine3d ExpectTrans_C2T,double lambda)
 {
     Eigen::Affine3d EndMotion;
     EndMotion=Trans_E2C*Trans_C2T*ExpectTrans_C2T.inverse()*Trans_E2C.inverse();
     //dynamic interpolation
 
-    //interpolate scale factor
-    double lambda=0.8;
     //the minimum tolerance of interpolation
     double Interpolate_tolerance=0.05;
     Eigen::Matrix3d R=EndMotion.rotation();
@@ -50,5 +78,4 @@ Destination_t Servo::GetCameraDestination(Eigen::Affine3d Trans_C2T,Eigen::Affin
                                               EndMotion(2,3)*EndMotion(2,3));
     return EndDestinationDelta;
 }
-
 

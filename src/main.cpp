@@ -65,8 +65,8 @@ private:
         DEFAULT=3
     };
 
-    tf2_ros::Buffer tfBuffer;
-    tf2_ros::TransformListener *tfListener;
+    //tf2_ros::Buffer tfBuffer;
+    //tf2_ros::TransformListener *tfListener;
     //the planning_group name specified by the moveit_config package
     const std::string PLANNING_GROUP = "manipulator_i5";
 
@@ -294,7 +294,7 @@ Manipulator::Manipulator()
     move_group = new moveit::planning_interface::MoveGroupInterface(PLANNING_GROUP);
     planning_scene_interface = new  moveit::planning_interface::PlanningSceneInterface;
     joint_model_group = move_group->getCurrentState()->getJointModelGroup(PLANNING_GROUP);
-    tfListener = new tf2_ros::TransformListener(tfBuffer);
+    //tfListener = new tf2_ros::TransformListener(tfBuffer);
     astra =new Servo();
     charging=false;
     ROS_INFO_NAMED("Visual Servo", "Reference frame: %s", move_group->getPlanningFrame().c_str());
@@ -307,7 +307,7 @@ Manipulator::~Manipulator()
     delete move_group;
     delete planning_scene_interface;
     delete astra;
-    delete tfListener;
+    //delete tfListener;
 }
 void Manipulator::initParameter()
 {
@@ -341,21 +341,8 @@ void Manipulator::initParameter()
                     Eigen::AngleAxisd(Parameters.expectRPY[0], Eigen::Vector3d::UnitX());
     ExpectMatrix.linear()=rotation_matrix;
     ExpectMatrix.translation()=Parameters.expectXYZ;
-    geometry_msgs::TransformStamped transformE2C,transformE2CH;
-    try
-    {
-        transformE2C = tfBuffer.lookupTransform(EE_NAME, "camera_color_optical_frame",
-                                                    ros::Time(0),ros::Duration(3.0));
-        transformE2CH = tfBuffer.lookupTransform(EE_NAME, "charger_link",
-                                                ros::Time(0),ros::Duration(3.0));
-    }
-    catch (tf2::TransformException &ex)
-    {
-        ROS_WARN("%s",ex.what());
-        //ros::Duration(1.0).sleep();
-    }
-    Trans_E2C=tf2::transformToEigen(transformE2C.transform);
-    Trans_E2CH=tf2::transformToEigen(transformE2CH.transform);
+    astra->getTransform(EE_NAME,"camera_color_optical_frame",Trans_E2C);
+    astra->getTransform(EE_NAME,"charger_link",Trans_E2CH);
     /*备注：此处的变换和参数文件不一致，充电运动前需确认*/
 }
 
@@ -654,7 +641,7 @@ bool Manipulator::goServo( double velocity_scale)
     {
         if(!Tags_detected.empty()|| goSearch(Parameters.basicVelocity,true))
         {
-            EndDestination=astra->GetCameraDestination(Tags_detected[0].Trans_C2T,Trans_E2C,ExpectMatrix);
+            EndDestination=astra->getCameraEE(Tags_detected[0].Trans_C2T,Trans_E2C,ExpectMatrix);
             error=EndDestination.error;
             if(Parameters.servoPoseOn)
             {
