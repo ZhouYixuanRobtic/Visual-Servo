@@ -128,6 +128,8 @@ private:
         double traceDistance;
         double traceAngle;
         double goal_tolerance;
+        std::string cameraFrame;
+        std::string toolFrame;
     }Parameters;
 
 public:
@@ -169,7 +171,7 @@ public:
      */
     bool goServo(double velocity_scale );
     //Function makes robot accomplish cut task
-    bool goCut(Eigen::Affine3d referTag,double velocity_scale );
+    bool goCut(Eigen::Affine3d &referTag,double velocity_scale );
     //Function makes end effector joint goes to zero position.
     void goZero(double velocity_scale = 1.0);
     /*Function makes the end effector goes to a position defined by a array with respect to camera
@@ -185,7 +187,7 @@ public:
     int executeService(int serviceType);
 
     //Function computes the tag pose with respect to the planning frame
-    Eigen::Affine3d getTagPosition(Eigen::Affine3d Trans_C2T);
+    Eigen::Affine3d getTagPosition(Eigen::Affine3d &Trans_C2T);
     //debug preserved functions
 
 };
@@ -332,7 +334,8 @@ void Manipulator::initParameter()
     n_.param<double>("/robot/basicVelocity",Parameters.basicVelocity,0.5);
     n_.param<double>("/robot/goalTolerance",Parameters.goal_tolerance,0.001);
     n_.param<double>("/robot/servoTolerance",Parameters.servoTolerance,0.001);
-
+    n_.param<std::string>("/user/cameraFrame",Parameters.cameraFrame,"camera_color_optical_frame");
+    n_.param<std::string>("/user/toolFrame",Parameters.toolFrame,"charger_link");
     std::cout<<"read parameter success"<<std::endl;
 
     Eigen::Matrix3d rotation_matrix;
@@ -341,8 +344,11 @@ void Manipulator::initParameter()
                     Eigen::AngleAxisd(Parameters.expectRPY[0], Eigen::Vector3d::UnitX());
     ExpectMatrix.linear()=rotation_matrix;
     ExpectMatrix.translation()=Parameters.expectXYZ;
-    astra->getTransform(EE_NAME,"camera_color_optical_frame",Trans_E2C);
-    astra->getTransform(EE_NAME,"charger_link",Trans_E2CH);
+    astra->getTransform(EE_NAME,Parameters.cameraFrame,Trans_E2C);
+    astra->getTransform(EE_NAME,Parameters.toolFrame,Trans_E2CH);
+    RobotAllRight=Parameters.cameraFrame!="camera_color_optical_frame" ?
+                    true :
+                    false;
     /*备注：此处的变换和参数文件不一致，充电运动前需确认*/
 }
 
@@ -645,7 +651,7 @@ bool Manipulator::goServo( double velocity_scale)
             error=EndDestination.error;
             if(Parameters.servoPoseOn)
             {
-                if(error>0.002)
+                if(error<0.002)
                     EndDestination.EE_Motion.linear()=Eigen::Matrix3d::Identity();
             }
             else
@@ -672,15 +678,17 @@ bool Manipulator::goServo( double velocity_scale)
     }
     return RobotAllRight;
 }
-bool Manipulator::goCut(Eigen::Affine3d referTag,double velocity_scale)
+bool Manipulator::goCut(Eigen::Affine3d &referTag,double velocity_scale)
 {
     Eigen::Affine3d Trans_B2E,Trans_E2EP;
     geometry_msgs::Pose target_pose3 = move_group->getCurrentPose().pose;
     std::vector<geometry_msgs::Pose> waypoints;
     Eigen::Quaterniond q;
     //adjust orientation
+    ROS_INFO("CHECK CHECK I'M HERE");
     double init_theta=asin((target_pose3.position.x-referTag.translation()[0])/(Parameters.radius+0.02));
-    q=Eigen::Matrix3d::Identity()*Eigen::AngleAxisd(-init_theta,Eigen::Vector3d::UnitZ());
+    q=Parameters.inverse ? Eigen::Matrix3d::Identity()*Eigen::AngleAxisd(-M_PI-init_theta,Eigen::Vector3d::UnitZ())
+                         : Eigen::Matrix3d::Identity()*Eigen::AngleAxisd(-init_theta,Eigen::Vector3d::UnitZ());
     target_pose3.orientation.x=q.x();
     target_pose3.orientation.y=q.y();
     target_pose3.orientation.z=q.z();
@@ -689,6 +697,7 @@ bool Manipulator::goCut(Eigen::Affine3d referTag,double velocity_scale)
     if(move_group->move()!=moveit::planning_interface::MoveItErrorCode::SUCCESS)
         return false;
     //进刀
+    ROS_INFO("CHECK CHECK I'M HERE");
     target_pose3 = move_group->getCurrentPose().pose;
     Eigen::fromMsg(target_pose3,Trans_B2E);
     Trans_E2EP.linear()=Eigen::Matrix3d::Identity();
@@ -715,7 +724,8 @@ bool Manipulator::goCut(Eigen::Affine3d referTag,double velocity_scale)
         target_pose3.position.x = referTag.translation()[0]+Parameters.radius*sin(init_th-th);
         target_pose3.position.y = init_x+Parameters.radius*cos(init_th-th) ;
         target_pose3.position.z +=Parameters.traceDistance/(double)Parameters.traceNumber;
-        q=Eigen::Matrix3d::Identity()*Eigen::AngleAxisd(-(init_theta-th),Eigen::Vector3d::UnitZ());
+        q=Parameters.inverse ? Eigen::Matrix3d::Identity()*Eigen::AngleAxisd(-M_PI-(init_th-th),Eigen::Vector3d::UnitZ())
+                             : Eigen::Matrix3d::Identity()*Eigen::AngleAxisd(-(init_th-th),Eigen::Vector3d::UnitZ());
         target_pose3.orientation.x=q.x();
         target_pose3.orientation.y=q.y();
         target_pose3.orientation.z=q.z();
@@ -797,7 +807,7 @@ bool Manipulator::goCamera(Eigen::Vector3d target_array, double velocity_scale)
         return false;
     }
 }
-Eigen::Affine3d Manipulator::getTagPosition(Eigen::Affine3d Trans_C2T)
+Eigen::Affine3d Manipulator::getTagPosition(Eigen::Affine3d &Trans_C2T)
 {
     Eigen::Affine3d Trans_B2E;
     Eigen::fromMsg(move_group->getCurrentPose().pose,Trans_B2E);
@@ -874,9 +884,9 @@ int Manipulator::executeService(int serviceType)
                                             visual_servo_namespace::SERVICE_STATUS_CUT_FAILED;
                         }
                     }
-                    addDynamicPlanningConstraint(true);
-                    goUp(Parameters.basicVelocity);
-                    goHome(Parameters.basicVelocity);
+                    //addDynamicPlanningConstraint(true);
+                    //goUp(Parameters.basicVelocity);
+                    //goHome(Parameters.basicVelocity);
                 }
             }
             else
@@ -898,9 +908,9 @@ int Manipulator::executeService(int serviceType)
 
                     }
                 }
-                addDynamicPlanningConstraint(true);
-                goUp(Parameters.basicVelocity);
-                goHome(Parameters.basicVelocity);
+                //addDynamicPlanningConstraint(true);
+                //goUp(Parameters.basicVelocity);
+                //goHome(Parameters.basicVelocity);
             }
             break;
         case visual_servo::manipulate::Request::SEARCH:

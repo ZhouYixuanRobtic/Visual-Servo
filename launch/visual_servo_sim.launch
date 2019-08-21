@@ -3,23 +3,21 @@
     <arg name="camera_config" default="$(find visual_servo)/config/camera.yaml"/>
     <arg name="enable_infra1" default="false"/>
     <arg name="enable_infra2" default="false"/>
+    <arg name="sim" default="true"/>
+    <arg name="robot_ip" default="192.168.2.13"/>
 
+    <include file="$(find aubo_i5_moveit_config)/launch/moveit_planning_execution.launch">
+      <arg name="sim" value="$(arg sim)"/>
+      <arg name="robot_ip" value="$(arg robot_ip)"/>
+    </include>
 
     <!--Launch the realsense ros wrapper-->
-    <include file="$(find realsense2_camera)/launch/rs_rgbd.launch" >
-        <arg name="enable_infra1" value="$(arg enable_infra1)"/>
-        <arg name="enable_infra2" value="$(arg enable_infra2)"/>
-    </include>
+    <include file="$(find aubo_gazebo)/launch/aubo_i5_simulation.launch" />
     <!--Launch the image processing node-->
-    <node pkg="visual_servo" type="real_sense" name="real_sense" respawn="true">
-        <rosparam command="load" file="$(arg camera_config)"/>
-    </node>
-    <!--Launch the aubo i5 simulation-->
-    <include file="$(find aubo_i5_moveit_config)/launch/demo.launch">
-     <arg name="use_gui" value="false"/>
-    </include>
+    <rosparam command="load" file="$(arg camera_config)"/>
+    <node pkg="visual_servo" type="real_sense" name="real_sense" respawn="true"/>
 
     <!-- Launch our own node-->
     <rosparam command="load" file="$(arg config_file)"/>
-    <node pkg="visual_servo" type="visual_servo" name="visual_servo" output="screen"/>
+    <!--node pkg="visual_servo" type="visual_servo" name="visual_servo" output="screen" launch-prefix="gnome-terminal -e"/-->
 </launch>

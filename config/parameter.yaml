@@ -1,19 +1,19 @@
 #all parameter should be given under the SI system
 user:
- radius: 0.096 #default: 0.1
+ radius: 0.1 #default: 0.1
  #parameters describes the expect matrix that you want the tag ended after servo
  #expect* should be given under the camera color optical frame coordinate system
  expectX: 0.00000 #default 0.0 
  expectY: 0.00000 #default 0.0
  expectZ: 0.40000 #default 0.4
- #notice: only if the servoPoseOn is true, these RPY is valid
+ #notice:only if the servoPoseOn is true, these RPY is valid
  expectRoll: 0.00000 #default 0.0
  expectPitch: 0.00000 #default 0.0
  expectYaw: 0.00000 #default 0.0
  #direction sign
  inverse: false #default false
- #trigger for pose sevo mod
- servoPoseOn: false #default false
+ #trigger for pose sevo mode
+ servoPoseOn: true #default false
  #search down height
  searchDownHeight: -0.150000 #default -0.20
  #charge down height
@@ -21,11 +21,13 @@ user:
  #prameters temp
  goCameraX: 0.000
  goCameraY: 0.243
- goCameraZ: -0.02
+ goCameraZ: -0.07
  #trace parameters
  angle: 30 #degree
- distance: -0.05
+ distance: -0.00
  pointsNumber: 20
+ cameraFrame: "virtual_camera_color_optical_frame"
+ toolFrame: "charger_link"
 robot:
  #parameter constrain the robot velocity 0.0-1.0
  basicVelocity: 0.50000 #default 0.5

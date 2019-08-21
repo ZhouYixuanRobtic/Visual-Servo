@@ -132,6 +132,7 @@ add_dependencies(auboA ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)
 
 add_library(servo src/Servo.cpp)
 target_link_libraries(servo apriltag ${OpenCV_LIBRARIES} Sophus)
+add_dependencies(servo ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)
 
 add_library(detector src/Detector.cpp src/radon_transform.cpp)
 target_link_libraries(detector ${OpenCV_LIBS} ${catkin_LIBRARIES})

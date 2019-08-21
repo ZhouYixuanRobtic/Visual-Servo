@@ -11,9 +11,8 @@
         <arg name="enable_infra2" value="$(arg enable_infra2)"/>
     </include>
     <!--Launch the image processing node-->
-    <node pkg="visual_servo" type="real_sense" name="real_sense" respawn="true">
-            <rosparam command="load" file="$(arg camera_config)"/>
-    </node>
+    <rosparam command="load" file="$(arg camera_config)"/>
+    <node pkg="visual_servo" type="real_sense" name="real_sense" respawn="true"/>
 
     <!--Launch aubo node-->
     <node pkg="visual_servo" type="auboRobot" name="auboRobot" required="true"/>
