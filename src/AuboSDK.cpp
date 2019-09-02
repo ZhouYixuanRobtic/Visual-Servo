@@ -101,15 +101,19 @@ bool AuboSDK::robotEventRegister()
     ret = robotService->robotServiceRegisterRobotEventInfoCallback(AuboSDK::RealTimeEventInfoCallback, NULL);
     return ret == aubo_robot_namespace::InterfaceCallSuccCode;
 }
-bool AuboSDK::getSwitchStatus()
+bool AuboSDK::OverturnIOStatus()
 {
     double value;
-    ret = robotService->robotServiceGetBoardIOStatus(aubo_robot_namespace::RobotBoardUserDI, "U_DI_00", value);
-    //std::cout<<"微动开关IO状态为 "<<value<<std::endl;
-    if(ret == aubo_robot_namespace::InterfaceCallSuccCode&&value==1.0)
-        return true;
+    robotService->robotServiceGetBoardIOStatus(aubo_robot_namespace::RobotBoardUserDI,"U_DI_00",value);
+    if(ret == aubo_robot_namespace::InterfaceCallSuccCode)
+    {
+            ret = value==1.0 ? robotService->robotServiceSetBoardIOStatus(aubo_robot_namespace::RobotBoardUserDO, "U_DI_00", 0.0)
+                             : robotService->robotServiceSetBoardIOStatus(aubo_robot_namespace::RobotBoardUserDO, "U_DI_00", 1.0);
+    }
     else
         return false;
+    return ret == aubo_robot_namespace::InterfaceCallSuccCode;
+
 }
 int AuboSDK::robotDiagno()
 {
@@ -123,4 +127,8 @@ bool AuboSDK::robotCollisionRecover()
     ret=robotService->robotServiceCollisionRecover();
     return ret == aubo_robot_namespace::InterfaceCallSuccCode;
 }
-
+bool AuboSDK::robotEnableTeachMode()
+{
+    ret=rootServiceRobotMoveControl(aubo_robot_namespace::EnableForceControl);
+    return ret == aubo_robot_namespace::InterfaceCallSuccCode;
+}

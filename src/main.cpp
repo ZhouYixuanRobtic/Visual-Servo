@@ -234,6 +234,7 @@ int main(int argc, char** argv)
 
     Manipulator robot_manipulator;
     robot_manipulator.addStaticPlanningConstraint();
+    ros::Rate loop_rate(30);
     while(ros::ok())
     {
         if(manipulate_srv_on)
@@ -252,6 +253,7 @@ int main(int argc, char** argv)
                 ManipulateSrv.srv_status=visual_servo_namespace::SERVICE_STATUS_ROBOT_ABORT;
             manipulate_srv_on=false;
         }
+        loop_rate.sleep();
     }
     ros::waitForShutdown();
     return 0;
@@ -283,7 +285,6 @@ void *camera_thread(void *data)
         {
             detect_srv_on=!listener.callSrv();
         }
-        //ros::spinOnce();
         loop_rate.sleep();
     }
     ros::waitForShutdown();
@@ -609,6 +610,7 @@ bool Manipulator::goSearchOnce(int search_type, double velocity_scale,double sea
             counter++;
         if(allClose(goal)<=Parameters.goal_tolerance*2)
             return false;
+        usleep(100000);
     }
     //a real aubo robot can't use the stop function because of velocity singularity
     //move_group->stop();
@@ -744,6 +746,7 @@ bool Manipulator::goCut(Eigen::Affine3d &referTag,double velocity_scale)
         attempts++;
         if(attempts%10==0)
             ROS_INFO("Still trying after %d attempts",attempts);
+        usleep(50000);
     }
     ROS_INFO_NAMED("visual servo", "Visualizing plan 4 (Cartesian path) (%.2f%% acheived)", fraction * 100.0);
     moveit::planning_interface::MoveGroupInterface::Plan my_plan;
@@ -851,6 +854,7 @@ bool Manipulator::leaveCharge(double velocity_scale)
 }
 int Manipulator::executeService(int serviceType)
 {
+    ros::param::set("/visual/tagDetectorOn",true);
     int serviceStatus;
     switch (serviceType)
     {
@@ -980,6 +984,7 @@ int Manipulator::executeService(int serviceType)
     }
     if(!RobotAllRight)
         serviceStatus=visual_servo_namespace::SERVICE_STATUS_ROBOT_ABORT;
+    ros::param::set("/visual/tagDetectorOn", false);
     return serviceStatus;
 }
 
@@ -1050,6 +1055,7 @@ bool Listener::manipulate(visual_servo::manipulate::Request &req,
         //warning: don't delete this line or no status returned!!!!!!!
         //wait for a explain
         temp=ros::Time::now();
+        usleep(500000);
     }
     res.status=ManipulateSrv.srv_status;
     ManipulateSrv.srv_status=visual_servo_namespace::SERVICE_STATUS_EMPTY;

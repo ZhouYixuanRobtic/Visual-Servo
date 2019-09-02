@@ -7,4 +7,6 @@ visual:
   #camera trace debug trigger
   traceDebugOn: false #default false
   #detector color mode trigger
-  colorOn: false #default false
+  colorOn: true #default false
+  #detector trigger
+  tagDetectorOn: false

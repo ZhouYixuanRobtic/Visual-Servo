@@ -14,5 +14,5 @@
 
     <!-- run our own node -->
     <rosparam command="load" file="$(arg camera_config)"/>
-    <node pkg="visual_servo" type="real_sense" name="real_sense" respawn="true" output="screen"/>
+    <node pkg="visual_servo" type="real_sense" name="real_sense"  output="screen" launch-prefix="gnome-terminal -e "/>
 </launch>

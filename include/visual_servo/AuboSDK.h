@@ -32,8 +32,9 @@ public:
     bool robotStartUp();
     int robotShutDown();
     bool robotEventRegister();
-    bool getSwitchStatus();
+    bool OverturnIOStatus();
     bool robotCollisionRecover();
+    bool robotEnableTeachMode();
 
     int robotDiagno();
 

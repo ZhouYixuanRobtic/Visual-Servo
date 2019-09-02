@@ -59,7 +59,7 @@ int main(int argc, char** argv)
     Listener listener;
     KeyboardTeleop tbk;
     boost::thread t= boost::thread(boost::bind(&KeyboardTeleop::keyboardLoop,&tbk));
-
+    ros::Rate loop_rate(30);
     while(ros::ok())
     {
         if(tbk.maOn)
@@ -72,9 +72,9 @@ int main(int argc, char** argv)
             listener.callSrv(visual_servo::manipulate::Request::CHARGE);
             tbk.chargeOn=false;
         }
+        ros::spinOnce();
+        loop_rate.sleep();
     }
-
-    ros::spin();
     t.interrupt();
     t.join();
     ros::shutdown();

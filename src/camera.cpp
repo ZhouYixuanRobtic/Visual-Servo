@@ -54,7 +54,8 @@ private:
     //april tag physic size unit meter
     double tag_size_ ;
     //triggers
-    bool traceResultOn_,traceDebugOn_,tagGraphOn_,colorOn_;
+    bool traceResultOn_,traceDebugOn_,tagGraphOn_,colorOn_,tagDetectorOn_;
+    std::string figDir_;
 
     ros::NodeHandle n_;
     image_transport::ImageTransport *it_;
@@ -136,8 +137,8 @@ void RealSense::initParameter()
     n_.param<bool>("/visual/traceResultOn",traceResultOn_,false);
     n_.param<bool>("/visual/traceDebugOn",traceDebugOn_,false);
     n_.param<bool>("/visual/colorOn",colorOn_,false);
+    n_.param<bool>("/visual/tagDetectorOn",tagDetectorOn_,false);
     std::cout<<"read parameter accomplished"<<std::endl;
-
     td->quad_decimate = 2.0;
     td->quad_sigma = 0.0;
     td->nthreads = 2;
@@ -226,7 +227,19 @@ void RealSense::ImageCallback(const sensor_msgs::ImageConstPtr &msg)
         return;
     }
     subscribed_rgb_=cv_ptr_->image;
-    GetTargetPoseMatrix(subscribed_rgb_);
+    n_.param<bool>("/visual/tagDetectorOn",tagDetectorOn_,false);
+    if(tagDetectorOn_)
+        GetTargetPoseMatrix(subscribed_rgb_);
+    else
+    {
+        if(colorOn_)
+        {
+                cv::imshow("Tag Detections",subscribed_rgb_);
+                cv::waitKey(3);
+        }
+
+    }
+
 }
 void RealSense::DepthCallback(const sensor_msgs::ImageConstPtr &msg)
 {
@@ -314,9 +327,9 @@ bool RealSense::detect_once(visual_servo::detect_once::Request  &req,
     return true;
 }
 
-int main(int argc, char** argv)
+int main(int argc, char* argv[])
 {
-   ros::init(argc,argv,"real_sense");
+    ros::init(argc,argv,"real_sense");
    RealSense real_sense;
    ros::Rate loop_rate(30);
    int counter=0;
