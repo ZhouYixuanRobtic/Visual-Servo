@@ -58,13 +58,13 @@ int main(int argc, char** argv)
     ros::init(argc, argv, "maTest");
     Listener listener;
     KeyboardTeleop tbk;
-    boost::thread t= boost::thread(boost::bind(&KeyboardTeleop::keyboardLoop,&tbk));
     ros::Rate loop_rate(30);
     while(ros::ok())
     {
         if(tbk.maOn)
         {
             listener.callSrv(visual_servo::manipulate::Request::CUT);
+            //std::cout<<"this is a try "<<std::endl;
             tbk.maOn=false;
         }
         if(tbk.chargeOn)
@@ -75,8 +75,6 @@ int main(int argc, char** argv)
         ros::spinOnce();
         loop_rate.sleep();
     }
-    t.interrupt();
-    t.join();
     ros::shutdown();
     return 0;
 }

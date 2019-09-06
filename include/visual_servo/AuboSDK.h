@@ -35,6 +35,9 @@ public:
     bool OverturnIOStatus();
     bool robotCollisionRecover();
     bool robotEnableTeachMode();
+    bool robotDisableTeachMode();
+    bool robotFastMoveStop();
+    bool robotFastMoveRelease();
 
     int robotDiagno();
 

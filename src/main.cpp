@@ -21,7 +21,7 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <tf2_eigen/tf2_eigen.h>
 #include <tf2_ros/transform_listener.h>
-
+#include "parameterTeleop.h"
 
 
 
@@ -52,6 +52,7 @@ class Manipulator
 {
 private:
     ros::NodeHandle n_;
+    bool running_;
     /*
      * Specifies search operations
      * The enum specifies three search operations,FLAT,DOWN,UP
@@ -72,6 +73,11 @@ private:
 
     //the name of rubber tree
     const std::string TREE_NAME = "Heava";
+
+    const std::vector<std::string> PARAMETER_NAMES={"/user/radius","/user/goCameraX","/user/goCameraY",
+                                                    "/user/goCameraZ","/user/distance","/user/angle",
+                                                    "/user/pointsNumber","/user/inverse"};
+
     std::string EE_NAME;
     moveit::planning_interface::MoveGroupInterface *move_group;
     moveit::planning_interface::PlanningSceneInterface *planning_scene_interface;
@@ -82,6 +88,8 @@ private:
     //Servo class for computing the servo related transform matrix
     Servo *astra;
 
+    //parameter listener
+    ParameterListener *parameterListener_;
     /*
      * The transform matrix of A with respect to B named as Trans_B2A.
      * W-world,E-end effector,C-camera,EP-desired end effector,B-base_link,T-target
@@ -139,6 +147,7 @@ public:
 
     virtual ~Manipulator();
 
+    void setParametersFromCallback();
     // Function aims at adding static virtual walls to restrict planning
     void addStaticPlanningConstraint();
     /* Function aims at adding dynamic virtual cylinder as tree to restrict planning
@@ -237,6 +246,7 @@ int main(int argc, char** argv)
     ros::Rate loop_rate(30);
     while(ros::ok())
     {
+        robot_manipulator.setParametersFromCallback();
         if(manipulate_srv_on)
         {
             if(RobotAllRight)
@@ -299,11 +309,13 @@ Manipulator::Manipulator()
     joint_model_group = move_group->getCurrentState()->getJointModelGroup(PLANNING_GROUP);
     //tfListener = new tf2_ros::TransformListener(tfBuffer);
     astra =new Servo();
+    parameterListener_ = new ParameterListener;
     charging=false;
     ROS_INFO_NAMED("Visual Servo", "Reference frame: %s", move_group->getPlanningFrame().c_str());
     ROS_INFO_NAMED("Visual Servo", "End effector link: %s", move_group->getEndEffectorLink().c_str());
     EE_NAME=move_group->getEndEffectorLink().c_str();
     initParameter();
+
 }
 Manipulator::~Manipulator()
 {
@@ -311,6 +323,19 @@ Manipulator::~Manipulator()
     delete planning_scene_interface;
     delete astra;
     //delete tfListener;
+}
+void Manipulator::setParametersFromCallback()
+{
+    if(!running_)
+    {
+        Parameters.radius = parameterListener_->parameters[0];
+        Parameters.cameraXYZ = Eigen::Vector3d(parameterListener_->parameters[1], parameterListener_->parameters[2],
+                                               parameterListener_->parameters[3]);
+        Parameters.traceDistance = parameterListener_->parameters[4];
+        Parameters.traceAngle = parameterListener_->parameters[5];
+        Parameters.traceNumber = (int) parameterListener_->parameters[6];
+        Parameters.inverse = (bool) parameterListener_->parameters[7];
+    }
 }
 void Manipulator::initParameter()
 {
@@ -347,9 +372,11 @@ void Manipulator::initParameter()
     ExpectMatrix.translation()=Parameters.expectXYZ;
     astra->getTransform(EE_NAME,Parameters.cameraFrame,Trans_E2C);
     astra->getTransform(EE_NAME,Parameters.toolFrame,Trans_E2CH);
+    running_=false;
     RobotAllRight=Parameters.cameraFrame!="camera_color_optical_frame" ?
                     true :
                     false;
+    parameterListener_->registerParameterCallback(PARAMETER_NAMES,false);
     /*备注：此处的变换和参数文件不一致，充电运动前需确认*/
 }
 
@@ -855,6 +882,7 @@ bool Manipulator::leaveCharge(double velocity_scale)
 int Manipulator::executeService(int serviceType)
 {
     ros::param::set("/visual/tagDetectorOn",true);
+    running_=true;
     int serviceStatus;
     switch (serviceType)
     {
@@ -968,7 +996,9 @@ int Manipulator::executeService(int serviceType)
                         serviceStatus=visual_servo_namespace::SERVICE_STATUS_CHARGE_FAILED;
                     else
                     {
+                        ros::param::set("/visual_servo/isChargingStatusChanged",(double)true);
                         sleep(10);
+                        ros::param::set("/visual_servo/isChargingStatusChanged",(double)true);
                         serviceStatus=   leaveCharge(Parameters.basicVelocity) ?
                                          visual_servo_namespace::SERVICE_STATUS_SUCCEED :
                                          visual_servo_namespace::SERVICE_STATUS_LEAVE_CHARGE_FAILED;
@@ -985,6 +1015,7 @@ int Manipulator::executeService(int serviceType)
     if(!RobotAllRight)
         serviceStatus=visual_servo_namespace::SERVICE_STATUS_ROBOT_ABORT;
     ros::param::set("/visual/tagDetectorOn", false);
+    running_=false;
     return serviceStatus;
 }
 

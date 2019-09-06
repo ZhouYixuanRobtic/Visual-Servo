@@ -2,12 +2,16 @@
 
 KeyboardTeleop::KeyboardTeleop()
 {
-    this->teachModeOn=false;
+    this->moveChange=false;
     kfd=0;
+    thread_=boost::thread(boost::bind(&KeyboardTeleop::keyboardLoop,this));
+
 }
 KeyboardTeleop::~KeyboardTeleop()
 {
     tcsetattr(kfd, TCSANOW, &cooked);
+    thread_.interrupt();
+    thread_.join();
 }
 void KeyboardTeleop::keyboardLoop()
 {
@@ -22,7 +26,7 @@ void KeyboardTeleop::keyboardLoop()
       tcsetattr(kfd, TCSANOW, &raw);  
 
       puts("Reading from keyboard");  
-      puts("Use D_CAP key to enable teach mode");
+      puts("Use D key to stop robot");
       puts("Use q key to enable navigation mode");
       puts("Use p key to pause the robot");
       puts("Use c key to continue the robot");
@@ -30,9 +34,8 @@ void KeyboardTeleop::keyboardLoop()
       puts("Use n key to enable charging mode");
       struct pollfd ufd;
       ufd.fd = kfd;  
-      ufd.events = POLLIN;  
-      
-      for(;;)  
+      ufd.events = POLLIN;
+      while(true)
 
       {  
 
@@ -58,12 +61,8 @@ void KeyboardTeleop::keyboardLoop()
             {  
                     /*
                         stop do something when key up
-                    */ 
-                    if(teachModeOn)
-                    {
-                        teachModeOn=false;
-                        std::cout<<"!!!!!teach mode stop!!!!!!!!!!!"<<std::endl;
-                    }
+                    */
+                    moveChange=!moveChange;
                     dirty = false;  
             }  
             continue;  
@@ -76,8 +75,6 @@ void KeyboardTeleop::keyboardLoop()
                   */
                   break;
               case 'D':
-                  std::cout<<"under teach mode"<<std::endl;
-                  teachModeOn=true;
                   dirty = true;
                   break;
               case 'q':
@@ -105,9 +102,9 @@ void KeyboardTeleop::keyboardLoop()
                   chargeOn=true;
                   std::cout<<"charge on"<<std::endl;
               default:
-                  teachModeOn=false;
                   dirty = false;
                   break;
           }
+        usleep(100000);
       }
 }

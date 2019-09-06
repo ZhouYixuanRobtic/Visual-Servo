@@ -104,11 +104,11 @@ bool AuboSDK::robotEventRegister()
 bool AuboSDK::OverturnIOStatus()
 {
     double value;
-    robotService->robotServiceGetBoardIOStatus(aubo_robot_namespace::RobotBoardUserDI,"U_DI_00",value);
+    robotService->robotServiceGetBoardIOStatus(aubo_robot_namespace::RobotBoardUserDO,"U_DO_00",value);
     if(ret == aubo_robot_namespace::InterfaceCallSuccCode)
     {
-            ret = value==1.0 ? robotService->robotServiceSetBoardIOStatus(aubo_robot_namespace::RobotBoardUserDO, "U_DI_00", 0.0)
-                             : robotService->robotServiceSetBoardIOStatus(aubo_robot_namespace::RobotBoardUserDO, "U_DI_00", 1.0);
+            ret = value==1.0 ? robotService->robotServiceSetBoardIOStatus(aubo_robot_namespace::RobotBoardUserDO, "U_DO_00", 0.0)
+                             : robotService->robotServiceSetBoardIOStatus(aubo_robot_namespace::RobotBoardUserDO, "U_DO_00", 1.0);
     }
     else
         return false;
@@ -129,6 +129,22 @@ bool AuboSDK::robotCollisionRecover()
 }
 bool AuboSDK::robotEnableTeachMode()
 {
-    ret=rootServiceRobotMoveControl(aubo_robot_namespace::EnableForceControl);
+    ret=robotService->rootServiceRobotControl(aubo_robot_namespace::RobotControlCommand(aubo_robot_namespace::EnableForceControl));
     return ret == aubo_robot_namespace::InterfaceCallSuccCode;
 }
+bool AuboSDK::robotDisableTeachMode()
+{
+    ret=robotService->rootServiceRobotControl(aubo_robot_namespace::RobotControlCommand(aubo_robot_namespace::DisableForceControl));
+    return ret == aubo_robot_namespace::InterfaceCallSuccCode;
+}
+bool AuboSDK::robotFastMoveStop()
+{
+    ret=robotService->rootServiceRobotControl(aubo_robot_namespace::RobotControlCommand(aubo_robot_namespace::RobotBrake));
+    return ret == aubo_robot_namespace::InterfaceCallSuccCode;
+}
+bool AuboSDK::robotFastMoveRelease()
+{
+    ret=robotService->rootServiceRobotControl(aubo_robot_namespace::RobotControlCommand(aubo_robot_namespace::RobotRelease));
+    return ret == aubo_robot_namespace::InterfaceCallSuccCode;
+}
+

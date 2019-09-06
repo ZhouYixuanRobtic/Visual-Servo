@@ -12,7 +12,6 @@
     <include file="$(find aubo_i5_moveit_config)/launch/moveit_planning_execution.launch">
       <arg name="sim" value="$(arg sim)"/>
       <arg name="robot_ip" value="$(arg robot_ip)"/>
-      <arg name="load_robot_description" value="false"/>
     </include>
 
     <!--Launch the image processing node-->

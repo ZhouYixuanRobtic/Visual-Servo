@@ -14,6 +14,7 @@
 #include "visual_servo/VisualServoMetaTypeMsg.h"
 #include "VisualServoMetaType.h"
 #include "KeyboardTeleop.h"
+#include "parameterTeleop.h"
 
 extern bool ExitSoftEmergency;
 extern bool RobotMoveStop;
@@ -22,10 +23,18 @@ int main(int argc, char** argv)
     ros::init(argc, argv, "auboSDK");
     ros::NodeHandle nh;
     ros::Rate loop_rate(30);
-        
+
+    bool isMoveStop=false;
+    ParameterListener parameterListener;
+    const std::vector<std::string> parameterNames={"/visual_servo/isChargingStatusChanged"};
+    parameterListener.registerParameterCallback(parameterNames,false);
+
+    KeyboardTeleop tbk;
+
     visual_servo::VisualServoMetaTypeMsg status;
     ros::Publisher status_pub;
     status_pub = nh.advertise<visual_servo::VisualServoMetaTypeMsg>("VisualServoStatus", 100);
+
     AuboSDK auboSdk;
     status.RobotAllRight = auboSdk.loginSucceed && auboSdk.robotStartUp();
     std::cout<<"RobotAllRight "<<(int) status.RobotAllRight<<std::endl;
@@ -33,6 +42,27 @@ int main(int argc, char** argv)
     while (ros::ok())
     {
         // auboSdk.getSwitchStatus();
+        if((bool) parameterListener.parameters[0])
+        {
+            auboSdk.OverturnIOStatus();
+            ros::param::set(parameterNames[0],(double)false);
+        }
+        if(tbk.moveChange)
+        {
+
+            if(!isMoveStop)
+            {
+                isMoveStop=auboSdk.robotFastMoveStop();
+                std::cout<<"机械臂已刹车"<<std::endl;
+            }
+            else
+            {
+                isMoveStop=!auboSdk.robotFastMoveRelease();
+                std::cout<<"机械臂松刹车"<<std::endl;
+            }
+            tbk.moveChange=false;
+
+        }
         if(RobotMoveStop)
         {
             status.RobotAllRight=false;
@@ -43,9 +73,6 @@ int main(int argc, char** argv)
             }
             /*急停时应中断所有操作*/
         }
-        if(auboSdk.loginSucceed)
-            status.RobotSwitchOn=auboSdk.getSwitchStatus();
-
         status_pub.publish(status);
         loop_rate.sleep();
         ros::spinOnce();
