@@ -42,7 +42,7 @@ int main(int argc, char** argv)
     while (ros::ok())
     {
         // auboSdk.getSwitchStatus();
-        if((bool) parameterListener.parameters[0])
+        if((bool) parameterListener.parameters()[0])
         {
             auboSdk.OverturnIOStatus();
             ros::param::set(parameterNames[0],(double)false);

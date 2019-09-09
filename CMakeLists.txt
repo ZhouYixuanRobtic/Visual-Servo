@@ -165,3 +165,6 @@ add_dependencies(maTest ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)
 add_executable(keyTest test/keyboardTest.cpp)
 target_link_libraries(keyTest ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop)
 
+add_executable(learningTest test/learningTest.cpp)
+target_link_libraries(learningTest ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop parameterTeleop)
+

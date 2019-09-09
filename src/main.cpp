@@ -1,5 +1,5 @@
 /* To Do:
- * 1.charger_link 的变换矩阵Trans_E2CH需要验证（和parameter.yaml）不一致
+ *
  * 2.如果轨迹生成很准确的话，实际上并不用考虑重新限制规划问题
  * 3.goHome 函数可以写在srdf文件里 完成.
  * 4.
@@ -66,8 +66,6 @@ private:
         DEFAULT=3
     };
 
-    //tf2_ros::Buffer tfBuffer;
-    //tf2_ros::TransformListener *tfListener;
     //the planning_group name specified by the moveit_config package
     const std::string PLANNING_GROUP = "manipulator_i5";
 
@@ -195,6 +193,8 @@ public:
     //Function executes the service
     int executeService(int serviceType);
 
+    void removeAllDynamicConstraint();
+
     //Function computes the tag pose with respect to the planning frame
     Eigen::Affine3d getTagPosition(Eigen::Affine3d &Trans_C2T);
     //debug preserved functions
@@ -261,6 +261,8 @@ int main(int argc, char** argv)
             //check again
             if(!RobotAllRight)
                 ManipulateSrv.srv_status=visual_servo_namespace::SERVICE_STATUS_ROBOT_ABORT;
+
+            robot_manipulator.removeAllDynamicConstraint();
             manipulate_srv_on=false;
         }
         loop_rate.sleep();
@@ -307,8 +309,7 @@ Manipulator::Manipulator()
     move_group = new moveit::planning_interface::MoveGroupInterface(PLANNING_GROUP);
     planning_scene_interface = new  moveit::planning_interface::PlanningSceneInterface;
     joint_model_group = move_group->getCurrentState()->getJointModelGroup(PLANNING_GROUP);
-    //tfListener = new tf2_ros::TransformListener(tfBuffer);
-    astra =new Servo();
+    astra =new Servo;
     parameterListener_ = new ParameterListener;
     charging=false;
     ROS_INFO_NAMED("Visual Servo", "Reference frame: %s", move_group->getPlanningFrame().c_str());
@@ -322,19 +323,18 @@ Manipulator::~Manipulator()
     delete move_group;
     delete planning_scene_interface;
     delete astra;
-    //delete tfListener;
 }
 void Manipulator::setParametersFromCallback()
 {
     if(!running_)
     {
-        Parameters.radius = parameterListener_->parameters[0];
-        Parameters.cameraXYZ = Eigen::Vector3d(parameterListener_->parameters[1], parameterListener_->parameters[2],
-                                               parameterListener_->parameters[3]);
-        Parameters.traceDistance = parameterListener_->parameters[4];
-        Parameters.traceAngle = parameterListener_->parameters[5];
-        Parameters.traceNumber = (int) parameterListener_->parameters[6];
-        Parameters.inverse = (bool) parameterListener_->parameters[7];
+        Parameters.radius = parameterListener_->parameters()[0];
+        Parameters.cameraXYZ = Eigen::Vector3d(parameterListener_->parameters()[1], parameterListener_->parameters()[2],
+                                               parameterListener_->parameters()[3]);
+        Parameters.traceDistance = parameterListener_->parameters()[4];
+        Parameters.traceAngle = parameterListener_->parameters()[5];
+        Parameters.traceNumber = (int) parameterListener_->parameters()[6];
+        Parameters.inverse = (bool) parameterListener_->parameters()[7];
     }
 }
 void Manipulator::initParameter()
@@ -361,7 +361,7 @@ void Manipulator::initParameter()
     n_.param<double>("/robot/goalTolerance",Parameters.goal_tolerance,0.001);
     n_.param<double>("/robot/servoTolerance",Parameters.servoTolerance,0.001);
     n_.param<std::string>("/user/cameraFrame",Parameters.cameraFrame,"camera_color_optical_frame");
-    n_.param<std::string>("/user/toolFrame",Parameters.toolFrame,"charger_link");
+    n_.param<std::string>("/user/toolFrame",Parameters.toolFrame,"charger_ee_link");
     std::cout<<"read parameter success"<<std::endl;
 
     Eigen::Matrix3d rotation_matrix;
@@ -379,7 +379,6 @@ void Manipulator::initParameter()
     parameterListener_->registerParameterCallback(PARAMETER_NAMES,false);
     /*备注：此处的变换和参数文件不一致，充电运动前需确认*/
 }
-
 void Manipulator::addStaticPlanningConstraint()
 {
     //in case of repeat usage
@@ -444,17 +443,16 @@ void Manipulator ::addDynamicPlanningConstraint(bool leave)
     }
     std::vector<std::string> object_names;
     object_names=planning_scene_interface->getKnownObjectNames();
+    const std::vector<std::string> tree_name{TREE_NAME};
     if(!object_names.empty())
     {
         for(auto & object_name : object_names)
         {
-            if(object_name!=TREE_NAME)
+            if(object_name==TREE_NAME)
             {
-                object_names.erase(std::remove(std::begin(object_names),std::end(object_names),object_name),\
-                std::end(object_names));
+                planning_scene_interface->removeCollisionObjects(tree_name);
             }
         }
-        planning_scene_interface->removeCollisionObjects(object_names);
     }
     std::vector<moveit_msgs::CollisionObject> objects;
     moveit_msgs::CollisionObject collision_object;
@@ -483,35 +481,55 @@ void Manipulator::addChargerDynamicPlanningConstraint()
     Eigen::Affine3d Trans_B2T=getTagPosition(Tags_detected[0].Trans_C2T);
     std::vector<std::string> object_names;
     object_names=planning_scene_interface->getKnownObjectNames();
+    const std::vector<std::string> charger_name{"CHARGER"};
     if(!object_names.empty())
     {
         for(auto & object_name : object_names)
         {
-            if(object_name!="CHARGER")
+            if(object_name=="CHARGER")
             {
-                object_names.erase(std::remove(std::begin(object_names),std::end(object_names),object_name),\
-                std::end(object_names));
+                planning_scene_interface->removeCollisionObjects(charger_name);
             }
         }
-        planning_scene_interface->removeCollisionObjects(object_names);
     }
     std::vector<moveit_msgs::CollisionObject> objects;
     moveit_msgs::CollisionObject collision_object;
     collision_object.header.frame_id = move_group->getPlanningFrame();
     collision_object.id = "CHARGER";
-    shape_msgs::Plane plane;
-    plane.coef={0,-1,0,boost::math::sign(Trans_B2T.translation()[1])*(abs(Trans_B2T.translation()[1])-0.03)};
+    shape_msgs::SolidPrimitive primitive;
+    primitive.type = primitive.BOX;
+    primitive.dimensions.resize(3);
+    primitive.dimensions[0] = 2;
+    primitive.dimensions[1] = 2;
+    primitive.dimensions[2] = 0.001;
     geometry_msgs::Pose object_pose;
     object_pose.position.x=0;
-    object_pose.position.y=0;
-    object_pose.position.z=0.0;
-    object_pose.orientation.w=1.0;
-    collision_object.planes.push_back(plane);
-    collision_object.plane_poses.push_back(object_pose);
+    object_pose.position.y=boost::math::sign(Trans_B2T.translation()[1])*(abs(Trans_B2T.translation()[1])-0.03);
+    object_pose.position.z=1;
+    object_pose.orientation=tf::createQuaternionMsgFromRollPitchYaw(M_PI/2.0,0,0);
+    collision_object.primitives.push_back(primitive);
+    collision_object.primitive_poses.push_back(object_pose);
     collision_object.operation = collision_object.ADD;
     objects.push_back(collision_object);
 
     planning_scene_interface->addCollisionObjects(objects);
+}
+void Manipulator::removeAllDynamicConstraint()
+{
+    std::vector<std::string> object_names;
+    object_names=planning_scene_interface->getKnownObjectNames();
+    std::vector<std::string> dynamic_names;
+    if(!object_names.empty())
+    {
+        for(auto & object_name : object_names)
+        {
+            if(object_name=="CHARGER"||object_name==TREE_NAME)
+            {
+                dynamic_names.push_back(object_name);
+            }
+        }
+        planning_scene_interface->removeCollisionObjects(dynamic_names);
+    }
 }
 bool Manipulator::goUp(double velocity_scale,bool reset)
 {
@@ -849,11 +867,11 @@ bool Manipulator::goCharge(double velocity_scale)
     move_group->setMaxVelocityScalingFactor(velocity_scale);
     Eigen::fromMsg(move_group->getCurrentPose().pose,Trans_W2E);
     Eigen::Affine3d Trans_B2T=Trans_W2E*Trans_E2C*Tags_detected[0].Trans_C2T;
-    Trans_B2T.translation() += Eigen::Vector3d(0.0,0.037,-0.250);
+    Trans_B2T.translation() += Eigen::Vector3d(0.0,0.05,-0.250);
     Eigen::Matrix3d rotation_matrix;
     Eigen::Affine3d tempMatrix;
-    rotation_matrix=Eigen::AngleAxisd(-M_PI/2.0, Eigen::Vector3d::UnitY())*
-                    Eigen::AngleAxisd(M_PI/2.0, Eigen::Vector3d::UnitX());
+    rotation_matrix=Eigen::AngleAxisd(M_PI/2.0, Eigen::Vector3d::UnitX())*
+                    Eigen::AngleAxisd(M_PI/2.0, Eigen::Vector3d::UnitZ());
     tempMatrix.linear()=rotation_matrix;
     tempMatrix.translation()=Eigen::Vector3d(0.0,0.0,0.0);
     Trans_W2EP=Trans_B2T*tempMatrix*Trans_E2CH.inverse();
@@ -954,7 +972,6 @@ int Manipulator::executeService(int serviceType)
             charging=true;
             if(Tags_detected.empty())
             {
-                ROS_ERROR("CHECK CHECK TAGS EMPTY");
                 if(!goSearch(0.2))
                 {
                     ROS_INFO("!!!!!!NO TAG SEARCHED!!!!!");
@@ -1028,7 +1045,6 @@ Listener::Listener()
     srv.request.ready_go=(int)detect_srv_on;
     manipulate_callback_t manipulate_callback = boost::bind(&Listener::manipulate, this, _1, _2);
     service_ = nh.advertiseService("manipulate",manipulate_callback);
-    //tfListener = new tf2_ros::TransformListener(tfBuffer);
 }
 Listener::~Listener()
 {
