@@ -50,7 +50,7 @@ Eigen::Affine3d Servo::getTransform(const std::string & target_frame,const std::
  * @param ExpectTrans_C2T   [the desired target pose with respect to camera described as a transform matrix]
  * @return the end effector motion described as a homogeneous matrix and its position error
 */
-const Destination_t & Servo::getCameraEE(Eigen::Affine3d Trans_C2T,Eigen::Affine3d Trans_E2C, Eigen::Affine3d ExpectTrans_C2T,double lambda)
+const Destination_t & Servo::getCameraEE(const Eigen::Affine3d & Trans_C2T,const Eigen::Affine3d & Trans_E2C, const Eigen::Affine3d & ExpectTrans_C2T,double lambda)
 {
     Eigen::Affine3d EndMotion;
     EndMotion=Trans_E2C*Trans_C2T*ExpectTrans_C2T.inverse()*Trans_E2C.inverse();

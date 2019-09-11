@@ -103,7 +103,7 @@ private:
      * @return the joint space Euclidean distance as a double number,
      *  Unit-radian
      */
-    double allClose(const std::vector<double> & goal);
+    double allClose(const std::vector<double> & goal) const;
     /* Function for computing the matrix of desired end effector motion.
      * @param search_type   [define the reference coordinate system of desired motion,
      *                      UP for end effector, DOWN for world, DEFAULT for end effector]
@@ -113,7 +113,7 @@ private:
      */
     Eigen::Affine3d getEndMotion(int search_type,
                                  const Eigen::Vector3d & Translation = Eigen::Vector3d(0.0, 0.0, 0.0),
-                                 const Eigen::Vector3d & RPY = Eigen::Vector3d(0.0, 0.0, 0.0));
+                                 const Eigen::Vector3d & RPY = Eigen::Vector3d(0.0, 0.0, 0.0)) const;
     //read parameters and listen to tf
     void initParameter();
 
@@ -147,19 +147,19 @@ public:
 
     void setParametersFromCallback();
     // Function aims at adding static virtual walls to restrict planning
-    void addStaticPlanningConstraint();
+    void addStaticPlanningConstraint() const;
     /* Function aims at adding dynamic virtual cylinder as tree to restrict planning
      * @param leave [true for more restrict when robot try to leave]
      */
     void addDynamicPlanningConstraint(bool leave=false);
     // Function aims at adding dynamic virtual cylinder as charger plane to restrict planning
-    void addChargerDynamicPlanningConstraint();
+    void addChargerDynamicPlanningConstraint() const;
     /* Function makes all robot joints go to zero
      * @param reset [true for go up to the other side]
      */
-    bool goUp(double velocity_scale ,bool reset=true);
+    bool goUp(double velocity_scale ,bool reset=true) const;
     // Function makes robot go to a preset position
-    void goHome(double velocity_scale);
+    void goHome(double velocity_scale) const;
     /* Function makes robot go search once with a defined search angle range
      * @param search_type       [define the search type,UP for looking up,DOWN for looking down,
      *                          FLAT for looking flat,DEFAULT for doing nothing]
@@ -167,9 +167,9 @@ public:
      * @param velocity_scale    [velocity scaling factor 0-1]
      * @return true if any tag searched else false
      */
-    bool goSearchOnce(int search_type, double velocity_scale, double search_angle = M_PI / 3.0);
+    bool goSearchOnce(int search_type, double velocity_scale, double search_angle = M_PI / 3.0) const;
     //Function makes robot search all three types
-    bool goSearch( double velocity_scale,bool underServoing=false,double search_angle = M_PI / 3.0);
+    bool goSearch( double velocity_scale,bool underServoing=false,double search_angle = M_PI / 3.0) const;
     /*Function makes robot camera servo to pointed pose or position
      * @param ExpectMatrix  [the desired pose of camera describing as transform matrix]
      * @param enable_pose   [true for enable pose servo mode which costs more adjust time and may makes end effector rotate,
@@ -193,10 +193,10 @@ public:
     //Function executes the service
     int executeService(int serviceType);
 
-    void removeAllDynamicConstraint();
+    void removeAllDynamicConstraint() const;
 
     //Function computes the tag pose with respect to the planning frame
-    Eigen::Affine3d getTagPosition(const Eigen::Affine3d &Trans_C2T);
+    Eigen::Affine3d getTagPosition(const Eigen::Affine3d &Trans_C2T) const;
     //debug preserved functions
 
 };
@@ -382,7 +382,7 @@ void Manipulator::initParameter()
     parameterListener_->registerParameterCallback(PARAMETER_NAMES,false);
     /*备注：此处的变换和参数文件不一致，充电运动前需确认*/
 }
-void Manipulator::addStaticPlanningConstraint()
+void Manipulator::addStaticPlanningConstraint() const
 {
     //in case of repeat usage
     std::vector<std::string> object_names;
@@ -479,7 +479,7 @@ void Manipulator ::addDynamicPlanningConstraint(bool leave)
 
     planning_scene_interface->addCollisionObjects(objects);
 }
-void Manipulator::addChargerDynamicPlanningConstraint()
+void Manipulator::addChargerDynamicPlanningConstraint() const
 {
     Eigen::Affine3d Trans_B2T=getTagPosition(Tags_detected[0].Trans_C2T);
     std::vector<std::string> object_names;
@@ -517,7 +517,7 @@ void Manipulator::addChargerDynamicPlanningConstraint()
 
     planning_scene_interface->addCollisionObjects(objects);
 }
-void Manipulator::removeAllDynamicConstraint()
+void Manipulator::removeAllDynamicConstraint() const
 {
     std::vector<std::string> object_names;
     object_names=planning_scene_interface->getKnownObjectNames();
@@ -534,7 +534,7 @@ void Manipulator::removeAllDynamicConstraint()
         planning_scene_interface->removeCollisionObjects(dynamic_names);
     }
 }
-bool Manipulator::goUp(double velocity_scale,bool reset)
+bool Manipulator::goUp(double velocity_scale,bool reset) const
 {
     move_group->setGoalTolerance(Parameters.goal_tolerance);
     move_group->setMaxVelocityScalingFactor(velocity_scale);
@@ -564,7 +564,7 @@ bool Manipulator::goUp(double velocity_scale,bool reset)
     }
     return success;
 }
-void Manipulator::goHome(double velocity_scale)
+void Manipulator::goHome(double velocity_scale) const
 {
     move_group->setGoalTolerance(Parameters.goal_tolerance);
     move_group->setMaxVelocityScalingFactor(velocity_scale);
@@ -573,7 +573,7 @@ void Manipulator::goHome(double velocity_scale)
     move_group->setJointValueTarget(goal);
     move_group->move();
 }
-double Manipulator::allClose(const std::vector<double> & goal)
+double Manipulator::allClose(const std::vector<double> & goal) const
 {
     std::vector<double> current_joints;
     current_joints=move_group->getCurrentJointValues();
@@ -584,7 +584,7 @@ double Manipulator::allClose(const std::vector<double> & goal)
     auxiliary.shrink_to_fit();
     return sqrt(std::accumulate(auxiliary.begin(), auxiliary.end(), 0.0));
 }
-Eigen::Affine3d Manipulator::getEndMotion(int search_type, const Eigen::Vector3d & Translation, const Eigen::Vector3d & RPY)
+Eigen::Affine3d Manipulator::getEndMotion(int search_type, const Eigen::Vector3d & Translation, const Eigen::Vector3d & RPY) const
 {
     Eigen::Affine3d CameraMotion,Trans_B2E;
     CameraMotion.translation()=Translation;
@@ -605,7 +605,7 @@ Eigen::Affine3d Manipulator::getEndMotion(int search_type, const Eigen::Vector3d
             return Trans_B2E*CameraMotion;
     }
 }
-bool Manipulator::goSearchOnce(int search_type, double velocity_scale,double search_angle)
+bool Manipulator::goSearchOnce(int search_type, double velocity_scale,double search_angle) const
 {
     move_group->setGoalTolerance(Parameters.goal_tolerance);
     move_group->setMaxVelocityScalingFactor(velocity_scale);
@@ -671,7 +671,7 @@ bool Manipulator::goSearchOnce(int search_type, double velocity_scale,double sea
     move_group->setNamedTarget("tag");
     return (move_group->move() == moveit_msgs::MoveItErrorCodes::SUCCESS);
 }
-bool Manipulator::goSearch(double velocity_scale,bool underServoing,double search_angle)
+bool Manipulator::goSearch(double velocity_scale,bool underServoing,double search_angle) const
 {
     /*
     return goSearchOnce(FLAT, velocity_scale,search_angle)||
@@ -856,7 +856,7 @@ bool Manipulator::goCamera(const Eigen::Vector3d & target_array, double velocity
         return false;
     }
 }
-Eigen::Affine3d Manipulator::getTagPosition(const Eigen::Affine3d &Trans_C2T)
+Eigen::Affine3d Manipulator::getTagPosition(const Eigen::Affine3d &Trans_C2T) const
 {
     Eigen::Affine3d Trans_B2E;
     Eigen::fromMsg(move_group->getCurrentPose().pose,Trans_B2E);
