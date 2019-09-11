@@ -19,5 +19,10 @@
     	1. 修复了充电命令
     	2. 给出了获取参数值的安全方法
      	3. 注意：没有上传parameter.yaml
-
+- **Header**: 4b155b6
+  - **comments** : give a template function instead of function overloading and use refernce to improve performance
+  - **Actual Change**:
+    	1. 修复了切割命令
+    	2. 给出了一个模板函数以取代反复重载的函数
+     	3. 使用应用取代了拷贝，以提升性能
      	
