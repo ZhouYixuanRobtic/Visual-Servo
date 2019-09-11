@@ -103,7 +103,7 @@ private:
      * @return the joint space Euclidean distance as a double number,
      *  Unit-radian
      */
-    double allClose(std::vector<double> goal);
+    double allClose(const std::vector<double> & goal);
     /* Function for computing the matrix of desired end effector motion.
      * @param search_type   [define the reference coordinate system of desired motion,
      *                      UP for end effector, DOWN for world, DEFAULT for end effector]
@@ -112,8 +112,8 @@ private:
      * @return the desired end effector motion matrix.
      */
     Eigen::Affine3d getEndMotion(int search_type,
-                                 Eigen::Vector3d Translation = Eigen::Vector3d(0.0, 0.0, 0.0),
-                                 Eigen::Vector3d RPY = Eigen::Vector3d(0.0, 0.0, 0.0));
+                                 const Eigen::Vector3d & Translation = Eigen::Vector3d(0.0, 0.0, 0.0),
+                                 const Eigen::Vector3d & RPY = Eigen::Vector3d(0.0, 0.0, 0.0));
     //read parameters and listen to tf
     void initParameter();
 
@@ -178,14 +178,14 @@ public:
      */
     bool goServo(double velocity_scale );
     //Function makes robot accomplish cut task
-    bool goCut(Eigen::Affine3d &referTag,double velocity_scale );
+    bool goCut(const Eigen::Affine3d &referTag,double velocity_scale );
     //Function makes end effector joint goes to zero position.
     void goZero(double velocity_scale = 1.0);
     /*Function makes the end effector goes to a position defined by a array with respect to camera
      * @param target_array  [describes a position with respect to camera]
      * @return true if achieved the desired position.
      */
-    bool goCamera(Eigen::Vector3d target_array, double velocity_scale = 0.1);
+    bool goCamera(const Eigen::Vector3d & target_array, double velocity_scale = 0.1);
     //Function makes the charger goes to a fixed position related to the tag
     bool goCharge(double velocity_scale = 0.5);
     //Function makes the charger leave from the station
@@ -196,7 +196,7 @@ public:
     void removeAllDynamicConstraint();
 
     //Function computes the tag pose with respect to the planning frame
-    Eigen::Affine3d getTagPosition(Eigen::Affine3d &Trans_C2T);
+    Eigen::Affine3d getTagPosition(const Eigen::Affine3d &Trans_C2T);
     //debug preserved functions
 
 };
@@ -251,6 +251,7 @@ int main(int argc, char** argv)
         {
             if(RobotAllRight)
             {
+                ros::param::set("/visual/tagDetectorOn",true);
                 if(!robot_manipulator.goUp(0.2,false))
                     ManipulateSrv.srv_status=visual_servo_namespace::SERVICE_STATUS_UP_FAILED;
                 else
@@ -335,6 +336,7 @@ void Manipulator::setParametersFromCallback()
         Parameters.traceAngle = parameterListener_->parameters()[5];
         Parameters.traceNumber = (int) parameterListener_->parameters()[6];
         Parameters.inverse = (bool) parameterListener_->parameters()[7];
+        Parameters.traceAngle=Parameters.traceAngle*M_PI/180.0;
     }
 }
 void Manipulator::initParameter()
@@ -364,6 +366,7 @@ void Manipulator::initParameter()
     n_.param<std::string>("/user/toolFrame",Parameters.toolFrame,"charger_ee_link");
     std::cout<<"read parameter success"<<std::endl;
 
+    Parameters.traceAngle=Parameters.traceAngle*M_PI/180.0;
     Eigen::Matrix3d rotation_matrix;
     rotation_matrix=Eigen::AngleAxisd(Parameters.expectRPY[2], Eigen::Vector3d::UnitZ())*
                     Eigen::AngleAxisd(Parameters.expectRPY[1], Eigen::Vector3d::UnitY())*
@@ -570,7 +573,7 @@ void Manipulator::goHome(double velocity_scale)
     move_group->setJointValueTarget(goal);
     move_group->move();
 }
-double Manipulator::allClose(std::vector<double> goal)
+double Manipulator::allClose(const std::vector<double> & goal)
 {
     std::vector<double> current_joints;
     current_joints=move_group->getCurrentJointValues();
@@ -581,7 +584,7 @@ double Manipulator::allClose(std::vector<double> goal)
     auxiliary.shrink_to_fit();
     return sqrt(std::accumulate(auxiliary.begin(), auxiliary.end(), 0.0));
 }
-Eigen::Affine3d Manipulator::getEndMotion(int search_type, Eigen::Vector3d Translation, Eigen::Vector3d RPY)
+Eigen::Affine3d Manipulator::getEndMotion(int search_type, const Eigen::Vector3d & Translation, const Eigen::Vector3d & RPY)
 {
     Eigen::Affine3d CameraMotion,Trans_B2E;
     CameraMotion.translation()=Translation;
@@ -648,7 +651,7 @@ bool Manipulator::goSearchOnce(int search_type, double velocity_scale,double sea
     if(move_group->asyncMove()!=moveit_msgs::MoveItErrorCodes::SUCCESS)
         return false;
     int counter=0;//try to exclude some unstable situation,the bigger the more stable
-    while(RobotAllRight&&(Tags_detected.empty()||counter<10))
+    while(RobotAllRight&&(Tags_detected.empty()||counter<7))
     {
         //ROS_INFO("Searching tag!!!!!");
         if(!Tags_detected.empty())
@@ -698,8 +701,8 @@ bool Manipulator::goServo( double velocity_scale)
             error=EndDestination.error;
             if(Parameters.servoPoseOn)
             {
-                if(error<0.002)
-                    EndDestination.EE_Motion.linear()=Eigen::Matrix3d::Identity();
+                //if(error<0.002)
+                    //EndDestination.EE_Motion.linear()=Eigen::Matrix3d::Identity();
             }
             else
                 EndDestination.EE_Motion.linear()=Eigen::Matrix3d::Identity();
@@ -725,14 +728,13 @@ bool Manipulator::goServo( double velocity_scale)
     }
     return RobotAllRight;
 }
-bool Manipulator::goCut(Eigen::Affine3d &referTag,double velocity_scale)
+bool Manipulator::goCut(const Eigen::Affine3d &referTag,double velocity_scale)
 {
     Eigen::Affine3d Trans_B2E,Trans_E2EP;
     geometry_msgs::Pose target_pose3 = move_group->getCurrentPose().pose;
     std::vector<geometry_msgs::Pose> waypoints;
     Eigen::Quaterniond q;
     //adjust orientation
-    ROS_INFO("CHECK CHECK I'M HERE");
     double init_theta=asin((target_pose3.position.x-referTag.translation()[0])/(Parameters.radius+0.02));
     q=Parameters.inverse ? Eigen::Matrix3d::Identity()*Eigen::AngleAxisd(-M_PI-init_theta,Eigen::Vector3d::UnitZ())
                          : Eigen::Matrix3d::Identity()*Eigen::AngleAxisd(-init_theta,Eigen::Vector3d::UnitZ());
@@ -744,7 +746,6 @@ bool Manipulator::goCut(Eigen::Affine3d &referTag,double velocity_scale)
     if(move_group->move()!=moveit::planning_interface::MoveItErrorCode::SUCCESS)
         return false;
     //进刀
-    ROS_INFO("CHECK CHECK I'M HERE");
     target_pose3 = move_group->getCurrentPose().pose;
     Eigen::fromMsg(target_pose3,Trans_B2E);
     Trans_E2EP.linear()=Eigen::Matrix3d::Identity();
@@ -787,7 +788,7 @@ bool Manipulator::goCut(Eigen::Affine3d &referTag,double velocity_scale)
     int attempts=0;
     while(fraction<1.0&&attempts<100)
     {
-        fraction = move_group->computeCartesianPath(waypoints, 0.01, 0.0, trajectory);
+        fraction = move_group->computeCartesianPath(waypoints, 0.001, 0.0, trajectory);
         attempts++;
         if(attempts%10==0)
             ROS_INFO("Still trying after %d attempts",attempts);
@@ -818,7 +819,7 @@ bool Manipulator::goCut(Eigen::Affine3d &referTag,double velocity_scale)
     target_pose3 = move_group->getCurrentPose().pose;
     Eigen::fromMsg(target_pose3,Trans_B2E);
     Trans_E2EP.linear()=Eigen::Matrix3d::Identity();
-    Trans_E2EP.translation()=Eigen::Vector3d(-0.1,-boost::math::sign(target_pose3.position.y)*0.2,-0.005);
+    Trans_E2EP.translation()=Eigen::Vector3d(0.1,-boost::math::sign(target_pose3.position.y)*0.1,-0.005);
     Trans_B2E=Trans_B2E*Trans_E2EP;
     move_group->setPoseTarget(Trans_B2E);
     return !(move_group->move() != moveit::planning_interface::MoveItErrorCode::SUCCESS);
@@ -833,7 +834,7 @@ void Manipulator::goZero(double velocity_scale)
     move_group->setJointValueTarget(current_joints);
     move_group->move();
 }
-bool Manipulator::goCamera(Eigen::Vector3d target_array, double velocity_scale)
+bool Manipulator::goCamera(const Eigen::Vector3d & target_array, double velocity_scale)
 {
     move_group->setGoalTolerance(Parameters.goal_tolerance);
     move_group->setMaxVelocityScalingFactor(velocity_scale);
@@ -855,7 +856,7 @@ bool Manipulator::goCamera(Eigen::Vector3d target_array, double velocity_scale)
         return false;
     }
 }
-Eigen::Affine3d Manipulator::getTagPosition(Eigen::Affine3d &Trans_C2T)
+Eigen::Affine3d Manipulator::getTagPosition(const Eigen::Affine3d &Trans_C2T)
 {
     Eigen::Affine3d Trans_B2E;
     Eigen::fromMsg(move_group->getCurrentPose().pose,Trans_B2E);
@@ -899,7 +900,7 @@ bool Manipulator::leaveCharge(double velocity_scale)
 }
 int Manipulator::executeService(int serviceType)
 {
-    ros::param::set("/visual/tagDetectorOn",true);
+
     running_=true;
     int serviceStatus;
     switch (serviceType)
@@ -934,9 +935,9 @@ int Manipulator::executeService(int serviceType)
                                             visual_servo_namespace::SERVICE_STATUS_CUT_FAILED;
                         }
                     }
-                    //addDynamicPlanningConstraint(true);
-                    //goUp(Parameters.basicVelocity);
-                    //goHome(Parameters.basicVelocity);
+                    addDynamicPlanningConstraint(true);
+                    goUp(Parameters.basicVelocity);
+                    goHome(Parameters.basicVelocity);
                 }
             }
             else
@@ -958,9 +959,9 @@ int Manipulator::executeService(int serviceType)
 
                     }
                 }
-                //addDynamicPlanningConstraint(true);
-                //goUp(Parameters.basicVelocity);
-                //goHome(Parameters.basicVelocity);
+                addDynamicPlanningConstraint(true);
+                goUp(Parameters.basicVelocity);
+                goHome(Parameters.basicVelocity);
             }
             break;
         case visual_servo::manipulate::Request::SEARCH:
@@ -981,7 +982,6 @@ int Manipulator::executeService(int serviceType)
                 }
                 else
                 {
-                    //addDynamicPlanningConstraint();
                     addChargerDynamicPlanningConstraint();
                     bool servo_success=goServo(Parameters.basicVelocity);
                     if(!servo_success)

@@ -103,7 +103,7 @@ public:
      * Function segments the knife trace into given parts
      * @param segement_number   [the number of parts wanted]
      */
-    static std::vector<cv::Point>get_traceSegments(std::vector<cv::Point> knife_trace,int segement_number=10);
+    static std::vector<cv::Point>get_traceSegments(const std::vector<cv::Point> & knife_trace,int segement_number=10);
 };
 
 

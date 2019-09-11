@@ -12,7 +12,7 @@ ParameterListener::~ParameterListener()
         threads_[i].join();
     }
 }
-void ParameterListener::registerParameterCallback(const std::vector <std::string> parameterNames, bool isString)
+void ParameterListener::registerParameterCallback(const std::vector <std::string> & parameterNames, bool isString)
 {
     if(isString)
     {
@@ -36,7 +36,7 @@ void ParameterListener::registerParameterCallback(const std::vector <std::string
         threads_.push_back(boost::thread(boost::bind(&ParameterListener::ParameterLoop,this,parameterNames[i],i,isString)));
     }
 }
-void ParameterListener::ParameterLoop(std::string parameterName,int index,bool isString)
+void ParameterListener::ParameterLoop(const std::string & parameterName,int index,bool isString)
 {
     while(ros::ok())
     {
@@ -48,65 +48,17 @@ void ParameterListener::ParameterLoop(std::string parameterName,int index,bool i
         loopRate_->sleep();
     }
 }
-
-bool ParameterListener::getParameterValueViaName(const std::string parameterName,double &value)
+bool ParameterListener::getParameterValueViaName(const std::string & parameterName, std::string & value)
 {
-    double temp_value = value;
-    for(int i=0; i<NUMBER_PARAMETER_NAMES.size(); )
-    {
-        if(NUMBER_PARAMETER_NAMES[i] == parameterName)
-        {
-            value=parameters_[i];
-            return true;
-        }
-    }
-    value=temp_value;
-    return false;
-}
-bool ParameterListener::getParameterValueViaName(const std::string parameterName,std::string &value)
-{
-    std::string temp_value=value;
-    for(int i=0; i<STRING_PARAMETER_NAMES.size(); )
+    for(int i=0;i<STRING_PARAMETER_NAMES.size();++i)
     {
         if(STRING_PARAMETER_NAMES[i] == parameterName)
         {
-            value=stringParameters_[i];
+            value =  stringParameters_[i];
             return true;
         }
     }
-    value=temp_value;
     return false;
-
-}
-bool ParameterListener::getParameterValueViaName(const std::string parameterName,int &value)
-{
-    int temp_value=value;
-    for(int i=0; i<NUMBER_PARAMETER_NAMES.size(); )
-    {
-        if(NUMBER_PARAMETER_NAMES[i] == parameterName)
-        {
-            value=(int)parameters_[i];
-            return true;
-        }
-    }
-    value=temp_value;
-    return false;
-
-}
-bool ParameterListener::getParameterValueViaName(const std::string parameterName,bool &value)
-{
-    bool temp_value=value;
-    for(int i=0; i<NUMBER_PARAMETER_NAMES.size(); )
-    {
-        if(NUMBER_PARAMETER_NAMES[i] == parameterName)
-        {
-            value=(bool)parameters_[i];
-            return true;
-        }
-    }
-    value=temp_value;
-    return false;
-
 }
 double ParameterListener::getNumberParameterValueViaIndex(int index)
 {

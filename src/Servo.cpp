@@ -7,12 +7,13 @@
 Servo::Servo()
 {
     tfListener_ = new tf2_ros::TransformListener(tfBuffer_);
+    EndDestinationDelta = Destination_t{};
 }
 Servo::~Servo()
 {
     delete tfListener_;
 }
-void Servo::getTransform(const std::string target_frame,const std::string source_frame,Eigen::Affine3d &transformMatrix)
+void Servo::getTransform(const std::string & target_frame,const std::string & source_frame,Eigen::Affine3d &transformMatrix)
 {
     geometry_msgs::TransformStamped transformStamped;
     try
@@ -27,7 +28,7 @@ void Servo::getTransform(const std::string target_frame,const std::string source
     }
     transformMatrix=tf2::transformToEigen(transformStamped.transform);
 }
-Eigen::Affine3d Servo::getTransform(const std::string target_frame,const std::string source_frame)
+Eigen::Affine3d Servo::getTransform(const std::string & target_frame,const std::string & source_frame)
 {
     geometry_msgs::TransformStamped transformStamped;
     try
@@ -49,7 +50,7 @@ Eigen::Affine3d Servo::getTransform(const std::string target_frame,const std::st
  * @param ExpectTrans_C2T   [the desired target pose with respect to camera described as a transform matrix]
  * @return the end effector motion described as a homogeneous matrix and its position error
 */
-Destination_t Servo::getCameraEE(Eigen::Affine3d Trans_C2T,Eigen::Affine3d Trans_E2C, Eigen::Affine3d ExpectTrans_C2T,double lambda)
+const Destination_t & Servo::getCameraEE(Eigen::Affine3d Trans_C2T,Eigen::Affine3d Trans_E2C, Eigen::Affine3d ExpectTrans_C2T,double lambda)
 {
     Eigen::Affine3d EndMotion;
     EndMotion=Trans_E2C*Trans_C2T*ExpectTrans_C2T.inverse()*Trans_E2C.inverse();
@@ -72,7 +73,6 @@ Destination_t Servo::getCameraEE(Eigen::Affine3d Trans_C2T,Eigen::Affine3d Trans
     }
     Sophus::SE3 EndMotionDelta(Td,t);
     //increment
-    Destination_t EndDestinationDelta{};
     EndDestinationDelta.EE_Motion.matrix()=EndMotionDelta.matrix();
     EndDestinationDelta.error=sqrt(EndMotion(0,3)*EndMotion(0,3)+EndMotion(1,3)*EndMotion(1,3)+
                                               EndMotion(2,3)*EndMotion(2,3));

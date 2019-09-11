@@ -354,7 +354,7 @@ std::vector<cv::Point> Detector::get_knife_trace(bool debug)
     knife_trace.resize(knife_trace.size()/2);
     return knife_trace;
 }
-std::vector<cv::Point> Detector::get_traceSegments(std::vector<cv::Point> knife_trace,int segement_number)
+std::vector<cv::Point> Detector::get_traceSegments(const std::vector<cv::Point> & knife_trace,int segement_number)
 {
     std::vector<cv::Point> segments;
 

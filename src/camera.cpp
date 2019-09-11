@@ -76,13 +76,13 @@ private:
      * @param UserImage [the image prepared to detect tag]
      * fill a vector contains all tag information detected, empty when no tags detected
      */
-    void GetTargetPoseMatrix(Mat UserImage);
+    void GetTargetPoseMatrix(cv::Mat & UserImage);
 
     /* Function computing the real 3-dimensional position of a pixel point in image with respect to camera
      * @param TargetPoint   [Homogeneous coordinate of pixel point]
      * @return real 3-dimensional coordinate in camera coordinate system
      */
-    geometry_msgs::Point inverse_project(Eigen::Vector3d TargetPoint);
+    geometry_msgs::Point inverse_project(const Eigen::Vector3d & TargetPoint);
     /* Function computing the real 3-dimensional position of knife trace begin point
      * and fill service response
      */
@@ -151,7 +151,7 @@ void RealSense::initParameter()
     info.cx = u0;
     info.cy = v0;
 }
-void RealSense::GetTargetPoseMatrix(Mat UserImage)
+void RealSense::GetTargetPoseMatrix(cv::Mat & UserImage)
 {
     cv::Mat gray;
     tags_detected_.clear();
@@ -278,7 +278,7 @@ void RealSense::TagsInfoPublish()
     }
     tag_pub_.publish(TagsDetection);
 }
-geometry_msgs::Point RealSense::inverse_project(Eigen::Vector3d TargetPoint)
+geometry_msgs::Point RealSense::inverse_project(const Eigen::Vector3d & TargetPoint)
 {
     Eigen::Vector3d coordinate_3d_;
     Eigen::Matrix3d intrinsic_matrix;

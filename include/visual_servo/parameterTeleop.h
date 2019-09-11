@@ -24,14 +24,27 @@ public:
     const std::vector<std::string>& stringParameters() const {return stringParameters_;};
     ParameterListener();
     virtual ~ParameterListener();
-    void ParameterLoop(std::string parameterName,int index,bool isString);
-    void registerParameterCallback(const std::vector<std::string> parameterNames,bool isString);
-    bool getParameterValueViaName(const std::string parameterName,double &value);
-    bool getParameterValueViaName(const std::string parameterName,std::string &value);
-    bool getParameterValueViaName(const std::string parameterName,int &value);
-    bool getParameterValueViaName(const std::string parameterName,bool &value);
+    void ParameterLoop(const std::string & parameterName,int index,bool isString);
+    void registerParameterCallback(const std::vector<std::string> & parameterNames,bool isString);
+    template<typename ANY_TYPE>
+    bool getParameterValueViaName(const std::string & parameterName, ANY_TYPE & value);
+    bool getParameterValueViaName(const std::string & parameterName, std::string & value);
+
     double getNumberParameterValueViaIndex(int index);
     std::string getStringParameterValueViaIndex(int index);
 
 
 };
+template<typename ANY_TYPE>
+bool ParameterListener::getParameterValueViaName(const std::string & parameterName, ANY_TYPE & value)
+{
+    for(int i=0;i<NUMBER_PARAMETER_NAMES.size();++i)
+    {
+        if(NUMBER_PARAMETER_NAMES[i] == parameterName)
+        {
+            value = (ANY_TYPE) parameters_[i];
+            return true;
+        }
+    }
+    return false;
+}
