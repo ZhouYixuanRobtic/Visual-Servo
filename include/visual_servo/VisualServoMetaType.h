@@ -132,6 +132,9 @@ namespace visual_servo_namespace
             case visual_servo_namespace::SERVICE_STATUS_UP_FAILED:
                 std::cout<<"Service call failed because can't get up"<<std::endl;
                 break;
+            case visual_servo_namespace::SERVICE_STATUS_HOME_FAILED:
+                std::cout<<"Service call failed because can't get home"<<std::endl;
+                break;
             case visual_servo_namespace::SERVICE_STATUS_CHARGE_FAILED:
                 std::cout<<"Service call failed because cant't charge"<<std::endl;
                 break;

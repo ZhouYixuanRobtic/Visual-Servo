@@ -5,7 +5,7 @@ user:
  #expect* should be given under the camera color optical frame coordinate system
  expectX: 0.00000 #default 0.0 
  expectY: 0.00000 #default 0.0
- expectZ: 0.30000 #default 0.4
+ expectZ: 0.20000 #default 0.4
  #notice:only if the servoPoseOn is true, these RPY is valid
  expectRoll: 0.00000 #default 0.0
  expectPitch: 0.00000 #default 0.0
@@ -17,21 +17,20 @@ user:
  #search down height
  searchDownHeight: -0.20000 #default -0.20
  #charge down height
- chargeDownHeight: -0.30
+ chargeDownHeight: -0.4
  #prameters temp
  goCameraX: 0.000
- goCameraY: 0.243
- goCameraZ: -0.07
+ goCameraY: 0.33
+ goCameraZ: -0.08
  #trace parameters
- angle: 50 #degree
+ angle: 40 #degree
  distance: -0.1
  pointsNumber: 50
- cameraFrame: "virtual_camera_color_optical_frame"
+ cameraFrame: "camera_color_optical_frame"
  toolFrame: "charger_ee_link"
 robot:
  #parameter constrain the robot velocity 0.0-1.0
- basicVelocity: 0.70000 #default 0.5
+ basicVelocity: 0.90000 #default 0.5
  #parameters constrain the robot execute precision
  goalTolerance: 0.00010 #default 0.001
  servoTolerance: 0.00500 #default 0.001
-  

@@ -69,8 +69,22 @@ int main(int argc, char** argv)
         }
         if(tbk.chargeOn)
         {
+            ros::param::set("/user/inverse",true);
+            sleep(1);
             listener.callSrv(visual_servo::manipulate::Request::CHARGE);
             tbk.chargeOn=false;
+            ros::param::set("/user/inverse",false);
+        }
+        if (tbk.goUpOn)
+        {
+            listener.callSrv(visual_servo::manipulate::Request::UP);
+            //std::cout<<"this is a try "<<std::endl;
+            tbk.goUpOn = false;
+        }
+        if (tbk.goHomeOn)
+        {
+            listener.callSrv(visual_servo::manipulate::Request::HOME);
+            tbk.goHomeOn = false;
         }
         ros::spinOnce();
         loop_rate.sleep();

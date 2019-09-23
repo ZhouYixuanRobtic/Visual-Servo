@@ -101,6 +101,16 @@ void KeyboardTeleop::keyboardLoop()
                   dirty=true;
                   chargeOn=true;
                   std::cout<<"charge on"<<std::endl;
+              case 'u':
+                  dirty = true;
+                  goUpOn = true;
+                  std::cout << "go Up on" << std::endl;
+                  break;
+              case 'h':
+                  dirty = true;
+                  goHomeOn = true;
+                  std::cout << "go Home on" << std::endl;
+                  break;
               default:
                   dirty = false;
                   break;

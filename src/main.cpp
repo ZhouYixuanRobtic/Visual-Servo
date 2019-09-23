@@ -159,7 +159,7 @@ public:
      */
     bool goUp(double velocity_scale ,bool reset=true) const;
     // Function makes robot go to a preset position
-    void goHome(double velocity_scale) const;
+    bool goHome(double velocity_scale) const;
     /* Function makes robot go search once with a defined search angle range
      * @param search_type       [define the search type,UP for looking up,DOWN for looking down,
      *                          FLAT for looking flat,DEFAULT for doing nothing]
@@ -252,10 +252,10 @@ int main(int argc, char** argv)
             if(RobotAllRight)
             {
                 ros::param::set("/visual/tagDetectorOn",true);
-                if(!robot_manipulator.goUp(0.2,false))
-                    ManipulateSrv.srv_status=visual_servo_namespace::SERVICE_STATUS_UP_FAILED;
-                else
-                    ManipulateSrv.srv_status=robot_manipulator.executeService(ManipulateSrv.srv_type);
+//                if(!robot_manipulator.goUp(0.2,false))
+//                    ManipulateSrv.srv_status=visual_servo_namespace::SERVICE_STATUS_UP_FAILED;
+//                else
+                ManipulateSrv.srv_status=robot_manipulator.executeService(ManipulateSrv.srv_type);
             }
             else
                 ManipulateSrv.srv_status=visual_servo_namespace::SERVICE_STATUS_ROBOT_ABORT;
@@ -377,8 +377,8 @@ void Manipulator::initParameter()
     astra->getTransform(EE_NAME,Parameters.toolFrame,Trans_E2CH);
     running_=false;
     RobotAllRight=Parameters.cameraFrame!="camera_color_optical_frame" ?
-                    true :
-                    false;
+                  true :
+                  false;
     parameterListener_->registerParameterCallback(PARAMETER_NAMES,false);
     /*备注：此处的变换和参数文件不一致，充电运动前需确认*/
 }
@@ -507,7 +507,7 @@ void Manipulator::addChargerDynamicPlanningConstraint() const
     primitive.dimensions[2] = 0.001;
     geometry_msgs::Pose object_pose;
     object_pose.position.x=0;
-    object_pose.position.y=boost::math::sign(Trans_B2T.translation()[1])*(abs(Trans_B2T.translation()[1])-0.03);
+    object_pose.position.y=boost::math::sign(Trans_B2T.translation()[1])*(abs(Trans_B2T.translation()[1])+0.03);
     object_pose.position.z=1;
     object_pose.orientation=tf::createQuaternionMsgFromRollPitchYaw(M_PI/2.0,0,0);
     collision_object.primitives.push_back(primitive);
@@ -564,14 +564,14 @@ bool Manipulator::goUp(double velocity_scale,bool reset) const
     }
     return success;
 }
-void Manipulator::goHome(double velocity_scale) const
+bool Manipulator::goHome(double velocity_scale) const
 {
     move_group->setGoalTolerance(Parameters.goal_tolerance);
     move_group->setMaxVelocityScalingFactor(velocity_scale);
     std::vector<double> goal;
     goal={2.18967866898,0.000737879949156,-2.65072178841,-2.3498339653,-0.0311048775911,0.000869322626386};
     move_group->setJointValueTarget(goal);
-    move_group->move();
+    return move_group->move()==moveit::planning_interface::MoveItErrorCode::SUCCESS;
 }
 double Manipulator::allClose(const std::vector<double> & goal) const
 {
@@ -651,7 +651,7 @@ bool Manipulator::goSearchOnce(int search_type, double velocity_scale,double sea
     if(move_group->asyncMove()!=moveit_msgs::MoveItErrorCodes::SUCCESS)
         return false;
     int counter=0;//try to exclude some unstable situation,the bigger the more stable
-    while(RobotAllRight&&(Tags_detected.empty()||counter<7))
+    while(RobotAllRight&&(Tags_detected.empty()||counter<5))
     {
         //ROS_INFO("Searching tag!!!!!");
         if(!Tags_detected.empty())
@@ -701,8 +701,8 @@ bool Manipulator::goServo( double velocity_scale)
             error=EndDestination.error;
             if(Parameters.servoPoseOn)
             {
-                //if(error<0.002)
-                    //EndDestination.EE_Motion.linear()=Eigen::Matrix3d::Identity();
+                if(error<0.002)
+                    EndDestination.EE_Motion.linear()=Eigen::Matrix3d::Identity();
             }
             else
                 EndDestination.EE_Motion.linear()=Eigen::Matrix3d::Identity();
@@ -735,7 +735,7 @@ bool Manipulator::goCut(const Eigen::Affine3d &referTag,double velocity_scale)
     std::vector<geometry_msgs::Pose> waypoints;
     Eigen::Quaterniond q;
     //adjust orientation
-    double init_theta=asin((target_pose3.position.x-referTag.translation()[0])/(Parameters.radius+0.02));
+    double init_theta=asin((target_pose3.position.x-referTag.translation()[0])/(Parameters.radius+0.07));
     q=Parameters.inverse ? Eigen::Matrix3d::Identity()*Eigen::AngleAxisd(-M_PI-init_theta,Eigen::Vector3d::UnitZ())
                          : Eigen::Matrix3d::Identity()*Eigen::AngleAxisd(-init_theta,Eigen::Vector3d::UnitZ());
     target_pose3.orientation.x=q.x();
@@ -745,11 +745,29 @@ bool Manipulator::goCut(const Eigen::Affine3d &referTag,double velocity_scale)
     move_group->setPoseTarget(target_pose3);
     if(move_group->move()!=moveit::planning_interface::MoveItErrorCode::SUCCESS)
         return false;
+    //转到上方指定距离弧度一点
+    target_pose3 = move_group->getCurrentPose().pose;
+    double init_th = asin((target_pose3.position.x - referTag.translation()[0]) /(Parameters.radius+0.07));
+    double init_x = target_pose3.position.y + (Parameters.radius + 0.07)*cos(init_th)*boost::math::sign(target_pose3.position.y);
+
+    target_pose3.position.x = referTag.translation()[0] + (Parameters.radius + 0.07)*sin(init_th + Parameters.traceAngle);
+    target_pose3.position.y = init_x + (Parameters.radius + 0.07)*cos(init_th + Parameters.traceAngle);
+    target_pose3.position.z += -1*Parameters.traceDistance;
+    q = Parameters.inverse ? Eigen::Matrix3d::Identity()*Eigen::AngleAxisd(-M_PI - (init_th + Parameters.traceAngle), Eigen::Vector3d::UnitZ())
+                           : Eigen::Matrix3d::Identity()*Eigen::AngleAxisd(-(init_th + Parameters.traceAngle), Eigen::Vector3d::UnitZ());
+    target_pose3.orientation.x = q.x();
+    target_pose3.orientation.y = q.y();
+    target_pose3.orientation.z = q.z();
+    target_pose3.orientation.w = q.w();
+    move_group->setPoseTarget(target_pose3);
+    std::cout<<"theta"<<init_th<<"theta+"<<init_th+Parameters.traceAngle<<std::endl;	std::cout<<"x"<<target_pose3.position.x<<"y"<<target_pose3.position.y<<"z"<<target_pose3.position.z<<std::endl;
+    if (move_group->move() != moveit::planning_interface::MoveItErrorCode::SUCCESS)
+        return false;
     //进刀
     target_pose3 = move_group->getCurrentPose().pose;
     Eigen::fromMsg(target_pose3,Trans_B2E);
     Trans_E2EP.linear()=Eigen::Matrix3d::Identity();
-    Trans_E2EP.translation()=Eigen::Vector3d(0.0,boost::math::sign(target_pose3.position.y)*0.02,0.0);
+    Trans_E2EP.translation()=Eigen::Vector3d(0.0,boost::math::sign(target_pose3.position.y)*0.07,0.0);
     Trans_B2E=Trans_B2E*Trans_E2EP;
     move_group->setPoseTarget(Trans_B2E);
     if(move_group->move()!=moveit::planning_interface::MoveItErrorCode::SUCCESS)
@@ -765,13 +783,13 @@ bool Manipulator::goCut(const Eigen::Affine3d &referTag,double velocity_scale)
         return false;
     //切割轨迹
     target_pose3 = move_group->getCurrentPose().pose;
-    double init_th=asin((target_pose3.position.x-referTag.translation()[0])/Parameters.radius);
-    double init_x=target_pose3.position.y+Parameters.radius*cos(init_th)*boost::math::sign(target_pose3.position.y);
-    for(double th=Parameters.traceAngle/(double)Parameters.traceNumber;th<=Parameters.traceAngle;th+=Parameters.traceAngle/(double)Parameters.traceNumber)
+    init_th=asin((target_pose3.position.x-referTag.translation()[0])/Parameters.radius);
+    init_x=target_pose3.position.y+Parameters.radius*cos(init_th)*boost::math::sign(target_pose3.position.y);
+    for(double th=(2*Parameters.traceAngle)/(double)Parameters.traceNumber;th<=2*Parameters.traceAngle;th+=2*Parameters.traceAngle/(double)Parameters.traceNumber)
     {
         target_pose3.position.x = referTag.translation()[0]+Parameters.radius*sin(init_th-th);
         target_pose3.position.y = init_x+Parameters.radius*cos(init_th-th) ;
-        target_pose3.position.z +=Parameters.traceDistance/(double)Parameters.traceNumber;
+        target_pose3.position.z +=	2*Parameters.traceDistance/(double)Parameters.traceNumber;
         q=Parameters.inverse ? Eigen::Matrix3d::Identity()*Eigen::AngleAxisd(-M_PI-(init_th-th),Eigen::Vector3d::UnitZ())
                              : Eigen::Matrix3d::Identity()*Eigen::AngleAxisd(-(init_th-th),Eigen::Vector3d::UnitZ());
         target_pose3.orientation.x=q.x();
@@ -868,7 +886,7 @@ bool Manipulator::goCharge(double velocity_scale)
     move_group->setMaxVelocityScalingFactor(velocity_scale);
     Eigen::fromMsg(move_group->getCurrentPose().pose,Trans_W2E);
     Eigen::Affine3d Trans_B2T=Trans_W2E*Trans_E2C*Tags_detected[0].Trans_C2T;
-    Trans_B2T.translation() += Eigen::Vector3d(0.0,0.05,-0.250);
+    Trans_B2T.translation() += Eigen::Vector3d(boost::math::sign(Trans_B2T.translation()[1])*0.087,-0.015,-0.150);
     Eigen::Matrix3d rotation_matrix;
     Eigen::Affine3d tempMatrix;
     rotation_matrix=Eigen::AngleAxisd(M_PI/2.0, Eigen::Vector3d::UnitX())*
@@ -881,7 +899,7 @@ bool Manipulator::goCharge(double velocity_scale)
         return false;
     Eigen::fromMsg(move_group->getCurrentPose().pose,Trans_W2E);
     Trans_W2EP.linear()=Eigen::Matrix3d::Identity();
-    Trans_W2EP.translation()=Eigen::Vector3d(0.020,0.00,0.00);
+    Trans_W2EP.translation()=Eigen::Vector3d(0.035,0.00,0.00);
     Trans_W2E=Trans_W2E*Trans_W2EP;
     move_group->setPoseTarget(Trans_W2E);
     return (move_group->move() == moveit::planning_interface::MoveItErrorCode::SUCCESS);
@@ -906,6 +924,7 @@ int Manipulator::executeService(int serviceType)
     switch (serviceType)
     {
         case visual_servo::manipulate::Request::CUT:
+            goUp(0.8,false);
             if(Tags_detected.empty())
             {
                 if(!goSearch(0.2))
@@ -965,15 +984,18 @@ int Manipulator::executeService(int serviceType)
             }
             break;
         case visual_servo::manipulate::Request::SEARCH:
+            goUp(0.8,false);
             serviceStatus  = goSearch(Parameters.basicVelocity) ?
                              visual_servo_namespace::SERVICE_STATUS_SUCCEED :
                              visual_servo_namespace::SERVICE_STATUS_NO_TAG;
             break;
         case visual_servo::manipulate::Request::CHARGE:
             charging=true;
+            Parameters.inverse=true;
+            goUp(0.8,false);
             if(Tags_detected.empty())
             {
-                if(!goSearch(0.2))
+                if(!goSearch(0.5))
                 {
                     ROS_INFO("!!!!!!NO TAG SEARCHED!!!!!");
                     serviceStatus=visual_servo_namespace::SERVICE_STATUS_NO_TAG;
@@ -992,10 +1014,10 @@ int Manipulator::executeService(int serviceType)
                             serviceStatus=visual_servo_namespace::SERVICE_STATUS_CHARGE_FAILED;
                         else
                         {
-                            sleep(10);
+                            sleep(20);
                             serviceStatus=   leaveCharge(Parameters.basicVelocity) ?
-                                            visual_servo_namespace::SERVICE_STATUS_SUCCEED :
-                                            visual_servo_namespace::SERVICE_STATUS_LEAVE_CHARGE_FAILED;
+                                             visual_servo_namespace::SERVICE_STATUS_SUCCEED :
+                                             visual_servo_namespace::SERVICE_STATUS_LEAVE_CHARGE_FAILED;
                         }
                     }
                     goHome(Parameters.basicVelocity);
@@ -1014,7 +1036,7 @@ int Manipulator::executeService(int serviceType)
                     else
                     {
                         ros::param::set("/visual_servo/isChargingStatusChanged",(double)true);
-                        sleep(10);
+                        sleep(20);
                         ros::param::set("/visual_servo/isChargingStatusChanged",(double)true);
                         serviceStatus=   leaveCharge(Parameters.basicVelocity) ?
                                          visual_servo_namespace::SERVICE_STATUS_SUCCEED :
@@ -1024,6 +1046,17 @@ int Manipulator::executeService(int serviceType)
                 goHome(Parameters.basicVelocity);
             }
             charging=false;
+            Parameters.inverse=false;
+            break;
+        case visual_servo::manipulate::Request::UP:
+            serviceStatus = goUp(Parameters.basicVelocity, false) ?
+                            visual_servo_namespace::SERVICE_STATUS_SUCCEED :
+                            visual_servo_namespace::SERVICE_STATUS_UP_FAILED;
+            break;
+        case visual_servo::manipulate::Request::HOME:
+            serviceStatus = goHome(Parameters.basicVelocity) ?
+                            visual_servo_namespace::SERVICE_STATUS_SUCCEED :
+                            visual_servo_namespace::SERVICE_STATUS_HOME_FAILED;
             break;
         default:
             serviceStatus=visual_servo_namespace::SERVICE_STATUS_EMPTY;

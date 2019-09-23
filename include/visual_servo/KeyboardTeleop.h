@@ -11,24 +11,26 @@
 #include <boost/thread/thread.hpp>
 
 class KeyboardTeleop
-{  
-    private:  
-        int kfd;
+{
+private:
+    int kfd;
 
-        struct termios cooked, raw;  
+    struct termios cooked, raw;
 
-        bool done;
-        boost::thread thread_;
-          
-    public:
-        bool moveChange;
-        bool navOn=false;
-        bool pause=false;
-        bool maOn=false;
-        bool chargeOn=false;
-        KeyboardTeleop();
-        virtual ~KeyboardTeleop();      
-        void keyboardLoop();
+    bool done;
+    boost::thread thread_;
+
+public:
+    bool moveChange;
+    bool navOn=false;
+    bool pause=false;
+    bool maOn=false;
+    bool chargeOn=false;
+    bool goUpOn = false;
+    bool goHomeOn = false;
+    KeyboardTeleop();
+    virtual ~KeyboardTeleop();
+    void keyboardLoop();
 };
 
 

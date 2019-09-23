@@ -1,5 +1,5 @@
 visual:
-  tagSize: 0.08 #default 0.10
+  tagSize: 0.07814 #default 0.10
   #camera tag graph interface trigger
   tagGraphOn: true #default false
   #camera trace result trigger
