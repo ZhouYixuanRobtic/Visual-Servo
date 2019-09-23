@@ -24,4 +24,9 @@
   - **Actual Change**:
     1. 修复了切割命令
     2. 给出了一个模板函数以取代反复重载的函数
-    3. 使用应用取代了拷贝，以提升性能
+    3. 使用引用取代了拷贝，以提升性能 
+ - **Header**: ac770e0
+   - **comments** : add two services and accomplish whole curve
+   - **Actual Change**:
+     1. 给出了便于调试的两个服务，分别使机械臂竖直和放下
+     2. 使切割曲线变得完整
