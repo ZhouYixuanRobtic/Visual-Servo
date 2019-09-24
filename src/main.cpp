@@ -324,6 +324,7 @@ Manipulator::~Manipulator()
     delete move_group;
     delete planning_scene_interface;
     delete astra;
+    delete parameterListener_;
 }
 void Manipulator::setParametersFromCallback()
 {
