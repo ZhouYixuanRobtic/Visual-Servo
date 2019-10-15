@@ -67,7 +67,7 @@ sudo apt-get install ros-kinetic-ros-control ros-kinetic-ros-controllers
  mkvirtualenv cv -p python2
  workon cv
  pip install numpy
- cd ~/opecv-3.4.5/
+ cd ~/opencv-3.4.5/
  mkdir build
  cd build 
  cmake -D CMAKE_BUILD_TYPE=RELEASE \

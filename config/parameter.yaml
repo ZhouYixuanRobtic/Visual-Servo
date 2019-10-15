@@ -26,7 +26,7 @@ user:
  angle: 40 #degree
  distance: -0.1
  pointsNumber: 50
- cameraFrame: "camera_color_optical_frame"
+ cameraFrame: "virtual_camera_color_optical_frame"
  toolFrame: "charger_ee_link"
 robot:
  #parameter constrain the robot velocity 0.0-1.0

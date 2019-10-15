@@ -7,24 +7,26 @@
 #include <stdlib.h>
 #include <ros/ros.h>
 #include <boost/thread/thread.hpp>
-
-
+#include "tr1/memory"
+using std::tr1::shared_ptr;
 class ParameterListener
 {
 private:
-    ros::NodeHandle nh_;
-    ros::Rate * loopRate_;
-    std::vector<boost::thread> threads_;
+    int NUM_PER_THREAD_;
+    int RATE_;
+    std::vector<shared_ptr<boost::thread>> thread_ptrs_;
     std::vector<std::string> NUMBER_PARAMETER_NAMES;
     std::vector<std::string> STRING_PARAMETER_NAMES;
-    std::vector<double> parameters_;
-    std::vector<std::string> stringParameters_;
+    std::vector<double> parameters_{};
+    std::vector<std::string> stringParameters_{};
+    int registered_threads_num_{};
+    int min_threads_num_{};
 public:
     const std::vector<double>& parameters() const {return parameters_;}
     const std::vector<std::string>& stringParameters() const {return stringParameters_;};
-    ParameterListener();
+    ParameterListener(int rate, int num_per_thread);
     virtual ~ParameterListener();
-    void ParameterLoop(const std::string & parameterName,int index,bool isString);
+    void ParameterLoop(int thread_index,bool isString);
     void registerParameterCallback(const std::vector<std::string> & parameterNames,bool isString);
     template<typename ANY_TYPE>
     bool getParameterValueViaName(const std::string & parameterName, ANY_TYPE & value);
@@ -32,7 +34,6 @@ public:
 
     double getNumberParameterValueViaIndex(int index);
     std::string getStringParameterValueViaIndex(int index);
-
 
 };
 template<typename ANY_TYPE>

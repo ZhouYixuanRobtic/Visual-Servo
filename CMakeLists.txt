@@ -64,6 +64,7 @@ add_service_files(
 
 
 catkin_package(
+        INCLUDE_DIRS src LIBRARIES KeyboardTeleop
   CATKIN_DEPENDS 
                  cv_bridge
                  std_msgs

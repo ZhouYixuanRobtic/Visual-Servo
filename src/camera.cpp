@@ -38,6 +38,9 @@ private:
 
     //camera intrinsic parameter
     const double fx=615.3072,fy=616.1456,u0=333.4404,v0=236.2650;
+
+    // watchdog period
+    const double WATCHDOG_PERIOD_ = 1.0;
     //tag family name
     const char TagFamilyName[20]="tag36h11";
     //april tag handle
@@ -91,7 +94,9 @@ private:
                     
     void initParameter();
 
+    ros::Timer watchdog_timer_;
 
+    void watchdog(const ros::TimerEvent &e);
 
 
 public:
@@ -104,6 +109,7 @@ public:
     void ImageCallback(const sensor_msgs::ImageConstPtr& msg);
     void DepthCallback(const sensor_msgs::ImageConstPtr& msg);
     void TagsInfoPublish();
+    void run();
 
 };
 RealSense::RealSense()
@@ -116,12 +122,15 @@ RealSense::RealSense()
             boost::bind(&RealSense::detect_once, this, _1, _2);
     it_ = new image_transport::ImageTransport(n_);
     detector_ = new Detector(traceResultOn_,traceDebugOn_,colorOn_);
-    image_sub_ = it_->subscribe("/camera/color/image_raw", 100,&RealSense::ImageCallback,this);
-    depth_sub_ = it_->subscribe("/camera/aligned_depth_to_color/image_raw", 100,&RealSense::DepthCallback,this);
+
     tag_pub_ = n_.advertise<visual_servo::TagsDetection_msg>("TagsDetected",100);
     service_ =n_.advertiseService("detect_once",detect_once_callback);
 
+    image_sub_ = it_->subscribe("/camera/color/image_raw", 100,&RealSense::ImageCallback,this);
+    depth_sub_ = it_->subscribe("/camera/aligned_depth_to_color/image_raw", 100,&RealSense::DepthCallback,this);
+
     initParameter();
+    watchdog_timer_ = n_.createTimer(ros::Duration(WATCHDOG_PERIOD_), &RealSense::watchdog, this, true);
 }
 RealSense::~RealSense()
 {
@@ -216,6 +225,8 @@ void RealSense::GetTargetPoseMatrix(cv::Mat & UserImage)
 }
 void RealSense::ImageCallback(const sensor_msgs::ImageConstPtr &msg)
 {
+    watchdog_timer_.stop();
+    watchdog_timer_.start();
     this->image_received=true;
     try
     {
@@ -326,27 +337,23 @@ bool RealSense::detect_once(visual_servo::detect_once::Request  &req,
     }
     return true;
 }
-
+void RealSense::watchdog(const ros::TimerEvent &e)
+{
+    ROS_WARN("Image not received for %f seconds, is the camera node drop?", WATCHDOG_PERIOD_);
+    this->image_received=false;
+    this->depth_received=false;
+}
 int main(int argc, char* argv[])
 {
     ros::init(argc,argv,"real_sense");
-   RealSense real_sense;
-   ros::Rate loop_rate(30);
-   int counter=0;
-
-   while(ros::ok())
-   {
-       counter++;
-       counter %=31;
-       if(counter>=30&&!real_sense.image_received)
-       {
-           ROS_ERROR("No image received!!!!");
-           //break;
-       }
+    RealSense real_sense;
+    ros::Rate loop_rate(30);
+    while(ros::ok())
+    {
        real_sense.TagsInfoPublish();
        ros::spinOnce();
        loop_rate.sleep();
-   }
-    ros::shutdown();
+    }
+   return 0;
 }
 

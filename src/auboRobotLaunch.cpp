@@ -25,7 +25,7 @@ int main(int argc, char** argv)
     ros::Rate loop_rate(30);
 
     bool isMoveStop=false;
-    ParameterListener parameterListener;
+    ParameterListener parameterListener(30,8);
     const std::vector<std::string> parameterNames={"/visual_servo/isChargingStatusChanged"};
     parameterListener.registerParameterCallback(parameterNames,false);
 

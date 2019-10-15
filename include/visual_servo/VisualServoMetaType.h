@@ -68,6 +68,10 @@ struct Destination_t{
     double error;
 };
 
+struct manipulateSrv{
+    int srv_type;
+    int srv_status;
+};
 
 typedef std::vector<TagDetectInfo> tag_detection_info_t;
 /*
