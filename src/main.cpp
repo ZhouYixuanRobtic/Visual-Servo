@@ -86,7 +86,7 @@ private:
      * The transform matrix of A with respect to B named as Trans_B2A.
      * W-world,E-end effector,C-camera,EP-desired end effector,B-base_link,T-target
      */
-    Eigen::Affine3d Trans_W2E,Trans_W2EP,Trans_E2C,Trans_E2CH,Trans_B2T_;
+    Eigen::Affine3d Trans_W2E{},Trans_W2EP{},Trans_E2C{},Trans_E2CH{},Trans_B2T_{};
 
     //The desired camera pose matrix with respect to tag
     Eigen::Affine3d ExpectMatrix;
@@ -602,9 +602,7 @@ bool Manipulator::goHome(double velocity_scale) const
 {
     move_group->setGoalTolerance(Parameters.goal_tolerance);
     move_group->setMaxVelocityScalingFactor(velocity_scale);
-    std::vector<double> goal;
-    goal={2.18967866898,0.000737879949156,-2.65072178841,-2.3498339653,-0.0311048775911,0.000869322626386};
-    move_group->setJointValueTarget(goal);
+    move_group->setNamedTarget("home");
     return move_group->move()==moveit::planning_interface::MoveItErrorCode::SUCCESS;
 }
 double Manipulator::allClose(const std::vector<double> & goal) const
@@ -782,7 +780,7 @@ bool Manipulator::goCut(const Eigen::Affine3d &referTag,double velocity_scale)
     std::vector<geometry_msgs::Pose> waypoints;
     Eigen::Quaterniond q;
     //adjust orientation
-    double init_theta=asin((target_pose3.position.x-referTag.translation()[0])/(Parameters.radius+0.07));
+    double init_theta=asin((target_pose3.position.x-referTag.translation()[0])/(Parameters.radius+0.10));
     q=Parameters.inverse ? Eigen::Matrix3d::Identity()*Eigen::AngleAxisd(-M_PI-init_theta,Eigen::Vector3d::UnitZ())
                          : Eigen::Matrix3d::Identity()*Eigen::AngleAxisd(-init_theta,Eigen::Vector3d::UnitZ());
     target_pose3.orientation.x=q.x();
@@ -794,11 +792,11 @@ bool Manipulator::goCut(const Eigen::Affine3d &referTag,double velocity_scale)
         return false;
     //转到上方指定距离弧度一点
     target_pose3 = move_group->getCurrentPose().pose;
-    double init_th = asin((target_pose3.position.x - referTag.translation()[0]) /(Parameters.radius+0.07));
-    double init_x = target_pose3.position.y + (Parameters.radius + 0.07)*cos(init_th)*boost::math::sign(target_pose3.position.y);
+    double init_th = asin((target_pose3.position.x - referTag.translation()[0]) /(Parameters.radius+0.10));
+    double init_x = target_pose3.position.y + (Parameters.radius + 0.10)*cos(init_th)*boost::math::sign(target_pose3.position.y);
 
-    target_pose3.position.x = referTag.translation()[0] + (Parameters.radius + 0.07)*sin(init_th + Parameters.traceAngle);
-    target_pose3.position.y = init_x + (Parameters.radius + 0.07)*cos(init_th + Parameters.traceAngle);
+    target_pose3.position.x = referTag.translation()[0] + (Parameters.radius + 0.10)*sin(init_th + Parameters.traceAngle);
+    target_pose3.position.y = init_x + (Parameters.radius + 0.10)*cos(init_th + Parameters.traceAngle);
     target_pose3.position.z += -1*Parameters.traceDistance;
     q = Parameters.inverse ? Eigen::Matrix3d::Identity()*Eigen::AngleAxisd(-M_PI - (init_th + Parameters.traceAngle), Eigen::Vector3d::UnitZ())
                            : Eigen::Matrix3d::Identity()*Eigen::AngleAxisd(-(init_th + Parameters.traceAngle), Eigen::Vector3d::UnitZ());
@@ -811,13 +809,14 @@ bool Manipulator::goCut(const Eigen::Affine3d &referTag,double velocity_scale)
         return false;
     //进刀
 
-    if(!linearMoveTo(Eigen::Vector3d(0.0,boost::math::sign(target_pose3.position.y)*0.07,0.0),velocity_scale))
+    if(!linearMoveTo(Eigen::Vector3d(0.0,boost::math::sign(target_pose3.position.y)*0.0,0.0),velocity_scale))
         return false;
 
     if(!linearMoveTo(Eigen::Vector3d(0.0,0.0,-0.002),velocity_scale))
         return false;
     //切割轨迹
     target_pose3 = move_group->getCurrentPose().pose;
+    Parameters.radius += 0.10;
     init_th=asin((target_pose3.position.x-referTag.translation()[0])/Parameters.radius);
     init_x=target_pose3.position.y+Parameters.radius*cos(init_th)*boost::math::sign(target_pose3.position.y);
     for(double th=(2*Parameters.traceAngle)/(double)Parameters.traceNumber;th<=2*Parameters.traceAngle;th+=2*Parameters.traceAngle/(double)Parameters.traceNumber)
@@ -861,11 +860,12 @@ bool Manipulator::goCut(const Eigen::Affine3d &referTag,double velocity_scale)
         if(move_group->execute(my_plan)!=moveit::planning_interface::MoveItErrorCode::SUCCESS)
             return false;
     }
+    Parameters.radius -=0.10;
     //退刀
     if(!linearMoveTo(Eigen::Vector3d(0.0,0.0,0.002),velocity_scale))
         return false;
 
-    return linearMoveTo(Eigen::Vector3d(0.1,-boost::math::sign(target_pose3.position.y)*0.1,-0.005),velocity_scale);
+    return linearMoveTo(Eigen::Vector3d(0.1,-boost::math::sign(target_pose3.position.y)*0.1,0.05),velocity_scale);
 }
 void Manipulator::goZero(double velocity_scale)
 {

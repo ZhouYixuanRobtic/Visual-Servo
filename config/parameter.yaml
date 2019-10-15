@@ -20,10 +20,10 @@ user:
  chargeDownHeight: -0.4
  #prameters temp
  goCameraX: 0.000
- goCameraY: 0.33
- goCameraZ: -0.08
+ goCameraY: 0.20
+ goCameraZ: -0.10
  #trace parameters
- angle: 40 #degree
+ angle: 25 #degree
  distance: -0.1
  pointsNumber: 50
  cameraFrame: "virtual_camera_color_optical_frame"
