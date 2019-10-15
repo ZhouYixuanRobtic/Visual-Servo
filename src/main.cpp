@@ -536,39 +536,6 @@ void Manipulator::scale_trajectory_speed(moveit::planning_interface::MoveGroupIn
 bool Manipulator::linearMoveTo(const Eigen::Vector3d &destination_translation, double velocity_scale) const
 {
     static double linear_step = 0.01;
-    /*std::vector<geometry_msgs::Pose> way_points{};
-    geometry_msgs::Pose linear_pose = move_group->getCurrentPose().pose;
-    Eigen::Affine3d linear_start;
-    Eigen::fromMsg(linear_pose,linear_start);
-    int i=1;
-    while(i<=1/linear_step)
-    {
-        linear_start.translation()+=linear_step*destination_translation;
-        linear_pose=Eigen::toMsg(linear_start);
-        way_points.push_back(linear_pose);
-        i++;
-    }
-    move_group->allowReplanning(true);
-    move_group->setStartStateToCurrentState();
-
-    moveit_msgs::RobotTrajectory linear_trajectory;
-    moveit::planning_interface::MoveGroupInterface::Plan linear_plan;
-    double fraction=0.0;
-    int attempts=0;
-    while(fraction<1.0&&attempts<100)
-    {
-        fraction = move_group->computeCartesianPath(way_points, 0.001, 0.0, linear_trajectory);
-        attempts++;
-        usleep(50000);
-    }
-    ROS_INFO_NAMED("visual servo", "Visualizing plan 4 (Cartesian path) (%.2f%% acheived) in linear move", fraction * 100.0);
-
-    if(fraction<1.0)
-        return false;
-
-    linear_plan.trajectory_=linear_trajectory;
-    scale_trajectory_speed(linear_plan,velocity_scale);
-    return move_group->execute(linear_plan) == moveit::planning_interface::MoveItErrorCode::SUCCESS;*/
     move_group->setMaxVelocityScalingFactor(velocity_scale);
     Eigen::Affine3d linear_start;
     geometry_msgs::Pose linear_pose = move_group->getCurrentPose().pose;
