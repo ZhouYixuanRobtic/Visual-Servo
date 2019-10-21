@@ -38,7 +38,10 @@ public:
     bool robotDisableTeachMode();
     bool robotFastMoveStop();
     bool robotFastMoveRelease();
-
+    bool toolStart();
+    bool toolStop();
+    bool toolReset();
+    bool toolAllclear();
     int robotDiagno();
 
 

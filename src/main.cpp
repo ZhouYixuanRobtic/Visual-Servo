@@ -417,7 +417,8 @@ void Manipulator::addStaticPlanningConstraint() const
     primitive.dimensions.resize(2);
     primitive.dimensions[0] = 0.073;
     primitive.dimensions[1] = 0.05;
-    object_pose.position.x=-0.34;
+    object_pose.position.x=0.32;
+    object_pose.position.z = 0.0765;
     collision_object_LIDAR.primitives.push_back(primitive);
     collision_object_LIDAR.primitive_poses.push_back(object_pose);
     collision_object_LIDAR.operation = collision_object.ADD;
@@ -785,16 +786,21 @@ bool Manipulator::goServo( double velocity_scale)
 bool Manipulator::goCut(const Eigen::Affine3d &referTag,double velocity_scale)
 {
     //转90度 joint space
+    ros::param::set("/visual_servo/isToolStarted",1.0);
     move_group->setPoseTarget(getEndMotion(RIGHT,Eigen::Vector3d(0.0,0.0,0.0),Eigen::Vector3d(0.0,0.0,-M_PI/2.0)));
     if (move_group->move()!=moveit_msgs::MoveItErrorCodes::SUCCESS)
         return false;
-    if(!linearMoveTo(Eigen::Vector3d(0.5,0.0,0.0),0.2))
+    ros::param::set("/visual_servo/toolAllClear",1.0);
+    if(!linearMoveTo(Eigen::Vector3d(0.4,0.0,0.0),0.2))
         return false;
-    return linearMoveTo(Eigen::Vector3d(0.0,0.0,-0.05),0.5);
-//    if(!linearMoveTo(Eigen::Vector3d(0.1205,0.0,0.0),velocity_scale))
-//        return false;
-//    return linearMoveTo(Eigen::Vector3d(0.0,0.0,-0.20),velocity_scale);
-
+     ros::param::set("/visual_servo/isToolStopped",1.0);
+    if(!linearMoveTo(Eigen::Vector3d(0.0,0.0,-0.05),0.2))
+        return false;
+    ros::param::set("/visual_servo/toolAllClear",1.0);
+    if (!linearMoveTo(Eigen::Vector3d(-0.2,0.0,0.0),0.2))
+        return false;
+    ros::param::set("/visual_servo/isToolReset",1.0);
+    return true;
 }
 void Manipulator::goZero(double velocity_scale)
 {
@@ -899,12 +905,14 @@ int Manipulator::executeService(int serviceType)
                             serviceStatus=  goCut(tagTransform,Parameters.basicVelocity) ?
                                             visual_servo_namespace::SERVICE_STATUS_SUCCEED :
                                             visual_servo_namespace::SERVICE_STATUS_CUT_FAILED;
+                            sleep(1);
+                            ros::param::set("/visual_servo/toolAllClear",1.0);
                         }
 
                     }
                     addDynamicPlanningConstraint(true);
-                    //goUp(Parameters.basicVelocity);
-                    //goHome(Parameters.basicVelocity);
+                    goUp(Parameters.basicVelocity);
+                    goHome(Parameters.basicVelocity);
                 }
             }
             else
@@ -925,11 +933,13 @@ int Manipulator::executeService(int serviceType)
                         serviceStatus=  goCut(tagTransform,Parameters.basicVelocity) ?
                                         visual_servo_namespace::SERVICE_STATUS_SUCCEED :
                                         visual_servo_namespace::SERVICE_STATUS_CUT_FAILED;
+                        sleep(1);
+                        ros::param::set("/visual_servo/toolAllClear",1.0);
                     }
                 }
-                    addDynamicPlanningConstraint(true);
-                //goUp(Parameters.basicVelocity);
-                //goHome(Parameters.basicVelocity);
+                addDynamicPlanningConstraint(true);
+                goUp(Parameters.basicVelocity);
+                goHome(Parameters.basicVelocity);
             }
             break;
         case visual_servo::manipulate::Request::SEARCH:
@@ -1006,6 +1016,13 @@ int Manipulator::executeService(int serviceType)
             serviceStatus = goHome(Parameters.basicVelocity) ?
                             visual_servo_namespace::SERVICE_STATUS_SUCCEED :
                             visual_servo_namespace::SERVICE_STATUS_HOME_FAILED;
+            break;
+        case visual_servo::manipulate::Request::LINEAR:
+            ros::param::set("/visual_servo/isToolStopped",1.0);
+            serviceStatus = linearMoveTo(Eigen::Vector3d(0.0,0.0,-0.05),0.1) ?
+                            visual_servo_namespace::SERVICE_STATUS_SUCCEED:
+                            visual_servo_namespace::SERVICE_STATUS_LINEAR_FAILED;
+            ros::param::set("/visual_servo/toolAllClear",1.0);
             break;
         default:
             serviceStatus=visual_servo_namespace::SERVICE_STATUS_EMPTY;

@@ -25,8 +25,8 @@ int main(int argc, char** argv)
     ros::Rate loop_rate(30);
 
     bool isMoveStop=false;
-    ParameterListener parameterListener(30,8);
-    const std::vector<std::string> parameterNames={"/visual_servo/isChargingStatusChanged"};
+    ParameterListener parameterListener(40,8);
+    const std::vector<std::string> parameterNames={"/visual_servo/isChargingStatusChanged","/visual_servo/isToolStarted","/visual_servo/isToolStopped","/visual_servo/isToolReset","/visual_servo/toolAllClear"};
     parameterListener.registerParameterCallback(parameterNames,false);
 
     KeyboardTeleop tbk;
@@ -46,6 +46,26 @@ int main(int argc, char** argv)
         {
             auboSdk.OverturnIOStatus();
             ros::param::set(parameterNames[0],(double)false);
+        }
+        if((bool) parameterListener.parameters()[1])
+        {
+            auboSdk.toolStart();
+            ros::param::set(parameterNames[1], (double)false);
+        }
+        if((bool) parameterListener.parameters()[2])
+        {
+            auboSdk.toolStop();
+            ros::param::set(parameterNames[2], (double)false);
+        }
+        if((bool) parameterListener.parameters()[3])
+        {
+            auboSdk.toolReset();
+            ros::param::set(parameterNames[3], (double)false);
+        }
+        if((bool) parameterListener.parameters()[4])
+        {
+            auboSdk.toolAllclear();
+            ros::param::set(parameterNames[4],(double)false);
         }
         if(tbk.moveChange)
         {

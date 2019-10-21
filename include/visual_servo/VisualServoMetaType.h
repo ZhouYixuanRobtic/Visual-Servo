@@ -109,6 +109,7 @@ namespace visual_servo_namespace
         SERVICE_STATUS_CUT_FAILED,
         SERVICE_STATUS_CHARGE_FAILED,    //CHARGE FILED
         SERVICE_STATUS_LEAVE_CHARGE_FAILED,
+        SERVICE_STATUS_LINEAR_FAILED,
     }ServiceStatus;
 
     static void printServiceStatus(const int & ServiceStatus)
@@ -145,6 +146,8 @@ namespace visual_servo_namespace
             case visual_servo_namespace::SERVICE_STATUS_LEAVE_CHARGE_FAILED:
                 std::cout<<"Service call failed because cant't leave charge"<<std::endl;
                 break;
+            case visual_servo_namespace::SERVICE_STATUS_LINEAR_FAILED:
+                std::cout<<"Service call failed because can't go linear"<<std::endl;
             default:
                 std::cout<<"Service call succeed but no response"<<std::endl;
                 break;

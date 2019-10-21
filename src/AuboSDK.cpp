@@ -104,7 +104,7 @@ bool AuboSDK::robotEventRegister()
 bool AuboSDK::OverturnIOStatus()
 {
     double value;
-    robotService->robotServiceGetBoardIOStatus(aubo_robot_namespace::RobotBoardUserDO,"U_DO_00",value);
+    ret=robotService->robotServiceGetBoardIOStatus(aubo_robot_namespace::RobotBoardUserDO,"U_DO_00",value);
     if(ret == aubo_robot_namespace::InterfaceCallSuccCode)
     {
             ret = value==1.0 ? robotService->robotServiceSetBoardIOStatus(aubo_robot_namespace::RobotBoardUserDO, "U_DO_00", 0.0)
@@ -114,6 +114,27 @@ bool AuboSDK::OverturnIOStatus()
         return false;
     return ret == aubo_robot_namespace::InterfaceCallSuccCode;
 
+}
+bool AuboSDK::toolStart()
+{
+    ret=robotService->robotServiceSetBoardIOStatus(aubo_robot_namespace::RobotBoardUserDO,"U_DO_01",1.0);
+    return ret == aubo_robot_namespace::InterfaceCallSuccCode;
+}
+bool AuboSDK::toolStop()
+{
+   ret = robotService->robotServiceSetBoardIOStatus(aubo_robot_namespace::RobotBoardUserDO,"U_DO_02",1.0);
+   return ret == aubo_robot_namespace::InterfaceCallSuccCode;
+}
+bool AuboSDK::toolReset()
+{
+    ret = robotService->robotServiceSetBoardIOStatus(aubo_robot_namespace::RobotBoardUserDO,"U_DO_03",1.0);
+   return ret == aubo_robot_namespace::InterfaceCallSuccCode;
+}
+bool AuboSDK::toolAllclear()
+{
+    ret = robotService->robotServiceSetBoardIOStatus(aubo_robot_namespace::RobotBoardUserDO,"U_DO_01",0.0);
+    ret = robotService->robotServiceSetBoardIOStatus(aubo_robot_namespace::RobotBoardUserDO,"U_DO_02",0.0);
+    ret = robotService->robotServiceSetBoardIOStatus(aubo_robot_namespace::RobotBoardUserDO,"U_DO_03",0.0);
 }
 int AuboSDK::robotDiagno()
 {

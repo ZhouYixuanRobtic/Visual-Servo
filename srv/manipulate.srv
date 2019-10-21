@@ -5,6 +5,7 @@ int32 CHARGE=4
 int32 EMPTY=3
 int32 UP=5
 int32 HOME=6
+int32 LINEAR=7
 #request type
 int32 type
 
