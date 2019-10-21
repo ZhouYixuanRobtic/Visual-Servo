@@ -321,15 +321,12 @@ geometry_msgs::Point RealSense::inverse_project(const Eigen::Vector3d & TargetPo
 bool RealSense::detect_once(visual_servo::detect_once::Request  &req,
                           visual_servo::detect_once::Response &res)
 {
-    cv::Point beginPoint;
-    std::vector<cv::Point> knife_trace=Detector::get_traceSegments(detector_->get_knifeTrace(subscribed_rgb_));
+    std::vector<cv::Point> knife_trace{Detector::get_traceSegments(detector_->get_knifeTrace(subscribed_rgb_))};
     if(knife_trace.empty())
         return false;
-    beginPoint = detector_->beginPoint;
-    geometry_msgs::Point RealPoint;
-    RealPoint=inverse_project(Eigen::Vector3d(beginPoint.x,beginPoint.y,1));
+    cv::Point beginPoint{detector_->beginPoint};
+    geometry_msgs::Point RealPoint{inverse_project(Eigen::Vector3d(beginPoint.x,beginPoint.y,1))};
     res.knife_trace.push_back(RealPoint);
-    std::cout<<beginPoint.x<<beginPoint.y<<std::endl;
     for(auto & point :knife_trace)
     {
         RealPoint=inverse_project(Eigen::Vector3d(point.x,point.y,1));

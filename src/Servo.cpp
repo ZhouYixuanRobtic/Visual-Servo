@@ -52,18 +52,17 @@ Eigen::Affine3d Servo::getTransform(const std::string & target_frame,const std::
 */
 const Destination_t & Servo::getCameraEE(const Eigen::Affine3d & Trans_C2T,const Eigen::Affine3d & Trans_E2C, const Eigen::Affine3d & ExpectTrans_C2T,double lambda)
 {
-    Eigen::Affine3d EndMotion;
-    EndMotion=Trans_E2C*Trans_C2T*ExpectTrans_C2T.inverse()*Trans_E2C.inverse();
+    Eigen::Affine3d EndMotion{Trans_E2C*Trans_C2T*ExpectTrans_C2T.inverse()*Trans_E2C.inverse()};
     //dynamic interpolation
 
     //the minimum tolerance of interpolation
     double Interpolate_tolerance=0.05;
-    Eigen::Matrix3d R=EndMotion.rotation();
-    Eigen::Vector3d t=EndMotion.translation();
+    Eigen::Matrix3d R{EndMotion.rotation()};
+    Eigen::Vector3d t{EndMotion.translation()};
     Sophus::SE3 DestinationSE3(R,t);
     //rotation sphere interpolate
-    Eigen::Quaterniond Td=Sophus::SE3(Eigen::Matrix3d::Identity(),Eigen::Vector3d(0,0,0)).unit_quaternion().slerp(lambda,
-            DestinationSE3.unit_quaternion());
+    Eigen::Quaterniond Td{Sophus::SE3(Eigen::Matrix3d::Identity(),Eigen::Vector3d(0,0,0)).unit_quaternion().slerp(lambda,
+            DestinationSE3.unit_quaternion())};
 
     //translation linear interpolate
     for(int i=0;i<3;++i)

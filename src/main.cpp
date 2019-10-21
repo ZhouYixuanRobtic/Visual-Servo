@@ -89,7 +89,7 @@ private:
      * The transform matrix of A with respect to B named as Trans_B2A.
      * W-world,E-end effector,C-camera,EP-desired end effector,B-base_link,T-target
      */
-    Eigen::Affine3d Trans_W2E,Trans_W2EP,Trans_E2C,Trans_E2CH,Trans_B2T_;
+    Eigen::Affine3d Trans_W2E,Trans_W2EP,Trans_E2C,Trans_E2CH,Trans_B2T_,Trans_B2T;
 
     //The desired camera pose matrix with respect to tag
     Eigen::Affine3d ExpectMatrix;
@@ -111,7 +111,7 @@ private:
      * @return the desired end effector motion matrix.
      */
     Eigen::Affine3d getEndMotion(MultiplyType multiply_type,
-                                 const Eigen::Vector3d & Translation = Eigen::Vector3d(0.0, 0.0, 0.0),
+                                 const Eigen::Vector3d & Translation,
                                  const Eigen::Vector3d & RPY = Eigen::Vector3d(0.0, 0.0, 0.0)) const;
     //read parameters and listen to tf
     void initParameter();
@@ -359,11 +359,9 @@ void Manipulator::initParameter()
     std::cout<<"read parameter success"<<std::endl;
 
     Parameters.traceAngle=Parameters.traceAngle*M_PI/180.0;
-    Eigen::Matrix3d rotation_matrix;
-    rotation_matrix=Eigen::AngleAxisd(Parameters.expectRPY[2], Eigen::Vector3d::UnitZ())*
-                    Eigen::AngleAxisd(Parameters.expectRPY[1], Eigen::Vector3d::UnitY())*
-                    Eigen::AngleAxisd(Parameters.expectRPY[0], Eigen::Vector3d::UnitX());
-    ExpectMatrix.linear()=rotation_matrix;
+    ExpectMatrix.linear()=Eigen::Matrix3d{Eigen::AngleAxisd(Parameters.expectRPY[2], Eigen::Vector3d::UnitZ())*
+                                          Eigen::AngleAxisd(Parameters.expectRPY[1], Eigen::Vector3d::UnitY())*
+                                          Eigen::AngleAxisd(Parameters.expectRPY[0], Eigen::Vector3d::UnitX())};
     ExpectMatrix.translation()=Parameters.expectXYZ;
     astra->getTransform(EE_NAME,Parameters.cameraFrame,Trans_E2C);
     astra->getTransform(EE_NAME,Parameters.toolFrame,Trans_E2CH);
@@ -376,8 +374,7 @@ void Manipulator::initParameter()
 void Manipulator::addStaticPlanningConstraint() const
 {
     //in case of repeat usage
-    std::vector<std::string> object_names;
-    object_names=planning_scene_interface->getKnownObjectNames();
+    std::vector<std::string> object_names{planning_scene_interface->getKnownObjectNames()};
     if(!object_names.empty())
     {
         for(auto & object_name : object_names)
@@ -435,8 +432,7 @@ void Manipulator ::addDynamicPlanningConstraint(bool leave)
         Trans_B2T=getTagPosition(Tags_detected[0].Trans_C2T);
         Trans_B2T_=Trans_B2T;
     }
-    std::vector<std::string> object_names;
-    object_names=planning_scene_interface->getKnownObjectNames();
+    std::vector<std::string> object_names{planning_scene_interface->getKnownObjectNames()};
     const std::vector<std::string> tree_name{TREE_NAME};
     if(!object_names.empty())
     {
@@ -463,8 +459,6 @@ void Manipulator ::addDynamicPlanningConstraint(bool leave)
         object_pose.position.y=Trans_B2T.translation()[1]+(Parameters.radius)*boost::math::sign(Trans_B2T.translation()[1]);
     else
         object_pose.position.y=Trans_B2T_.translation()[1]+(Parameters.radius)*boost::math::sign(Trans_B2T_.translation()[1]);
-    ROS_WARN("THE TAG_POSE POSITION %lf", Trans_B2T_.translation()[1]);
-    ROS_WARN("THE OBJECT_POSE POSITION %lf", object_pose.position.y);
     collision_object.primitives.push_back(primitive);
     collision_object.primitive_poses.push_back(object_pose);
     collision_object.operation = collision_object.ADD;
@@ -474,9 +468,8 @@ void Manipulator ::addDynamicPlanningConstraint(bool leave)
 }
 void Manipulator::addChargerDynamicPlanningConstraint() const
 {
-    Eigen::Affine3d Trans_B2T=getTagPosition(Tags_detected[0].Trans_C2T);
-    std::vector<std::string> object_names;
-    object_names=planning_scene_interface->getKnownObjectNames();
+    Eigen::Affine3d Trans_B2T{getTagPosition(Tags_detected[0].Trans_C2T)};
+    std::vector<std::string> object_names{planning_scene_interface->getKnownObjectNames()};
     const std::vector<std::string> charger_name{"CHARGER"};
     if(!object_names.empty())
     {
@@ -512,8 +505,7 @@ void Manipulator::addChargerDynamicPlanningConstraint() const
 }
 void Manipulator::removeAllDynamicConstraint() const
 {
-    std::vector<std::string> object_names;
-    object_names=planning_scene_interface->getKnownObjectNames();
+    std::vector<std::string> object_names{planning_scene_interface->getKnownObjectNames()};
     std::vector<std::string> dynamic_names;
     if(!object_names.empty())
     {
@@ -544,7 +536,7 @@ bool Manipulator::linearMoveTo(const Eigen::Vector3d &destination_translation, d
 {
     static double linear_step = 0.01;
     move_group->setMaxVelocityScalingFactor(velocity_scale);
-    Eigen::Affine3d linear_destination=getEndMotion(RIGHT,destination_translation);
+    Eigen::Affine3d linear_destination{getEndMotion(RIGHT,destination_translation)};
     //geometry_msgs::Pose linear_pose = move_group->getCurrentPose().pose;
     //Eigen::fromMsg(linear_pose,linear_start);
     moveit_msgs::OrientationConstraint pcm;
@@ -561,18 +553,10 @@ bool Manipulator::linearMoveTo(const Eigen::Vector3d &destination_translation, d
     move_group->setPathConstraints(path_constraints);
     move_group->setPoseTarget(linear_destination);
     move_group->setPlanningTime(10.0);
-    if( move_group->move() == moveit::planning_interface::MoveItErrorCode::SUCCESS)
-    {
-        move_group->setPlanningTime(5.0);
-        move_group->clearPathConstraints();
-        return true;
-    }
-    else
-    {
-        move_group->setPlanningTime(5.0);
-        move_group->clearPathConstraints();
-        return false;
-    }
+    bool success = move_group->move() == moveit::planning_interface::MoveItErrorCode::SUCCESS;
+    move_group->setPlanningTime(5.0);
+    move_group->clearPathConstraints();
+    return success;
 }
 bool Manipulator::goUp(double velocity_scale,bool reset) const
 {
@@ -616,8 +600,7 @@ bool Manipulator::goHome(double velocity_scale) const
 }
 double Manipulator::allClose(const std::vector<double> & goal) const
 {
-    std::vector<double> current_joints;
-    current_joints=move_group->getCurrentJointValues();
+    std::vector<double> current_joints{move_group->getCurrentJointValues()};
     std::vector<double>	auxiliary;
 
     std::transform (current_joints.begin(), current_joints.end(), goal.begin(), std::back_inserter(auxiliary),\
@@ -627,23 +610,21 @@ double Manipulator::allClose(const std::vector<double> & goal) const
 }
 Eigen::Affine3d Manipulator::getEndMotion(MultiplyType multiply_type, const Eigen::Vector3d & Translation, const Eigen::Vector3d & RPY) const
 {
-    Eigen::Affine3d CameraMotion,Trans_B2E;
-    CameraMotion.translation()=Translation;
-    Eigen::Matrix3d rotation_matrix;
-    rotation_matrix=Eigen::AngleAxisd(RPY[2], Eigen::Vector3d::UnitZ())*
-                    Eigen::AngleAxisd(RPY[1], Eigen::Vector3d::UnitY())*
-                    Eigen::AngleAxisd(RPY[0], Eigen::Vector3d::UnitX());
-    CameraMotion.linear()=rotation_matrix;
+    Eigen::Affine3d DesiredMotion,Trans_B2E;
+    DesiredMotion.translation()=Translation;
+    DesiredMotion.linear()=Eigen::Matrix3d{Eigen::AngleAxisd(RPY[2], Eigen::Vector3d::UnitZ())*
+                                          Eigen::AngleAxisd(RPY[1], Eigen::Vector3d::UnitY())*
+                                          Eigen::AngleAxisd(RPY[0], Eigen::Vector3d::UnitX())};
     Eigen::fromMsg(move_group->getCurrentPose().pose,Trans_B2E);
     //left multiply or right multiply
     switch (multiply_type)
     {
         case RIGHT:
-            return Trans_B2E*CameraMotion;
+            return Trans_B2E*DesiredMotion;
         case LEFT:
-            return CameraMotion*Trans_B2E;
+            return DesiredMotion*Trans_B2E;
         default:
-            return Trans_B2E*CameraMotion;
+            return Trans_B2E*DesiredMotion;
     }
 }
 bool Manipulator::goSearchOnce(SearchType search_type, double velocity_scale,double search_angle) const
@@ -806,8 +787,7 @@ void Manipulator::goZero(double velocity_scale)
 {
     move_group->setGoalTolerance(Parameters.goal_tolerance);
     move_group->setMaxVelocityScalingFactor(velocity_scale);
-    std::vector<double> current_joints;
-    current_joints=move_group->getCurrentJointValues();
+    std::vector<double> current_joints{move_group->getCurrentJointValues()};
     current_joints[5]=0.0;
     move_group->setJointValueTarget(current_joints);
     move_group->move();
@@ -844,14 +824,11 @@ bool Manipulator::goCharge(double velocity_scale)
 {
     move_group->setGoalTolerance(Parameters.goal_tolerance);
     move_group->setMaxVelocityScalingFactor(velocity_scale);
-    Eigen::fromMsg(move_group->getCurrentPose().pose,Trans_W2E);
-    Eigen::Affine3d Trans_B2T=Trans_W2E*Trans_E2C*Tags_detected[0].Trans_C2T;
+    Eigen::Affine3d Trans_B2T{getTagPosition(Tags_detected[0].Trans_C2T)};
     Trans_B2T.translation() += Eigen::Vector3d(boost::math::sign(Trans_B2T.translation()[1])*0.087,-0.015,-0.150);
-    Eigen::Matrix3d rotation_matrix;
     Eigen::Affine3d tempMatrix;
-    rotation_matrix=Eigen::AngleAxisd(M_PI/2.0, Eigen::Vector3d::UnitX())*
-                    Eigen::AngleAxisd(M_PI/2.0, Eigen::Vector3d::UnitZ());
-    tempMatrix.linear()=rotation_matrix;
+    tempMatrix.linear() = Eigen::Matrix3d{Eigen::AngleAxisd(M_PI/2.0, Eigen::Vector3d::UnitX())*
+                                          Eigen::AngleAxisd(M_PI/2.0, Eigen::Vector3d::UnitZ())};
     tempMatrix.translation()=Eigen::Vector3d(0.0,0.0,0.0);
     Trans_W2EP=Trans_B2T*tempMatrix*Trans_E2CH.inverse();
     move_group->setPoseTarget(Trans_W2EP);
@@ -894,8 +871,8 @@ int Manipulator::executeService(int serviceType)
                     else
                     {
                         addDynamicPlanningConstraint();
-                        Eigen::Vector3d Center3d=Tags_detected[0].Trans_C2T.translation();
-                        Eigen::Affine3d tagTransform=getTagPosition(Tags_detected[0].Trans_C2T);
+                        Eigen::Vector3d Center3d{Tags_detected[0].Trans_C2T.translation()};
+                        Eigen::Affine3d tagTransform{getTagPosition(Tags_detected[0].Trans_C2T)};
                         //Center3d += Eigen::Vector3d(0.15,0.0,Parameters.radius);
                         Center3d += Eigen::Vector3d(0.0,0.1,-0.6);
                         if(!goCamera(Center3d,Parameters.basicVelocity))
@@ -922,8 +899,8 @@ int Manipulator::executeService(int serviceType)
                 else
                 {
                     addDynamicPlanningConstraint();
-                    Eigen::Vector3d Center3d=Tags_detected[0].Trans_C2T.translation();
-                    Eigen::Affine3d tagTransform=getTagPosition(Tags_detected[0].Trans_C2T);
+                    Eigen::Vector3d Center3d{Tags_detected[0].Trans_C2T.translation()};
+                    Eigen::Affine3d tagTransform{getTagPosition(Tags_detected[0].Trans_C2T)};
                     //Center3d += Eigen::Vector3d(0.15,0.0,Parameters.radius);
                     Center3d += Eigen::Vector3d(0.0,0.1,-0.6);
                     if(!goCamera(Center3d,Parameters.basicVelocity))

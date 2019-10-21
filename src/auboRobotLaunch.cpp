@@ -26,7 +26,7 @@ int main(int argc, char** argv)
 
     bool isMoveStop=false;
     ParameterListener parameterListener(40,8);
-    const std::vector<std::string> parameterNames={"/visual_servo/isChargingStatusChanged","/visual_servo/isToolStarted","/visual_servo/isToolStopped","/visual_servo/isToolReset","/visual_servo/toolAllClear"};
+    const std::vector<std::string> parameterNames{"/visual_servo/isChargingStatusChanged","/visual_servo/isToolStarted","/visual_servo/isToolStopped","/visual_servo/isToolReset","/visual_servo/toolAllClear"};
     parameterListener.registerParameterCallback(parameterNames,false);
 
     KeyboardTeleop tbk;

@@ -25,7 +25,7 @@ Detector::~Detector()
 void Detector::oblique_threshold(cv::Mat src)
 {
     const int R_MAX_1=170;
-    cv::Mat_<Vec3b>::iterator it1 = src.begin<Vec3b>();
+    cv::Mat_<Vec3b>::iterator it1{src.begin<Vec3b>()};
     while (it1 != src.end<Vec3b>())
     {
         if ((*it1)[0] > 200 && (*it1)[1] > 200 && (*it1)[2] > 200)
@@ -57,7 +57,7 @@ void Detector::oblique_threshold(cv::Mat src)
 */
 void Detector::vertical_threshold(cv::Mat src)
 {
-    cv::Mat_<Vec3b>::iterator it1 = src.begin<Vec3b>();
+    cv::Mat_<Vec3b>::iterator it1{src.begin<Vec3b>()};
     while (it1 != src.end<Vec3b>())
     {
         if ((*it1)[2]-(*it1)[1] >30 && (*it1)[2]-(*it1)[0] >30 && (*it1)[2]>100 )
@@ -162,15 +162,15 @@ void Detector::refineLoc()
     cv::Point initPoint(beginPoint.x-RectSize.width/1.5,beginPoint.y-RectSize.height/1.5);
     cv::Rect rect(initPoint,RectSize);
 
-    cv::Mat refineImg=grayImg(rect);
+    cv::Mat refineImg{grayImg(rect)};
     cv::Mat refineImgRadon;
     radon::radonTransform(refineImg,refineImgRadon,radonAngleRange,radonOperation);
 
     cv::Point maxLoc;
-    cv::Mat mask=Mat::zeros(refineImgRadon.size(),CV_8UC1);
+    cv::Mat mask{Mat::zeros(refineImgRadon.size(),CV_8UC1)};
     mask(cv::Rect(cv::Point(20,0),cv::Size(130,refineImgRadon.size().height))).setTo(255);
     cv::minMaxLoc(refineImgRadon, nullptr, nullptr, nullptr,&maxLoc,mask);
-    cv::Point refinedBeginPoint=getPointOnline(refineImg.size(),refineImgRadon.size(),maxLoc,(beginPoint-initPoint).x,-1);
+    cv::Point refinedBeginPoint{getPointOnline(refineImg.size(),refineImgRadon.size(),maxLoc,(beginPoint-initPoint).x,-1)};
     beginPoint=refinedBeginPoint+initPoint;
 }
 /*
@@ -205,7 +205,7 @@ static void DrawBox(CvBox2D box, cv::Mat img)
 */
 cv::Point Detector::get_BeginPoint(const cv::Mat& test_image_)
 {
-    cv::Mat clone_image=test_image_.clone();
+    cv::Mat clone_image{test_image_.clone()};
     cv::resize(clone_image,clone_image,cv::Size(640,480));
     if(!colorOn_)
     {
@@ -261,7 +261,7 @@ std::vector<cv::Point> Detector::get_knifeTrace(const cv::Mat &test_image_)
 
     get_BeginPoint(test_image_);
 
-    std::vector<cv::Point> knife_trace=get_knife_trace(traceDebugOn_);
+    std::vector<cv::Point> knife_trace{get_knife_trace(traceDebugOn_)};
 
     if(traceResultOn_)
     {
