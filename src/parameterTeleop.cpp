@@ -48,6 +48,7 @@ void ParameterListener::ParameterLoop(int thread_index,bool isString)
         while(true)
         {
             boost::this_thread::interruption_point();
+            boost::posix_time::ptime startTime = boost::posix_time::microsec_clock::local_time();
             if(ros::ok())
             {
                 if (isString)
@@ -89,7 +90,8 @@ void ParameterListener::ParameterLoop(int thread_index,bool isString)
                 }
 
             }
-            boost::this_thread::sleep(boost::posix_time::microseconds((int)1E6/RATE_));
+            boost::posix_time::ptime endTime = boost::posix_time::microsec_clock::local_time();
+            boost::this_thread::sleep(boost::posix_time::microseconds((int)1E6/RATE_ - (endTime - startTime).total_microseconds()));
         }
     }
     catch (boost::thread_interrupted&e )

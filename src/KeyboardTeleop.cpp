@@ -35,10 +35,10 @@ void KeyboardTeleop::keyboardLoop()
       struct pollfd ufd;
       ufd.fd = kfd;  
       ufd.events = POLLIN;
+      boost::this_thread::interruption_enabled();
       while(true)
-
-      {  
-
+      {
+          boost::posix_time::ptime startTime = boost::posix_time::microsec_clock::local_time();
         boost::this_thread::interruption_point();
         // get the next event from the keyboard  
         int num;  
@@ -115,6 +115,7 @@ void KeyboardTeleop::keyboardLoop()
                   dirty = false;
                   break;
           }
-        usleep(100000);
+          boost::posix_time::ptime endTime = boost::posix_time::microsec_clock::local_time();
+          boost::this_thread::sleep(boost::posix_time::microseconds((int)1E6/20 - (endTime - startTime).total_microseconds()));
       }
 }
