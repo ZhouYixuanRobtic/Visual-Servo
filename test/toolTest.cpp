@@ -7,38 +7,34 @@
 #include <ros/single_subscriber_publisher.h>
 #include "ros/callback_queue.h"
 #include "KeyboardTeleop.h"
+#include "JoyTeleop.h"
+using namespace JOYTELEOP;
 int main(int argc, char* argv[])
 {
     ros::init(argc,argv,"toolTest");
     ros::NodeHandle n;
-    KeyboardTeleop tbk;
+    JoyTeleop joyTeleop("joy");
     ros::Rate loop_rate(30);
     while (ros::ok())
     {
-        if(tbk.maOn)
+        switch(joyTeleop.getControlTrigger())
         {
-            ros::param::set("/visual_servo/isToolStarted",1.0);
-            tbk.maOn=false;
-            ROS_INFO("Tool Start Send!!!");
+            case toolStart:
+                ros::param::set("/visual_servo/isToolStarted",1.0);
+                break;
+            case toolWork:
+                ros::param::set("/visual_servo/isToolStopped",1.0);
+                break;
+            case toolReset:
+                ros::param::set("/visual_servo/isToolReset",1.0);
+                break;
+            case toolClear:
+                ros::param::set("/visual_servo/toolAllClear",1.0);
+                break;
+            default:
+                break;
         }
-        if(tbk.goHomeOn)
-        {
-            ros::param::set("/visual_servo/isToolStopped",1.0);
-            tbk.goHomeOn=false;
-            ROS_INFO("Tool Stop Send!!!");
-        }
-        if(tbk.goUpOn)
-        {
-            ros::param::set("/visual_servo/isToolReset",1.0);
-            tbk.goUpOn=false;
-            ROS_INFO("Tool ResetSend!!!!");
-        }
-        if(tbk.navOn)
-        {
-            ros::param::set("/visual_servo/toolAllClear",1.0);
-            tbk.navOn=false;
-            ROS_INFO("Tool all clear send");
-        }
+        joyTeleop.resetControlTrigger(JOYTELEOP::Default);
         ros::spinOnce();
         loop_rate.sleep();
     }

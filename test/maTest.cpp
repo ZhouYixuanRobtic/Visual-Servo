@@ -6,7 +6,9 @@
 #include "visual_servo/manipulate.h"
 #include "VisualServoMetaType.h"
 #include "KeyboardTeleop.h"
-
+#include "JoyTeleop.h"
+#include "../src/JoyTeleop.cpp"
+using namespace JOYTELEOP;
 class Listener
 {
 private:
@@ -57,35 +59,47 @@ int main(int argc, char** argv)
 {
     ros::init(argc, argv, "maTest");
     Listener listener;
-    KeyboardTeleop tbk;
+    JoyTeleop joyTeleop("joy");
+    
     ros::Rate loop_rate(30);
     while(ros::ok())
     {
-        if(tbk.maOn)
+        switch(joyTeleop.getControlTrigger())
         {
-            listener.callSrv(visual_servo::manipulate::Request::CUT);
-            //std::cout<<"this is a try "<<std::endl;
-            tbk.maOn=false;
+            case ManipulateOn:
+                listener.callSrv(visual_servo::manipulate::Request::CUT);
+                break;
+            case ChargeOn:
+                ros::param::set("/user/inverse",true);
+                listener.callSrv(visual_servo::manipulate::Request::CHARGE);
+                ros::param::set("/user/inverse",false);
+                break;
+            case UpOn:
+                listener.callSrv(visual_servo::manipulate::Request::UP);
+                break;
+            case HomeOn:
+                listener.callSrv(visual_servo::manipulate::Request::HOME);
+                break;
+            case toolStart:
+                ros::param::set("/visual_servo/isToolStarted",1.0);
+                std::cout<<"tool start is send"<<std::endl;
+                break;
+            case toolWork:
+                ros::param::set("/visual_servo/isToolStopped",1.0);
+                std::cout<<"tool work is send"<<std::endl;
+                break;
+            case toolReset:
+                ros::param::set("/visual_servo/isToolReset",1.0);
+                std::cout<<"tool reset is send"<<std::endl;
+                break;
+            case toolClear:
+                ros::param::set("/visual_servo/toolAllClear",1.0);
+                std::cout<<"tool clear is send"<<std::endl;
+                break;
+            default:
+                break;
         }
-        if(tbk.chargeOn)
-        {
-            ros::param::set("/user/inverse",true);
-            sleep(1);
-            listener.callSrv(visual_servo::manipulate::Request::CHARGE);
-            tbk.chargeOn=false;
-            ros::param::set("/user/inverse",false);
-        }
-        if (tbk.goUpOn)
-        {
-            listener.callSrv(visual_servo::manipulate::Request::UP);
-            //std::cout<<"this is a try "<<std::endl;
-            tbk.goUpOn = false;
-        }
-        if (tbk.goHomeOn)
-        {
-            listener.callSrv(visual_servo::manipulate::Request::HOME);
-            tbk.goHomeOn = false;
-        }
+        joyTeleop.resetControlTrigger(JOYTELEOP::Default);
         ros::spinOnce();
         loop_rate.sleep();
     }
