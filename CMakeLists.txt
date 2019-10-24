@@ -148,6 +148,9 @@ add_library(USBCamera src/USBCamera.cpp)
 target_link_libraries(USBCamera ${OpenCV_LIBRARIES} ${Boost_LIBRARIES})
 add_dependencies(USBCamera ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)
 
+add_library(JoyTeleop src/JoyTeleop.cpp)
+target_link_libraries(JoyTeleop ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+
 #application
 add_executable(auboRobot src/auboRobotLaunch.cpp)
 target_link_libraries(auboRobot auboA protobuf our_alg_i5p log4cplus config auborobotcontroller auboUtil ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop parameterTeleop)
@@ -168,12 +171,12 @@ add_executable(newtest test/newtest.cpp)
 target_link_libraries(newtest detector ${OpenCV_LIBS} ${catkin_LIBRARIES} )
 
 add_executable(maTest test/maTest.cpp)
-target_link_libraries(maTest ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop)
+target_link_libraries(maTest ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop JoyTeleop)
 add_dependencies(maTest ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)
 
 add_executable(keyTest test/keyboardTest.cpp)
 target_link_libraries(keyTest ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop)
 
 add_executable(toolTest test/toolTest.cpp)
-target_link_libraries(toolTest ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop)
+target_link_libraries(toolTest ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop JoyTeleop)
 
