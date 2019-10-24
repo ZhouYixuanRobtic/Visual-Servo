@@ -144,6 +144,10 @@ target_link_libraries(KeyboardTeleop ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 add_library(parameterTeleop src/parameterTeleop.cpp)
 target_link_libraries(parameterTeleop ${catkin_LIBRARIES} ${Boost_LIBRARIES} )
 
+add_library(USBCamera src/USBCamera.cpp)
+target_link_libraries(USBCamera ${OpenCV_LIBRARIES} ${Boost_LIBRARIES})
+add_dependencies(USBCamera ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)
+
 #application
 add_executable(auboRobot src/auboRobotLaunch.cpp)
 target_link_libraries(auboRobot auboA protobuf our_alg_i5p log4cplus config auborobotcontroller auboUtil ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop parameterTeleop)
@@ -155,6 +159,10 @@ add_dependencies(visual_servo ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)
 add_executable(real_sense src/camera.cpp)
 target_link_libraries(real_sense detector ${catkin_LIBRARIES} servo ${OpenCV_LIBRARIES} ${Boost_LIBRARIES} ${YAML_LIBRARIES})
 add_dependencies(real_sense ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)
+
+add_executable(monocular src/newCamera.cpp)
+target_link_libraries(monocular detector ${catkin_LIBRARIES} servo ${OpenCV_LIBRARIES} ${Boost_LIBRARIES} ${YAML_LIBRARIES} USBCamera)
+add_dependencies(monocular ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)
 
 add_executable(newtest test/newtest.cpp)
 target_link_libraries(newtest detector ${OpenCV_LIBS} ${catkin_LIBRARIES} )

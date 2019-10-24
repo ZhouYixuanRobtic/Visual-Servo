@@ -1,0 +1,12 @@
+%YAML:1.0
+calibrationDate: "Fri Jun 17 14:09:29 2011\n"
+cameraMatrix: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [681.5956,0.0,291.2915, 0., 682.2015, 316.0428, 0., 0., 1.]
+distCoeffs: !!opencv-matrix
+   rows: 5
+   cols: 1
+   dt: d
+   data: [-0.4301,0.2131,0.0,0.0,0.0]

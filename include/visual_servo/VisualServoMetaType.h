@@ -16,6 +16,7 @@
 #include <string>
 #include  <math.h>
 #include <ctime>
+#include <utility>
 
 #include "Eigen/Dense"
 #include "Eigen/Geometry"
@@ -26,6 +27,7 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/core/utility.hpp>
 #include <opencv2/ximgproc.hpp>
+#include <opencv2/core/eigen.hpp>
 #include "cv.h"
 #include "highgui.h"
 
