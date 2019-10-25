@@ -36,6 +36,8 @@ tag_detection_info_t Tags_detected;
 bool detect_srv_on=false;
 bool manipulate_srv_on=false;
 bool RobotAllRight;
+bool isRobotMoving=false;
+bool isInCut=false;
 std::vector<Eigen::Vector3d> knife_trace;
 
 manipulateSrv ManipulateSrv;
@@ -117,6 +119,8 @@ private:
     void initParameter();
 
     void scale_trajectory_speed(moveit::planning_interface::MoveGroupInterface::Plan & plan, double scale_factor) const;
+
+    void resetTool();
 
 
     //prameters
@@ -213,14 +217,18 @@ private:
     ros::ServiceClient client;
     ros::Subscriber tag_info_sub;
     ros::Subscriber vs_status_sub;
+    ros::Subscriber joint_state_sub_;
     tf2_ros::Buffer tfBuffer;
     tf2_ros::TransformListener *tfListener;
     //manipulate service server
     ros::ServiceServer service_;
     visual_servo::detect_once srv;
+
+    sensor_msgs::JointState last_received_state_{};
     void tagInfoCallback(const visual_servo::TagsDetection_msg &msg);
     //arm controller status callback, published by auboRobot
     void statusCallback(const visual_servo::VisualServoMetaTypeMsg &msg);
+    void jointStateCallback(const sensor_msgs::JointState & msg);
     bool manipulate(visual_servo::manipulate::Request &req,
                     visual_servo::manipulate::Response &res);
     ros::Timer watchdog_timer_;
@@ -268,7 +276,7 @@ int main(int argc, char** argv)
             if(!RobotAllRight)
                 ManipulateSrv.srv_status=visual_servo_namespace::SERVICE_STATUS_ROBOT_ABORT;
 
-            //robot_manipulator.removeAllDynamicConstraint();
+            robot_manipulator.removeAllDynamicConstraint();
             manipulate_srv_on=false;
             ROS_INFO("Service executed!");
         }
@@ -280,7 +288,7 @@ int main(int argc, char** argv)
 void *camera_thread(void *data)
 {
     Listener listener;
-    ros::AsyncSpinner spinner(2);
+    ros::AsyncSpinner spinner(3);
     spinner.start();
     ros::Rate loop_rate(30);
     while(ros::ok())
@@ -288,6 +296,11 @@ void *camera_thread(void *data)
         if(detect_srv_on)
         {
             detect_srv_on=!listener.callSrv();
+        }
+        if(isInCut&&isRobotMoving)
+        {
+            ros::param::set("/visual_servo/isToolStopped",1.0);
+            isInCut=false;
         }
         ros::spinOnce();
         loop_rate.sleep();
@@ -700,7 +713,7 @@ bool Manipulator::goSearchOnce(SearchType search_type, double velocity_scale,dou
         }
         usleep(100000);
     }
-    ROS_INFO_ONCE("Already remembered the most center joint values");
+    ROS_INFO("Already remembered the most center joint values");
     //wait until the robot finished the asyncMove task, can't be 0 because of goal_tolerance
     while(allClose(goal)>Parameters.goal_tolerance*2);
     move_group->setMaxVelocityScalingFactor(1.0);
@@ -774,7 +787,7 @@ bool Manipulator::goCut(const Eigen::Affine3d &referTag,double velocity_scale)
     ros::param::set("/visual_servo/toolAllClear",1.0);
     if(!linearMoveTo(Eigen::Vector3d(0.4,0.0,0.0),0.2))
         return false;
-     ros::param::set("/visual_servo/isToolStopped",1.0);
+    isInCut=true;
     if(!linearMoveTo(Eigen::Vector3d(0.0,0.0,-0.05),0.2))
         return false;
     ros::param::set("/visual_servo/toolAllClear",1.0);
@@ -1017,6 +1030,7 @@ Listener::Listener()
     this->tag_info_received=false;
     tag_info_sub =nh.subscribe("TagsDetected",1000, &Listener::tagInfoCallback,this);
     vs_status_sub = nh.subscribe("VisualServoStatus",100,&Listener::statusCallback,this);
+    joint_state_sub_ = nh.subscribe("joint_states",100,&Listener::jointStateCallback,this);
     client =nh.serviceClient<visual_servo::detect_once>("detect_once");
     srv.request.ready_go=(int)detect_srv_on;
     manipulate_callback_t manipulate_callback = boost::bind(&Listener::manipulate, this, _1, _2);
@@ -1050,6 +1064,28 @@ void Listener::statusCallback(const visual_servo::VisualServoMetaTypeMsg &msg)
 {
     RobotAllRight=msg.RobotAllRight;
     //std::cout<<"RobotAllRight: "<<(int) RobotAllRight<<"RobotSwitchOn: "<< (int) RobotSwitchOn<<std::endl;
+}
+void Listener::jointStateCallback(const sensor_msgs::JointState &msg)
+{
+    static bool first_time=true;
+    if(first_time)
+    {
+        last_received_state_=msg;
+        first_time=false;
+    }
+    std::vector<double> current_joints(msg.position.size());
+    memcpy(current_joints.data(),msg.position.data(), sizeof(double)*msg.position.size());
+    std::vector<double> last_joints(msg.position.size());
+    memcpy(last_joints.data(),last_received_state_.position.data(), sizeof(double)*last_received_state_.position.size());
+    std::vector<double>	auxiliary;
+
+    std::transform (current_joints.begin(), current_joints.end(), last_joints.begin(), std::back_inserter(auxiliary),\
+                    [](double element1, double element2) {return pow((element1-element2),2);});
+    auxiliary.shrink_to_fit();
+
+    isRobotMoving = sqrt(std::accumulate(auxiliary.begin(), auxiliary.end(), 0.0)) > 0.001;
+    last_received_state_=msg;
+
 }
 bool Listener::callSrv()
 {
