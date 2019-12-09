@@ -37,21 +37,45 @@ void JoyTeleop::JoyCallback(const sensor_msgs::JoyConstPtr &msg)
     {
         control_trigger_=UpOn;
     }
+    else if(msg->axes[2]==-1&&msg->axes[5]==-1)
+    {
+        control_trigger_=KnifeUnplug;
+    }
     else if(msg->axes[5]==-1&&msg->buttons[0]) //A
     {
-        control_trigger_=toolClear;
+        control_trigger_=KnifeOff;
     }
     else if(msg->axes[5]==-1&&msg->buttons[1]) //B
     {
-        control_trigger_=toolStart;
+        control_trigger_=ClockGo;
     }
     else if(msg->axes[5]==-1&&msg->buttons[2]) //X
     {
-        control_trigger_=toolWork;
+        control_trigger_=AntiClockGo;
     }
     else if(msg->axes[5]==-1&&msg->buttons[3]) //Y
     {
-        control_trigger_=toolReset;
+        control_trigger_=KnifeOn;
+    }
+    else if(msg->axes[5]==-1&&msg->buttons[10])
+    {
+        control_trigger_=ShutDown;
+    }
+    else if(msg->buttons[0])
+    {
+        control_trigger_=SaveCutPoint;
+    }
+    else if(msg->buttons[1])
+    {
+        control_trigger_=SaveChargePoint;
+    }
+    else if(msg->buttons[2])
+    {
+        control_trigger_=SaveNavPoint;
+    }
+    else if(msg->buttons[3])
+    {
+        control_trigger_=SaveTurnPoint;
     }
     else if(msg->buttons[4]) //L1
     {
@@ -60,6 +84,22 @@ void JoyTeleop::JoyCallback(const sensor_msgs::JoyConstPtr &msg)
     else if(msg->buttons[5]) //R1
     {
         control_trigger_=NavPause;
+    }
+    else if(msg->buttons[6])
+    {
+        control_trigger_=MappingOff;
+    }
+    else if(msg->buttons[7])
+    {
+        control_trigger_=MappingOn;
+    }
+    else if(msg->buttons[9])
+    {
+        control_trigger_=RobotArmOn;
+    }
+    else if(msg->buttons[10])
+    {
+        control_trigger_=NavigationOn;
     }
     else
         control_trigger_ = Default;

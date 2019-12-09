@@ -4,7 +4,6 @@
 
 #include"ros/ros.h"
 #include "sensor_msgs/Joy.h"
-#include <ros/callback_queue.h>
 namespace JOYTELEOP
 {
     enum ControlTrigger{
@@ -15,10 +14,20 @@ namespace JOYTELEOP
         ChargeOn,
         UpOn,
         HomeOn,
-        toolClear,
-        toolStart,
-        toolWork,
-        toolReset,
+        AntiClockGo,
+        ClockGo,
+        KnifeOn,
+        KnifeOff,
+        KnifeUnplug,
+        MappingOn,
+        MappingOff,
+        RobotArmOn,
+        NavigationOn,
+        ShutDown,
+        SaveCutPoint,
+        SaveChargePoint,
+        SaveNavPoint,
+        SaveTurnPoint,
     };
     class JoyTeleop {
     private:
@@ -35,9 +44,7 @@ namespace JOYTELEOP
         ~JoyTeleop();
         void JoyCallback(const sensor_msgs::JoyConstPtr & msg);
         void watchdog(const ros::TimerEvent &e);
-        void registerAutoThread();
-        const ControlTrigger & getControlTrigger() const { return  control_trigger_;};
-        void resetControlTrigger(const ControlTrigger& value){control_trigger_=value;};
+        ControlTrigger getControlTrigger()  {ControlTrigger temp{control_trigger_};control_trigger_=Default;return temp;};
     };
 }
 

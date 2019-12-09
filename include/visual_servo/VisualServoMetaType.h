@@ -150,9 +150,40 @@ namespace visual_servo_namespace
                 break;
             case visual_servo_namespace::SERVICE_STATUS_LINEAR_FAILED:
                 std::cout<<"Service call failed because can't go linear"<<std::endl;
+                break;
             default:
                 std::cout<<"Service call succeed but no response"<<std::endl;
                 break;
+        }
+    }
+    static std::string getServiceStatusString(const int & ServiceStatus)
+    {
+        switch(ServiceStatus)
+        {
+            case visual_servo_namespace::SERVICE_STATUS_SUCCEED:
+                return "Service call succeed and manipulate succeed";
+            case visual_servo_namespace::SERVICE_STATUS_NO_TAG:
+                return "Service call failed because no tag searched";
+            case visual_servo_namespace::SERVICE_STATUS_CLOSE_FAILED:
+                return "Service call failed because can't get close";
+            case visual_servo_namespace::SERVICE_STATUS_SERVO_FAILED:
+                return "Service call failed because can't servo to right place";
+            case visual_servo_namespace::SERVICE_STATUS_CUT_FAILED:
+                return "Service call failed because can't cut ";
+            case visual_servo_namespace::SERVICE_STATUS_ROBOT_ABORT:
+                return "Service call failed because robot abort ";
+            case visual_servo_namespace::SERVICE_STATUS_UP_FAILED:
+                return "Service call failed because can't get up";
+            case visual_servo_namespace::SERVICE_STATUS_HOME_FAILED:
+                return "Service call failed because can't get home";
+            case visual_servo_namespace::SERVICE_STATUS_CHARGE_FAILED:
+                return "Service call failed because cant't charge";
+            case visual_servo_namespace::SERVICE_STATUS_LEAVE_CHARGE_FAILED:
+                return "Service call failed because cant't leave charge";
+            case visual_servo_namespace::SERVICE_STATUS_LINEAR_FAILED:
+                return "Service call failed because can't go linear";
+            default:
+                return "Service call succeed but no response";
         }
     }
 }

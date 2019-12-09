@@ -19,22 +19,24 @@ int main(int argc, char* argv[])
     {
         switch(joyTeleop.getControlTrigger())
         {
-            case toolStart:
-                ros::param::set("/visual_servo/isToolStarted",1.0);
+            case ClockGo:
+                ros::param::set("/visual_servo/clockGo",1.0);
                 break;
-            case toolWork:
-                ros::param::set("/visual_servo/isToolStopped",1.0);
+            case AntiClockGo:
+                ros::param::set("/visual_servo/antiClockGo",1.0);
                 break;
-            case toolReset:
-                ros::param::set("/visual_servo/isToolReset",1.0);
+            case KnifeOn:
+                ros::param::set("/visual_servo/knifeOn",1.0);
                 break;
-            case toolClear:
-                ros::param::set("/visual_servo/toolAllClear",1.0);
+            case KnifeOff:
+                ros::param::set("/visual_servo/knifeOff",1.0);
+                break;
+            case KnifeUnplug:
+                ros::param::set("/visual_servo/knifeUnplug",1.0);
                 break;
             default:
                 break;
         }
-        joyTeleop.resetControlTrigger(JOYTELEOP::Default);
         ros::spinOnce();
         loop_rate.sleep();
     }

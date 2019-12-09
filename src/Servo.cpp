@@ -73,8 +73,11 @@ const Destination_t & Servo::getCameraEE(const Eigen::Affine3d & Trans_C2T,const
     Sophus::SE3 EndMotionDelta(Td,t);
     //increment
     EndDestinationDelta.EE_Motion.matrix()=EndMotionDelta.matrix();
-    EndDestinationDelta.error=sqrt(EndMotion(0,3)*EndMotion(0,3)+EndMotion(1,3)*EndMotion(1,3)+
-                                              EndMotion(2,3)*EndMotion(2,3));
+    Sophus::Vector6d error_vector{EndMotionDelta.log()};
+    error_vector[0]=0.0;
+    error_vector[1]=0.0;
+    error_vector[2]=0.0;
+    EndDestinationDelta.error=error_vector.norm();
     return EndDestinationDelta;
 }
 
