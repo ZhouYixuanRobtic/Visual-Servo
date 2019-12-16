@@ -24,55 +24,20 @@ class Listener
 private:
     ros::NodeHandle nh;
     ros::ServiceClient client;
-    visual_servo::manipulate srv;
-    shared_ptr<boost::thread> thread_ptr_;
-    bool isCalling_{};
 public:
-    bool isCalling() const{return isCalling_;};
     Listener();
     virtual ~Listener();
-    void worker(int SrvRequestType);
-    bool callSrv(int SrvRequestType);
-    int pox_system(const char* commandsz);
+    visual_servo_namespace::ServiceCaller* serviceCaller;
+    int pox_system(const char* commands);
 };
 Listener::Listener()
 {
     client =nh.serviceClient<visual_servo::manipulate>("manipulate");
+    serviceCaller = new visual_servo_namespace::ServiceCaller();
 }
 Listener::~Listener()
 {
-}
-
-bool Listener::callSrv(int SrvRequestType)
-{
-    thread_ptr_.reset(new boost::thread(boost::bind(&Listener::worker,this,SrvRequestType)));
-}
-void Listener::worker(int SrvRequestType)
-{
-    isCalling_=true;
-    srv.request.type=SrvRequestType;
-    if (client.call(srv))
-    {
-        visual_servo_namespace::printServiceStatus(srv.response.status);
-        switch (srv.response.status)
-        {
-            case visual_servo_namespace::SERVICE_STATUS_SUCCEED:
-                ROS_INFO("SUCCESS");
-                /*Do something when success*/
-                break;
-            case visual_servo_namespace::SERVICE_STATUS_EMPTY:
-                ROS_INFO("EMPTY");
-                break;
-            default:
-                ROS_ERROR("Failed");
-                break;
-        }
-    }
-    else
-    {
-        ROS_ERROR("Failed to call service detect_once");
-    }
-    isCalling_=false;
+    delete serviceCaller;
 }
 int Listener::pox_system(const char *commands)
 {
@@ -99,20 +64,20 @@ int main(int argc, char** argv)
         switch(joyTeleop.getControlTrigger())
         {
             case ManipulateOn:
-                if(!listener.isCalling())
-                    listener.callSrv(visual_servo::manipulate::Request::CUT);
+                if(!listener.serviceCaller->srvCalling())
+                    listener.serviceCaller->callSrv(visual_servo::manipulate::Request::CUT);
                 break;
             case ChargeOn:
-                if(!listener.isCalling())
-                    listener.callSrv(visual_servo::manipulate::Request::CHARGE);
+                if(!listener.serviceCaller->srvCalling())
+                    listener.serviceCaller->callSrv(visual_servo::manipulate::Request::CHARGE);
                 break;
             case UpOn:
-                if(!listener.isCalling())
-                    listener.callSrv(visual_servo::manipulate::Request::UP);
+                if(!listener.serviceCaller->srvCalling())
+                    listener.serviceCaller->callSrv(visual_servo::manipulate::Request::UP);
                 break;
             case HomeOn:
-                if(!listener.isCalling())
-                    listener.callSrv(visual_servo::manipulate::Request::HOME);
+                if(!listener.serviceCaller->srvCalling())
+                    listener.serviceCaller->callSrv(visual_servo::manipulate::Request::HOME);
                 break;
             case ClockGo:
                 ros::param::set("/visual_servo/clockGo",1.0);

@@ -37,6 +37,12 @@
 #include "visual_servo/manipulate.h"
 #include "visual_servo/VisualServoMetaTypeMsg.h"
 
+#include <boost/thread/thread.hpp>
+#include <boost/thread/locks.hpp>
+#include <boost/thread/shared_mutex.hpp>
+#include "ros/ros.h"
+
+#include "tr1/memory"
 /**
  * General types
  */
@@ -82,6 +88,24 @@ typedef std::vector<TagDetectInfo> tag_detection_info_t;
  */
 namespace visual_servo_namespace
 {
+    class ServiceCaller{
+        ros::NodeHandle nh;
+        ros::ServiceClient client;
+        visual_servo::manipulate srv{};
+        std::tr1::shared_ptr<boost::thread> thread_ptr_;
+        bool srvCalling_{},srvFinished_{};
+
+    public:
+        ServiceCaller();
+        ~ServiceCaller();
+        void worker(int SrvRequestType);
+        bool callSrv(int SrvRequestType);
+        const visual_servo::manipulate::Response & getSrvResponseStatus()const {return srv.response;};
+        bool srvCalling() { return srvCalling_;};
+        bool srvFinished() {bool temp{srvFinished_};srvFinished_=false;
+            return temp;};
+    };
+
     typedef enum{
         ROBOT_STATUS_STARTUP_SUCCEED,           //机械臂启动
         ROBOT_STATUS_STARTUP_FAIL,
@@ -188,7 +212,34 @@ namespace visual_servo_namespace
         }
     }
 }
+visual_servo_namespace::ServiceCaller::ServiceCaller()
+{
+    client =nh.serviceClient<visual_servo::manipulate>("manipulate");
+}
+visual_servo_namespace::ServiceCaller::~ServiceCaller()
+{
 
+}
+void visual_servo_namespace::ServiceCaller::worker(int SrvRequestType)
+{
+    srvCalling_=true;
+    srv.request.type=SrvRequestType;
+    if (client.call(srv))
+    {
+        visual_servo_namespace::printServiceStatus(srv.response.status);
+        srvFinished_=true;
+    }
+    else
+    {
+        ROS_ERROR("Failed to call service detect_once");
+        srv.response.status = visual_servo_namespace::SERVICE_STATUS_EMPTY;
+    }
+    srvCalling_=false;
+}
+bool visual_servo_namespace::ServiceCaller::callSrv(int SrvRequestType)
+{
+    thread_ptr_.reset(new boost::thread(boost::bind(&ServiceCaller::worker, this, SrvRequestType)));
+}
 
 
 
