@@ -157,12 +157,15 @@ target_link_libraries(JoyTeleop ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 
 add_library(SerialManager src/SerialManager.cpp)
 target_link_libraries(SerialManager ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+
+add_library(ManiSerialManager src/ManiSerialManager.cpp)
+target_link_libraries(ManiSerialManager ${catkin_LIBRARIES} ${Boost_LIBRARIES} SerialManager)
 #application
 add_executable(auboRobot src/auboRobotLaunch.cpp)
 target_link_libraries(auboRobot auboA protobuf our_alg_i5p log4cplus config auborobotcontroller auboUtil ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop parameterTeleop JoyTeleop)
 
 add_executable(visual_servo src/main.cpp)
-target_link_libraries(visual_servo ${catkin_LIBRARIES} apriltag servo ${OpenCV_LIBRARIES} Sophus ${Boost_LIBRARIES} ${YAML_LIBRARIES} parameterTeleop SerialManager)
+target_link_libraries(visual_servo ${catkin_LIBRARIES} apriltag servo ${OpenCV_LIBRARIES} Sophus ${Boost_LIBRARIES} ${YAML_LIBRARIES} parameterTeleop ManiSerialManager)
 add_dependencies(visual_servo ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)
 
 add_executable(real_sense src/camera.cpp)

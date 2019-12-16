@@ -1,5 +1,5 @@
 //
-// Created by xcy on 2019/12/9.
+// Created by xcy on 2019/12/16.
 //
 
 #ifndef VISUAL_SERVO_SERIALMANAGER_H
@@ -17,58 +17,35 @@
 #include <mutex>
 #include <queue>
 
-using std::tr1::shared_ptr;
-#define COMMAND_SIZE 8
 
-#define BUFFER_SIZE COMMAND_SIZE*30
-#define RESULT_SIZE COMMAND_SIZE*10
+#define BUFFER_SIZE 1024
+
 class SerialManager {
     typedef int file_descriptor_t;
-public:
-    struct ReadResult{
-        char read_result[RESULT_SIZE];
-        int read_bytes;
-    };
-
 private:
-    const std::string SERIAL_ADDR_;
+    unsigned int BAUDRATE_;
+    std::string SERIAL_ADDR_;
+
+protected:
     std::mutex send_mutex_;
     std::mutex serial_mutex_;
-
     file_descriptor_t m_dFd;
-
-    const unsigned int BAUDRATE_;
-    char read_buffer[BUFFER_SIZE];
-    char write_buffer[BUFFER_SIZE];
-
-    std::queue<ReadResult> read_result_queue{};
-    ReadResult read_results_;
-
-    int read_used_bytes{};
+    bool serial_alive_;
     bool isOpen_{};
-    bool serial_alive_{};
+    char read_buffer[BUFFER_SIZE]{};
+    char write_buffer[BUFFER_SIZE]{};
 
-    shared_ptr<boost::thread> thread_ptr_;
-    void readWorker(int rate);
 public:
-    SerialManager(std::string serial_addr, unsigned int baudrate);
-    ~SerialManager();
+    explicit SerialManager(std::string serial_addr, unsigned int baudrate);
+    SerialManager(const SerialManager & serialManager);
+    virtual ~SerialManager();
+    unsigned int getBaudrate(){return BAUDRATE_;};
+    std::string getSerialAddr(){return SERIAL_ADDR_;};
     bool isOpen(){ return isOpen_;};
     bool isSerialAlive(){return serial_alive_;};
-    void registerAutoReadThread(int rate);
+    bool openSerial();
     void send(const void* src,int size);
     void receive();
-    ReadResult & getReadResult()
-    {
-        if(!read_result_queue.empty())
-        {
-            read_results_ = read_result_queue.front();
-            read_result_queue.pop();
-        }
-        else
-            memset(&read_results_,0, sizeof(ReadResult));
-        return read_results_;
-    };
 };
 
 

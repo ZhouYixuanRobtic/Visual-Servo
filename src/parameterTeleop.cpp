@@ -18,14 +18,14 @@ void ParameterListener::registerParameterCallback(const std::vector <std::string
     min_threads_num_ = floor(static_cast<float>(parameterNames.size())/NUM_PER_THREAD_);
     if(isString)
     {
-        for(auto & parameterName : parameterNames)
+        for(const auto & parameterName : parameterNames)
         {
             STRING_PARAMETER_NAMES.push_back(parameterName);
         }
     }
     else
     {
-        for(auto & parameterName : parameterNames)
+        for(const auto & parameterName : parameterNames)
         {
             NUMBER_PARAMETER_NAMES.push_back(parameterName);
         }

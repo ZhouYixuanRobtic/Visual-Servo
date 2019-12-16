@@ -1,5 +1,5 @@
 #include "Servo.h"
-#include "SerialManager.h"
+#include "ManiSerialManager.h"
 #include "parameterTeleop.h"
 
 #include <ros/ros.h>
@@ -27,7 +27,7 @@
 
 #include <yaml-cpp/yaml.h>
 
-
+#include "ManiSerialManager.h"
 #define _USE_MATH_DEFINES
 
 #ifdef HAVE_NEW_YAMLCPP
@@ -104,7 +104,7 @@ private:
     //parameter listener
     ParameterListener *parameterListener_;
 
-    SerialManager *communicator_;
+    ManiSerialManager *communicator_;
     /*
      * The transform matrix of A with respect to B named as Trans_B2A.
      * W-world,E-end effector,C-camera,EP-desired end effector,B-base_link,T-target
@@ -330,12 +330,12 @@ Manipulator::Manipulator()
     joint_model_group = move_group->getCurrentState()->getJointModelGroup(PLANNING_GROUP);
     astra =new Servo;
     parameterListener_ = new ParameterListener(30,8);
-    communicator_ = new SerialManager("/dev/tty/S2",B115200);
+    communicator_ = new ManiSerialManager("/dev/tty/S2", B115200);
     ROS_INFO_NAMED("Visual Servo", "Reference frame: %s", move_group->getPlanningFrame().c_str());
     ROS_INFO_NAMED("Visual Servo", "End effector link: %s", move_group->getEndEffectorLink().c_str());
     EE_NAME=move_group->getEndEffectorLink();
     initParameter();
-    if(communicator_->isOpen())
+    if(communicator_->openSerial())
     {
         communicator_->registerAutoReadThread(60);
         usleep(200000);
@@ -770,17 +770,10 @@ bool Manipulator::goUp(double velocity_scale) const
 {
     move_group->setGoalTolerance(Parameters.goal_tolerance);
     move_group->setMaxVelocityScalingFactor(velocity_scale);
-    std::vector<double> goal;
     if(Parameters.inverse)
-    {
-        goal={M_PI/2.0,0,0,0,0,0};
-        move_group->setJointValueTarget(goal);
-    }
+        move_group->setNamedTarget("inverseUp");
     else
-    {
-        goal={-M_PI/2.0,0,0,0,0,0};
-        move_group->setJointValueTarget(goal);
-    }
+        move_group->setNamedTarget("up");
     return move_group->move()==moveit::planning_interface::MoveItErrorCode::SUCCESS;
 }
 bool Manipulator::goHome(double velocity_scale) const
@@ -789,15 +782,9 @@ bool Manipulator::goHome(double velocity_scale) const
     move_group->setMaxVelocityScalingFactor(velocity_scale);
     std::vector<double> goal;
     if(Parameters.inverse)
-    {
-        goal={2.190,0.000,-2.650,-2.350,-0.031,0.00};
-        move_group->setJointValueTarget(goal);
-    }
+        move_group->setNamedTarget("inverseHome");
     else
-    {
-        goal={-0.8,0.000,-2.650,-2.350,-0.031,0.00};
-        move_group->setJointValueTarget(goal);
-    }
+        move_group->setNamedTarget("home");
     return move_group->move()==moveit::planning_interface::MoveItErrorCode::SUCCESS;
 }
 double Manipulator::allClose(const std::vector<double> & goal) const

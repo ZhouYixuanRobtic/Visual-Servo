@@ -24,6 +24,8 @@ private:
 public:
     const std::vector<double>& parameters() const {return parameters_;}
     const std::vector<std::string>& stringParameters() const {return stringParameters_;};
+    const std::vector<std::string>& parameterNames() const {return NUMBER_PARAMETER_NAMES;}
+    const std::vector<std::string>& stringParameterNames() const {return STRING_PARAMETER_NAMES;};
     ParameterListener(int rate, int num_per_thread);
     virtual ~ParameterListener();
     void ParameterLoop(int thread_index,bool isString);
