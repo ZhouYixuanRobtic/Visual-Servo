@@ -1,10 +1,17 @@
 #include "JoyTeleop.h"
 using namespace JOYTELEOP;
 
-JoyTeleop::JoyTeleop(std::string topic_name): TOPIC_NAME_(std::move(topic_name))
+JoyTeleop::JoyTeleop(std::string topic_name,bool publish_vel,double max_linear_velocity,double max_angular_velocity): TOPIC_NAME_(std::move(topic_name))
 {
     control_trigger_=Default;
+    publish_vel_=publish_vel;
     Joy_sub_  = nh_.subscribe(TOPIC_NAME_,100,&JoyTeleop::JoyCallback,this);
+    if(publish_vel)
+    {
+        max_angular_velocity_=max_angular_velocity;
+        max_linear_velocity_ = max_linear_velocity;
+        joy_vel_pub = nh_.advertise<geometry_msgs::Twist>("/joy_vel", 1);
+    }
     watchdog_timer_ = nh_.createTimer(ros::Duration(WATCHDOG_PERIOD_), &JoyTeleop::watchdog, this, true);
     watchdog_timer_.start();
 }
@@ -37,9 +44,21 @@ void JoyTeleop::JoyCallback(const sensor_msgs::JoyConstPtr &msg)
     {
         control_trigger_=UpOn;
     }
+    else if(msg->axes[2]==-1&&msg->buttons[5])//
+    {
+        control_trigger_=ArmEmergencyChange;
+    }
     else if(msg->axes[2]==-1&&msg->axes[5]==-1)
     {
         control_trigger_=KnifeUnplug;
+    }
+    else if(msg->axes[2]==-1&&msg->axes[7]==1)//up
+    {
+        control_trigger_ = LightOn;
+    }
+    else if(msg->axes[2]==-1&&msg->axes[7]==-1)//down
+    {
+        control_trigger_ = LightOff;
     }
     else if(msg->axes[5]==-1&&msg->buttons[0]) //A
     {
@@ -52,6 +71,14 @@ void JoyTeleop::JoyCallback(const sensor_msgs::JoyConstPtr &msg)
     else if(msg->axes[5]==-1&&msg->buttons[2]) //X
     {
         control_trigger_=AntiClockGo;
+    }
+    else if(msg->axes[5]==-1&&msg->axes[6]==1) //left
+    {
+        control_trigger_=SingleAntiClockGo;
+    }
+    else if(msg->axes[5]==-1&&msg->axes[6]==-1) //right
+    {
+        control_trigger_=SingleClockGo;
     }
     else if(msg->axes[5]==-1&&msg->buttons[3]) //Y
     {
@@ -103,4 +130,26 @@ void JoyTeleop::JoyCallback(const sensor_msgs::JoyConstPtr &msg)
     }
     else
         control_trigger_ = Default;
+
+    if(publish_vel_)
+    {
+        geometry_msgs::Twist vel{};
+
+        if(msg->axes[0]||msg->axes[1]  )
+        {
+            vel.angular.z = msg->axes[0] * max_angular_velocity_;
+            vel.linear.x = msg->axes[1] * max_linear_velocity_;
+            if(msg->axes[3]||msg->axes[4])
+            {
+                vel.angular.z = msg->axes[0] * max_angular_velocity_ + msg->axes[3] * max_angular_velocity_ / 2.0;
+                vel.linear.x = msg->axes[1] * max_linear_velocity_ + msg->axes[4] * max_linear_velocity_ / 2.0;
+            }
+        }
+        else if(msg->axes[3]||msg->axes[4])
+        {
+            vel.angular.z = msg->axes[3] * max_angular_velocity_ / 2.0;
+            vel.linear.x = msg->axes[4] * max_linear_velocity_ / 2.0;
+        }
+        joy_vel_pub.publish(vel);
+    }
 }

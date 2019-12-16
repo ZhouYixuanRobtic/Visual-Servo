@@ -1,7 +1,21 @@
 ID0:
-  radius: 0.10
-  goCameraX: 0.0
+  goCameraZ: -0.34
+  goCameraX: 0.02
+  radius: 0.02
+  cutTimes: 0
+  compensateP: 0.0
   goCameraY: 0.30
-  goCameraZ: -0.30
+ID1:
+  compensateP: -0.0271668
+  goCameraX: 0.03
+  radius: 0.04
+  goCameraZ: -0.29
+  goCameraY: 0.32
+  cutTimes: 0
+ID2:
   compensateP: 0.0
   cutTimes: 0
+  goCameraZ: -0.30
+  goCameraX: 0.025
+  radius: 0.02
+  goCameraY: 0.3

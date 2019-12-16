@@ -66,6 +66,7 @@ add_service_files(
 catkin_package(
         INCLUDE_DIRS src LIBRARIES KeyboardTeleop
         INCLUDE_DIRS src LIBRARIES JoyTeleop
+        INCLUDE_DIRS src LIBRARIES SerialManager
   CATKIN_DEPENDS 
                  cv_bridge
                  std_msgs
@@ -82,6 +83,7 @@ catkin_package(
         DEPENDS
                  EIGEN3
                  YAML
+                 Boost
 )
 
 set(AUBO_INCLUDE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/include/dependents/robotSDK/inc;
@@ -95,6 +97,7 @@ set(AUBO_LINK_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/include/dependents/protobuf/linux
 set(VISUAL_SERVO_INCLUDE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/include/visual_servo/)
 include_directories (
         SYSTEM
+        include
         ${Boost_INCLUDE_DIR} 
         ${EIGEN3_INCLUDE_DIRS}
         ${OpenCV_INCLUDE_DIRS}
@@ -156,7 +159,7 @@ add_library(SerialManager src/SerialManager.cpp)
 target_link_libraries(SerialManager ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 #application
 add_executable(auboRobot src/auboRobotLaunch.cpp)
-target_link_libraries(auboRobot auboA protobuf our_alg_i5p log4cplus config auborobotcontroller auboUtil ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop parameterTeleop)
+target_link_libraries(auboRobot auboA protobuf our_alg_i5p log4cplus config auborobotcontroller auboUtil ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop parameterTeleop JoyTeleop)
 
 add_executable(visual_servo src/main.cpp)
 target_link_libraries(visual_servo ${catkin_LIBRARIES} apriltag servo ${OpenCV_LIBRARIES} Sophus ${Boost_LIBRARIES} ${YAML_LIBRARIES} parameterTeleop SerialManager)
@@ -182,4 +185,8 @@ target_link_libraries(keyTest ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTel
 
 add_executable(toolTest test/toolTest.cpp)
 target_link_libraries(toolTest ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop JoyTeleop)
+
+add_executable(goalSaver src/goalSaver.cpp)
+target_link_libraries(goalSaver ${catkin_LIBRARIES} JoyTeleop)
+add_dependencies(maTest ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)
 

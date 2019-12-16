@@ -33,14 +33,9 @@ public:
     int robotShutDown();
     bool robotEventRegister();
     bool OverturnIOStatus();
-    bool robotCollisionRecover();
-    bool robotEnableTeachMode();
-    bool robotDisableTeachMode();
     bool robotFastMoveStop();
     bool robotFastMoveRelease();
     bool toolStart();
-    bool toolStop();
-    bool toolReset();
     bool toolAllclear();
     int robotDiagno();
 

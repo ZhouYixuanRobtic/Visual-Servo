@@ -3,7 +3,7 @@
 //
 
 #include "SerialManager.h"
-
+#include "ros/ros.h"
 SerialManager::SerialManager(std::string serial_addr, unsigned int baudrate):SERIAL_ADDR_(std::move(serial_addr)), BAUDRATE_(std::move(baudrate)) {
     struct termios m_stNew{};
     struct termios m_stOld{};
@@ -41,32 +41,34 @@ SerialManager::SerialManager(std::string serial_addr, unsigned int baudrate):SER
         perror("tcsetattr Error!\n");
         isOpen_ = false;
     }
-    if(isOpen_)
-        registerReadThread(60);
-    else
-        printf("the serial is not opened!!!!\r\n");
+    serial_mutex_.lock();
+    serial_alive_ = (read(m_dFd,read_buffer,BUFFER_SIZE)>=0);
+    serial_mutex_.unlock();
 }
 SerialManager::~SerialManager()
 {
+    close(m_dFd);
     thread_ptr_->interrupt();
     thread_ptr_->join();
 }
-void SerialManager::registerReadThread(int rate)
+void SerialManager::registerAutoReadThread(int rate)
 {
     thread_ptr_.reset(new boost::thread(boost::bind(&SerialManager::readWorker,this,rate)));
 }
 void SerialManager::readWorker(int rate)
 {
+    static ros::Rate loop_rate(rate);
     try
     {
         boost::this_thread::interruption_enabled();
         while(true)
         {
+            //boost::posix_time::ptime startTime = boost::posix_time::microsec_clock::universal_time();
             boost::this_thread::interruption_point();
-            boost::posix_time::ptime startTime = boost::posix_time::microsec_clock::local_time();
             receive();
-            boost::posix_time::ptime endTime = boost::posix_time::microsec_clock::local_time();
-            boost::this_thread::sleep(boost::posix_time::microseconds((int)1E6/rate - (endTime - startTime).total_microseconds()));
+            //boost::posix_time::ptime endTime = boost::posix_time::microsec_clock::universal_time();
+            //boost::this_thread::sleep(boost::posix_time::microseconds((int)1E6/rate - (endTime - startTime).total_microseconds()));
+            loop_rate.sleep();
         }
     }
     catch (boost::thread_interrupted&e )
@@ -76,23 +78,54 @@ void SerialManager::readWorker(int rate)
 }
 void SerialManager::receive()
 {
-    receiveNumbers=read(m_dFd,read_buffer,BUFFER_SIZE);
+    serial_mutex_.lock();
+    int receiveNumbers=read(m_dFd,&read_buffer[read_used_bytes],BUFFER_SIZE);
+    serial_mutex_.unlock();
     if(receiveNumbers>0)
     {
-        memcpy(read_result, read_buffer, receiveNumbers * sizeof(char));
-        printf("back: %s\r\n",read_result);
+        serial_alive_ =true;
+        read_used_bytes +=receiveNumbers;
+        if(read_used_bytes%COMMAND_SIZE==0)
+        {
+            ReadResult temp{};
+            for(int i=0;i<read_used_bytes;i+=COMMAND_SIZE)
+            {
+                //WARNING, MAY IGNORE SOME DATA
+                if(i<=RESULT_SIZE-COMMAND_SIZE)
+                {
+                    memcpy(&temp.read_result[i], &read_buffer[i], COMMAND_SIZE);
+                    temp.read_bytes += COMMAND_SIZE;
+                }
+            }
+            read_result_queue.push(temp);
+            memset(read_buffer,0,BUFFER_SIZE);
+            read_used_bytes = 0;
+        }
+        if(read_used_bytes>=BUFFER_SIZE-COMMAND_SIZE)
+        {
+            read_used_bytes=0;
+            memset(read_buffer,0,BUFFER_SIZE);
+        }
     }
-    else
-        memset(read_result,0,BUFFER_SIZE);
+    else if(receiveNumbers<0)
+    {
+        serial_alive_ =false;
+        read_used_bytes= 0;
+        memset(read_buffer,0,BUFFER_SIZE);
+    }
+
 }
-void SerialManager::send(const char *src,int size)
+void SerialManager::send(const void *src,int size)
 {
     if(isOpen_)
     {
+        send_mutex_.lock();
         memset(write_buffer,0,BUFFER_SIZE);
         memcpy(write_buffer,src,size);
-        write(m_dFd,write_buffer,size);
-        printf("send: %s\r\n",write_buffer);
+        send_mutex_.unlock();
+        serial_mutex_.lock();
+        serial_alive_ = (write(m_dFd,write_buffer,size)>=0);
+        serial_mutex_.unlock();
     }
     else
         printf("the serial is not opened!!!!\r\n");

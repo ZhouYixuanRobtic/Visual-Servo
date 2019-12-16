@@ -14,7 +14,7 @@ class ParameterListener
 private:
     int NUM_PER_THREAD_;
     int RATE_;
-    std::vector<shared_ptr<boost::thread>> thread_ptrs_;
+    std::vector< shared_ptr<boost::thread> > thread_ptrs_;
     std::vector<std::string> NUMBER_PARAMETER_NAMES;
     std::vector<std::string> STRING_PARAMETER_NAMES;
     std::vector<double> parameters_{};

@@ -11,7 +11,7 @@ user:
  expectPitch: 0.00000 #default 0.0
  expectYaw: 0.00000 #default 0.0
  #direction sign
- inverse: false #default false
+ inverse: 1.0 #default false
  #trigger for pose sevo mode
  servoPoseOn: true #default false
  #search down height
@@ -20,13 +20,9 @@ user:
  chargeDownHeight: -0.4
  #prameters temp
  goCameraX: 0.000
- goCameraY: 0.33
- goCameraZ: -0.08
- #trace parameters
- angle: 40 #degree
- distance: -0.1
- pointsNumber: 50
- cameraFrame: "virtual_camera_color_optical_frame"
+ goCameraY: 0.3
+ goCameraZ: -0.30
+ cameraFrame: "camera_color_optical_frame"
  toolFrame: "charger_ee_link"
 robot:
  #parameter constrain the robot velocity 0.0-1.0
@@ -34,3 +30,4 @@ robot:
  #parameters constrain the robot execute precision
  goalTolerance: 0.00010 #default 0.001
  servoTolerance: 0.00500 #default 0.001
+ realWork: 0.0

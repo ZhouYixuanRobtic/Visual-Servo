@@ -33,7 +33,7 @@ public:
     virtual ~Listener();
     void worker(int SrvRequestType);
     bool callSrv(int SrvRequestType);
-    int pox_system(const char* commands);
+    int pox_system(const char* commandsz);
 };
 Listener::Listener()
 {
@@ -86,8 +86,12 @@ int Listener::pox_system(const char *commands)
 int main(int argc, char** argv)
 {
     ros::init(argc, argv, "maTest");
+    ros::NodeHandle nh_("~");
     Listener listener;
-    JoyTeleop joyTeleop("joy");
+    double max_linear_velocity,max_angular_velocity;
+    nh_.param("max_linear_velocity",max_linear_velocity,(double)0.8);
+    nh_.param("max_angular_velocity",max_angular_velocity,(double)0.5);
+    JOYTELEOP::JoyTeleop joyTeleop("joy",true,max_linear_velocity,max_angular_velocity);
     
     ros::Rate loop_rate(30);
     while(ros::ok())
@@ -116,6 +120,12 @@ int main(int argc, char** argv)
             case AntiClockGo:
                 ros::param::set("/visual_servo/antiClockGo",1.0);
                 break;
+            case SingleAntiClockGo:
+                ros::param::set("/visual_servo/singleAntiClockGo",1.0);
+                break;
+            case SingleClockGo:
+                ros::param::set("/visual_servo/singleClockGo",1.0);
+                break;
             case KnifeOn:
                 ros::param::set("/visual_servo/knifeOn",1.0);
                 break;
@@ -125,19 +135,25 @@ int main(int argc, char** argv)
             case KnifeUnplug:
                 ros::param::set("/visual_servo/knifeUnplug",1.0);
                 break;
+            case LightOn:
+                ros::param::set("/visual_servo/lightOn",1.0);
+                break;
+            case LightOff:
+                ros::param::set("/visual_servo/lightOff",1.0);
+                break;
             case RobotArmOn:
             {
                 ros::V_string AllNodes;
                 ros::master::getNodes(AllNodes);
                 for(auto & node_name:AllNodes)
                 {
-                    if(node_name=="/aubo_gazebo_driver")
+                    if(node_name=="/aubo_gazebo_driver"||node_name=="/rviz")
                     {
                         listener.pox_system(("rosnode kill " + node_name).c_str());
                         sleep(20);
                     }
                 }
-                listener.pox_system("gnome-terminal -x bash -c \" roslaunch visual_servo visual_servo_sim.launch;exit;exec bash;\"");
+                listener.pox_system("gnome-terminal -x bash -c \"roslaunch visual_servo visual_servo_sim.launch\";exit;exec bash;");
                 break;
             }
             case NavigationOn:
@@ -146,20 +162,30 @@ int main(int argc, char** argv)
                 ros::master::getNodes(AllNodes);
                 for(auto & node_name:AllNodes)
                 {
-                    if(node_name=="/goalSaver"||node_name=="/odomFilter")
+                    if(node_name=="/goalSaver"||node_name=="/odomFilter"||node_name=="/auboRobot")
                     {
                         listener.pox_system(("rosnode kill " + node_name).c_str());
                     }
                 }
                 sleep(5);
-                listener.pox_system("gnome-terminal -x bash -c \"roslaunch cartographer_ros ;exit;exec bash;\"");
+                listener.pox_system("gnome-terminal -x bash -c \"roslaunch cartographer_ros demo_velodyne2d_localization.launch load_state_filename:=/home/xcy/subbag2.bag.pbstream\";exit;exec bash;");
+                sleep(2);
+                listener.pox_system("gnome-terminal -x bash -c \"roslaunch rubber_navigation rubber_navigation.launch\";exit;exec bash");
                 break;
             }
             case ShutDown:
             {
-                listener.pox_system("rosnode kill -a");
+                ros::V_string AllNodes;
+                ros::master::getNodes(AllNodes);
+                for(auto & node_name:AllNodes)
+                {
+                    if(node_name!="/joystick"&&node_name!="/maTest"&&node_name!="/rosout")
+                    {
+                        listener.pox_system(("rosnode kill " + node_name).c_str());
+                    }
+                }
                 sleep(1);
-                listener.pox_system("shutdown");
+                listener.pox_system("gnome-terminal -x bash -c \"shutdown\"; exec bash;");
             }
             case MappingOn:
             {
@@ -167,13 +193,14 @@ int main(int argc, char** argv)
                 ros::master::getNodes(AllNodes);
                 for(auto & node_name:AllNodes)
                 {
-                    if(node_name=="/wait to check")
+                    if(node_name=="/rviz")
                     {
                         listener.pox_system(("rosnode kill " + node_name).c_str());
                         sleep(5);
+                        break;
                     }
                 }
-                listener.pox_system("gnome-terminal -x bash -c \"roslaunch cartographer_ros ;exit;exec bash;\"");
+                listener.pox_system("gnome-terminal -x bash -c \"roslaunch cartographer_ros demo_velodyne2d.launch\";exit;exec bash;");
                 break;
             }
             case MappingOff:
@@ -182,13 +209,15 @@ int main(int argc, char** argv)
                 ros::master::getNodes(AllNodes);
                 for(auto & node_name:AllNodes)
                 {
-                    if(node_name=="/wait to check")
+                    if(node_name=="/rviz")
                     {
-                        listener.pox_system(("rosnode kill " + node_name).c_str());
-                        sleep(5);
+                        listener.pox_system("rosservice call /finish_trajectory 0");
+                        sleep(1);
+                        listener.pox_system("gnome-terminal -x bash -c \"rosservice call /write_state \"filename: \'/home/xcy/subbag2.bag.pbstream\' include_unfinished_submaps: \'true\'\"\";exit;exec bash;");
+                        sleep(2);
+                        break;
                     }
                 }
-                listener.pox_system("gnome-terminal -x bash -c \"roslaunch cartographer_ros ;exit;exec bash;\"");
                 break;
             }
             default:

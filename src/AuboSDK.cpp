@@ -89,6 +89,7 @@ void AuboSDK::RealTimeEventInfoCallback(const aubo_robot_namespace::RobotEventIn
     else if(pEventInfo->eventType==aubo_robot_namespace::RobotEvent_collision)
     {
         RobotCollisionRecover=false;
+        RobotMoveStop=true;
     }
     else if(pEventInfo->eventType==aubo_robot_namespace::RobotEvent_collisionStatusChanged)
     {
@@ -117,24 +118,12 @@ bool AuboSDK::OverturnIOStatus()
 }
 bool AuboSDK::toolStart()
 {
-    ret=robotService->robotServiceSetBoardIOStatus(aubo_robot_namespace::RobotBoardUserDO,"U_DO_01",1.0);
+    ret=robotService->robotServiceSetBoardIOStatus(aubo_robot_namespace::RobotBoardUserDO,"U_DO_00",1.0);
     return ret == aubo_robot_namespace::InterfaceCallSuccCode;
-}
-bool AuboSDK::toolStop()
-{
-   ret = robotService->robotServiceSetBoardIOStatus(aubo_robot_namespace::RobotBoardUserDO,"U_DO_02",1.0);
-   return ret == aubo_robot_namespace::InterfaceCallSuccCode;
-}
-bool AuboSDK::toolReset()
-{
-    ret = robotService->robotServiceSetBoardIOStatus(aubo_robot_namespace::RobotBoardUserDO,"U_DO_03",1.0);
-   return ret == aubo_robot_namespace::InterfaceCallSuccCode;
 }
 bool AuboSDK::toolAllclear()
 {
-    ret = robotService->robotServiceSetBoardIOStatus(aubo_robot_namespace::RobotBoardUserDO,"U_DO_01",0.0);
-    ret = robotService->robotServiceSetBoardIOStatus(aubo_robot_namespace::RobotBoardUserDO,"U_DO_02",0.0);
-    ret = robotService->robotServiceSetBoardIOStatus(aubo_robot_namespace::RobotBoardUserDO,"U_DO_03",0.0);
+    ret = robotService->robotServiceSetBoardIOStatus(aubo_robot_namespace::RobotBoardUserDO,"U_DO_00",0.0);
 }
 int AuboSDK::robotDiagno()
 {
@@ -142,21 +131,6 @@ int AuboSDK::robotDiagno()
     robotService->robotServiceGetRobotDiagnosisInfo(robotDiagnosisInfo);
     Util::printRobotDiagnosis(robotDiagnosisInfo);
     return 1;
-}
-bool AuboSDK::robotCollisionRecover()
-{
-    ret=robotService->robotServiceCollisionRecover();
-    return ret == aubo_robot_namespace::InterfaceCallSuccCode;
-}
-bool AuboSDK::robotEnableTeachMode()
-{
-    ret=robotService->rootServiceRobotControl(aubo_robot_namespace::RobotControlCommand(aubo_robot_namespace::EnableForceControl));
-    return ret == aubo_robot_namespace::InterfaceCallSuccCode;
-}
-bool AuboSDK::robotDisableTeachMode()
-{
-    ret=robotService->rootServiceRobotControl(aubo_robot_namespace::RobotControlCommand(aubo_robot_namespace::DisableForceControl));
-    return ret == aubo_robot_namespace::InterfaceCallSuccCode;
 }
 bool AuboSDK::robotFastMoveStop()
 {

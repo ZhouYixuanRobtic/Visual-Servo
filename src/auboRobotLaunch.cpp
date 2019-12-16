@@ -13,7 +13,7 @@
 #include "AuboSDK.h"
 #include "visual_servo/VisualServoMetaTypeMsg.h"
 #include "VisualServoMetaType.h"
-#include "KeyboardTeleop.h"
+#include "JoyTeleop.h"
 #include "parameterTeleop.h"
 
 extern bool ExitSoftEmergency;
@@ -26,10 +26,10 @@ int main(int argc, char** argv)
 
     bool isMoveStop=false;
     ParameterListener parameterListener(40,8);
-    const std::vector<std::string> parameterNames{"/visual_servo/isChargingStatusChanged","/visual_servo/isToolStarted","/visual_servo/isToolStopped","/visual_servo/isToolReset","/visual_servo/toolAllClear"};
+    const std::vector<std::string> parameterNames{"/visual_servo/toolStart","/visual_servo/toolAllClear","/visual_servo/overturnStatus"};
     parameterListener.registerParameterCallback(parameterNames,false);
 
-    KeyboardTeleop tbk;
+    JOYTELEOP::JoyTeleop joyTeleop("joy");
 
     visual_servo::VisualServoMetaTypeMsg status;
     ros::Publisher status_pub;
@@ -44,43 +44,35 @@ int main(int argc, char** argv)
         // auboSdk.getSwitchStatus();
         if((bool) parameterListener.parameters()[0])
         {
-            auboSdk.OverturnIOStatus();
+            auboSdk.toolStart();
             ros::param::set(parameterNames[0],(double)false);
         }
         if((bool) parameterListener.parameters()[1])
         {
-            auboSdk.toolStart();
+            auboSdk.toolAllclear();
             ros::param::set(parameterNames[1], (double)false);
         }
         if((bool) parameterListener.parameters()[2])
         {
-            auboSdk.toolStop();
-            ros::param::set(parameterNames[2], (double)false);
-        }
-        if((bool) parameterListener.parameters()[3])
-        {
-            auboSdk.toolReset();
-            ros::param::set(parameterNames[3], (double)false);
-        }
-        if((bool) parameterListener.parameters()[4])
-        {
-            auboSdk.toolAllclear();
+            auboSdk.OverturnIOStatus();
             ros::param::set(parameterNames[4],(double)false);
         }
-        if(tbk.moveChange)
+        switch(joyTeleop.getControlTrigger())
         {
-
-            if(!isMoveStop)
-            {
-                isMoveStop=auboSdk.robotFastMoveStop();
-                std::cout<<"机械臂已刹车"<<std::endl;
-            }
-            else
-            {
-                isMoveStop=!auboSdk.robotFastMoveRelease();
-                std::cout<<"机械臂松刹车"<<std::endl;
-            }
-            tbk.moveChange=false;
+            case JOYTELEOP::ArmEmergencyChange:
+                if(!isMoveStop)
+                {
+                    isMoveStop=auboSdk.robotFastMoveStop();
+                    std::cout<<"机械臂已刹车"<<std::endl;
+                }
+                else
+                {
+                    isMoveStop=!auboSdk.robotFastMoveRelease();
+                    std::cout<<"机械臂松刹车"<<std::endl;
+                }
+                break;
+            default:
+                break;
 
         }
         if(RobotMoveStop)
@@ -89,7 +81,10 @@ int main(int argc, char** argv)
             if(ExitSoftEmergency)
             {
                 if(status.RobotAllRight=auboSdk.robotStartUp())
+                {
                     ExitSoftEmergency=false;
+                    RobotMoveStop=false;
+                }
             }
             /*急停时应中断所有操作*/
         }

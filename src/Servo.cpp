@@ -20,13 +20,13 @@ void Servo::getTransform(const std::string & target_frame,const std::string & so
     {
         transformStamped = tfBuffer_.lookupTransform(target_frame, source_frame,
                                                 ros::Time(0),ros::Duration(3.0));
+        transformMatrix=tf2::transformToEigen(transformStamped.transform);
     }
     catch (tf2::TransformException &ex)
     {
         ROS_WARN("%s",ex.what());
         //ros::Duration(1.0).sleep();
     }
-    transformMatrix=tf2::transformToEigen(transformStamped.transform);
 }
 Eigen::Affine3d Servo::getTransform(const std::string & target_frame,const std::string & source_frame)
 {
@@ -74,6 +74,8 @@ const Destination_t & Servo::getCameraEE(const Eigen::Affine3d & Trans_C2T,const
     //increment
     EndDestinationDelta.EE_Motion.matrix()=EndMotionDelta.matrix();
     Sophus::Vector6d error_vector{EndMotionDelta.log()};
+    EndDestinationDelta.error_log=error_vector;
+    //concentrate on the pose adjust
     error_vector[0]=0.0;
     error_vector[1]=0.0;
     error_vector[2]=0.0;

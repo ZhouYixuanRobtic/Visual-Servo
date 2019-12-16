@@ -68,6 +68,7 @@ struct Destination_t{
     Eigen::Affine3d EE_Motion;
     //the position error with respect to expected position
     double error;
+    Eigen::Matrix<double,6,1> error_log;
 };
 
 struct manipulateSrv{
