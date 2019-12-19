@@ -189,7 +189,3 @@ target_link_libraries(keyTest ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTel
 add_executable(toolTest test/toolTest.cpp)
 target_link_libraries(toolTest ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop JoyTeleop)
 
-add_executable(goalSaver src/goalSaver.cpp)
-target_link_libraries(goalSaver ${catkin_LIBRARIES} JoyTeleop)
-add_dependencies(maTest ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)
-

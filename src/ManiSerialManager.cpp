@@ -44,9 +44,9 @@ void ManiSerialManager::readWorker(int rate)
 }
 void ManiSerialManager::receive()
 {
-    serial_mutex_.lock();
+    //serial_mutex_.lock();
     int receiveNumbers=read(m_dFd,&read_buffer,BUFFER_SIZE);
-    serial_mutex_.unlock();
+    //serial_mutex_.unlock();
     if(receiveNumbers>0)
     {
         serial_alive_ =true;

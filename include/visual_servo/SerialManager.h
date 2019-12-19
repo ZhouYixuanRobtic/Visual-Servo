@@ -18,7 +18,7 @@
 #include <queue>
 
 
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 400
 
 class SerialManager {
     typedef int file_descriptor_t;
@@ -28,9 +28,9 @@ private:
 
 protected:
     std::mutex send_mutex_;
-    std::mutex serial_mutex_;
+    //std::mutex serial_mutex_;
     file_descriptor_t m_dFd;
-    bool serial_alive_;
+    bool serial_alive_{};
     bool isOpen_{};
     char read_buffer[BUFFER_SIZE]{};
     char write_buffer[BUFFER_SIZE]{};

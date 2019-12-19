@@ -127,14 +127,11 @@ int main(int argc, char** argv)
                 ros::master::getNodes(AllNodes);
                 for(auto & node_name:AllNodes)
                 {
-                    if(node_name=="/goalSaver"||node_name=="/odomFilter"||node_name=="/auboRobot")
+                    if(node_name=="/rubber_navigation"||node_name=="/auboRobot")
                     {
                         listener.pox_system(("rosnode kill " + node_name).c_str());
                     }
                 }
-                sleep(5);
-                listener.pox_system("gnome-terminal -x bash -c \"roslaunch cartographer_ros demo_velodyne2d_localization.launch load_state_filename:=/home/xcy/subbag2.bag.pbstream\";exit;exec bash;");
-                sleep(2);
                 listener.pox_system("gnome-terminal -x bash -c \"roslaunch rubber_navigation rubber_navigation.launch\";exit;exec bash");
                 break;
             }
@@ -178,7 +175,9 @@ int main(int argc, char** argv)
                     {
                         listener.pox_system("rosservice call /finish_trajectory 0");
                         sleep(1);
-                        listener.pox_system("gnome-terminal -x bash -c \"rosservice call /write_state \"filename: \'/home/xcy/subbag2.bag.pbstream\' include_unfinished_submaps: \'true\'\"\";exit;exec bash;");
+                        std::string temp{ros::package::getPath("rubber_navigation")+"/config/map/map.bag.pbstream"};
+                        std::string final_temp="gnome-terminal -x bash -c \"rosservice call /write_state \"filename: \'"+temp+"\' include_unfinished_submaps: \'true\'\"\";exit;exec bash;";
+                        listener.pox_system(final_temp.c_str());
                         sleep(2);
                         break;
                     }
