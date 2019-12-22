@@ -23,8 +23,8 @@
 class SerialManager {
     typedef int file_descriptor_t;
 private:
-    unsigned int BAUDRATE_;
-    std::string SERIAL_ADDR_;
+    const unsigned int BAUDRATE_;
+    const std::string SERIAL_ADDR_;
 
 protected:
     std::mutex send_mutex_;

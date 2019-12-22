@@ -20,6 +20,7 @@ private:
     ReadResult read_results_;
     std::tr1::shared_ptr<boost::thread> thread_ptr_;
     void readWorker(int rate);
+    bool thread_registered_{};
 public:
     ManiSerialManager(std::string serial_addr, unsigned int baudrate);
     ManiSerialManager(const SerialManager & serialManager);

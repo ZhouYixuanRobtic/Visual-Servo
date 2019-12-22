@@ -16,6 +16,11 @@
 #include <moveit_msgs/CollisionObject.h>
 #include <moveit/planning_request_adapter/planning_request_adapter.h>
 #include <moveit/trajectory_processing/iterative_time_parameterization.h>
+#include <moveit/robot_model/robot_model.h>
+#include <moveit/robot_state/robot_state.h>
+#include <moveit/robot_trajectory/robot_trajectory.h>
+#include <moveit_msgs/RobotTrajectory.h>
+#include <moveit/trajectory_processing/trajectory_tools.h>
 
 #include <geometry_msgs/PoseStamped.h>
 #include <tf2_eigen/tf2_eigen.h>
@@ -146,6 +151,8 @@ private:
 
     void saveCutTimes(int ID,int cutTimes);
 
+    //warning, only used when the vel is low, and the velocity is constant but the execute time is not euqal to destination.norm()/speed;
+    void setAvgCartesianSpeed(moveit::planning_interface::MoveGroupInterface::Plan &plan, const double speed);
 
     //prameters
     struct{
@@ -342,6 +349,9 @@ Manipulator::Manipulator()
         std::string serial_send{"rubber tapping robot is online"};
         communicator_->send(serial_send.c_str(),serial_send.size());
     }
+    else
+        ROS_ERROR_STREAM("CAN'T OPEN THE SERIAL"<<communicator_->getSerialAddr());
+
 }
 Manipulator::~Manipulator()
 {
@@ -425,7 +435,7 @@ void Manipulator::addStaticPlanningConstraint() const
     geometry_msgs::Pose object_pose;
     object_pose.position.x=0;
     object_pose.position.y=0;
-    object_pose.position.z=0.0;
+    object_pose.position.z=-0.205;
     object_pose.orientation.w=1.0;
     collision_object.planes.push_back(plane);
     collision_object.plane_poses.push_back(object_pose);
@@ -573,6 +583,110 @@ void Manipulator::scale_trajectory_speed(moveit::planning_interface::MoveGroupIn
         }
     }
 }
+
+void Manipulator::setAvgCartesianSpeed(moveit::planning_interface::MoveGroupInterface::Plan &plan, const double speed)
+{
+    //TODO : WHEN THEN OLD_TIMESTAMP IS BIGGER, WE SHOULD INTERPOLATE IT RATHER THAN GIVE IT UP
+    //TODO : OR WE SHOULD INTERPOLATE FIRST THEN ADJUST IT
+    robot_state::RobotStatePtr kinematic_state(move_group->getCurrentState());
+    kinematic_state->setToDefaultValues();
+
+    int num_waypoints = plan.trajectory_.joint_trajectory.points.size();                                //gets the number of waypoints in the trajectory
+    const std::vector<std::string> joint_names = plan.trajectory_.joint_trajectory.joint_names;    //gets the names of the joints being updated in the trajectory
+
+    //set joint positions of zeroth waypoint
+    kinematic_state->setVariablePositions(joint_names, plan.trajectory_.joint_trajectory.points.at(0).positions);
+
+    Eigen::Affine3d current_end_effector_state = kinematic_state->getGlobalLinkTransform(EE_NAME);
+    Eigen::Affine3d next_end_effector_state;
+    double euclidean_distance, new_timestamp, old_timestamp, q1, q2, q3, dt1, dt2, v1, v2, a;
+    trajectory_msgs::JointTrajectoryPoint *prev_waypoint, *curr_waypoint, *next_waypoint;
+
+    for(int i = 0; i < num_waypoints - 1; i++)      //loop through all waypoints
+    {
+        curr_waypoint = &plan.trajectory_.joint_trajectory.points.at(i);
+        next_waypoint = &plan.trajectory_.joint_trajectory.points.at(i+1);
+
+        //set joints for next waypoint
+        kinematic_state->setVariablePositions(joint_names, next_waypoint->positions);
+
+        //do forward kinematics to get cartesian positions of end effector for next waypoint
+        next_end_effector_state = kinematic_state->getGlobalLinkTransform(EE_NAME);
+
+        //get euclidean distance between the two waypoints
+        euclidean_distance = (next_end_effector_state.translation()-current_end_effector_state.translation()).norm();
+
+        new_timestamp = curr_waypoint->time_from_start.toSec() + (euclidean_distance / speed);      //start by printing out all 3 of these!
+        old_timestamp = next_waypoint->time_from_start.toSec();
+
+        //update next waypoint timestamp & joint velocities/accelerations if joint velocity/acceleration constraints allow
+        if(new_timestamp > old_timestamp)
+            next_waypoint->time_from_start.fromSec(new_timestamp);
+        else
+        {
+            ROS_WARN_STREAM_NAMED("setAvgCartesianSpeed", "Average speed is too fast. Moving as fast as joint constraints allow. and "<<i);
+        }
+
+        //update current_end_effector_state for next iteration
+        current_end_effector_state = next_end_effector_state;
+    }
+
+    //now that timestamps are updated, update joint velocities/accelerations (used updateTrajectory from iterative_time_parameterization as a reference)
+    for(int i = 0; i < num_waypoints; i++)
+    {
+        curr_waypoint = &plan.trajectory_.joint_trajectory.points.at(i);            //set current, previous & next waypoints
+        if(i > 0)
+            prev_waypoint = &plan.trajectory_.joint_trajectory.points.at(i-1);
+        if(i < num_waypoints-1)
+            next_waypoint = &plan.trajectory_.joint_trajectory.points.at(i+1);
+
+        if(i == 0)          //update dt's based on waypoint (do this outside of loop to save time)
+            dt1 = dt2 = next_waypoint->time_from_start.toSec() - curr_waypoint->time_from_start.toSec();
+        else if(i < num_waypoints-1)
+        {
+            dt1 = curr_waypoint->time_from_start.toSec() - prev_waypoint->time_from_start.toSec();
+            dt2 = next_waypoint->time_from_start.toSec() - curr_waypoint->time_from_start.toSec();
+        }
+        else
+            dt1 = dt2 = curr_waypoint->time_from_start.toSec() - prev_waypoint->time_from_start.toSec();
+
+        for(int j = 0; j < joint_names.size(); j++)     //loop through all joints in waypoint
+        {
+            if(i == 0)                      //first point
+            {
+                q1 = next_waypoint->positions.at(j);
+                q2 = curr_waypoint->positions.at(j);
+                q3 = q1;
+            }
+            else if(i < num_waypoints-1)    //middle points
+            {
+                q1 = prev_waypoint->positions.at(j);
+                q2 = curr_waypoint->positions.at(j);
+                q3 = next_waypoint->positions.at(j);
+            }
+            else                            //last point
+            {
+                q1 = prev_waypoint->positions.at(j);
+                q2 = curr_waypoint->positions.at(j);
+                q3 = q1;
+            }
+
+            if(dt1 == 0.0 || dt2 == 0.0)
+                v1 = v2 = a = 0.0;
+            else
+            {
+                v1 = (q2 - q1)/dt1;
+                v2 = (q3 - q2)/dt2;
+                a = 2.0*(v2 - v1)/(dt1+dt2);
+            }
+
+            //actually set the velocity and acceleration
+            curr_waypoint->velocities.at(j) = (v1+v2)/2;
+            curr_waypoint->accelerations.at(j) = a;
+        }
+    }
+    ROS_INFO("SET VELOCITY FINISH");
+}
 bool Manipulator::linearMoveTo(const Eigen::Vector3d &destination_translation, double velocity_scale)
 {
     move_group->setMaxVelocityScalingFactor(velocity_scale);
@@ -597,64 +711,36 @@ bool Manipulator::linearMoveTo(const Eigen::Vector3d &destination_translation, d
 }
 bool Manipulator::constantMoveTo(const Eigen::Vector3d & destination,double velocity_limit)
 {
-    Eigen::Affine3d EE_MOTION{getEndMotion(RIGHT, destination)};
-    //constraints
-    moveit_msgs::OrientationConstraint ee_ocm;
-    ee_ocm.link_name = EE_NAME;
-    ee_ocm.header.frame_id = move_group->getPlanningFrame();
-    ee_ocm.header.stamp = ros::Time::now();
-    ee_ocm.absolute_x_axis_tolerance = 0.0001;
-    ee_ocm.absolute_y_axis_tolerance = 0.0001;
-    ee_ocm.absolute_z_axis_tolerance = 0.0001;
-    ee_ocm.orientation = move_group->getCurrentPose().pose.orientation;
-    ee_ocm.weight=1.0;
+    move_group->setMaxVelocityScalingFactor(1.0);
+    moveit_msgs::OrientationConstraint ocm;
+    ocm.link_name = EE_NAME;
+    ocm.header.frame_id = move_group->getPlanningFrame();
+    ocm.header.stamp = ros::Time::now();
+    ocm.absolute_x_axis_tolerance = 0.0001;
+    ocm.absolute_y_axis_tolerance = 0.0001;
+    ocm.absolute_z_axis_tolerance = 0.0001;
+    ocm.orientation = move_group->getCurrentPose().pose.orientation;
+    ocm.weight=1.0;
     moveit_msgs::Constraints path_constraints;
-    path_constraints.orientation_constraints.push_back(ee_ocm);
-    //path interpolate
-    std::vector<geometry_msgs::Pose> waypoints;
-    geometry_msgs::Pose start_pose{move_group->getCurrentPose().pose};
-    Eigen::Vector3d start_translation{start_pose.position.x,start_pose.position.y,start_pose.position.z};
-    for(int i=0;i<100;++i)
-    {
-        start_pose.position.x += (EE_MOTION.translation()-start_translation)[0]/100.0;
-        start_pose.position.y += (EE_MOTION.translation()-start_translation)[1]/100.0;
-        start_pose.position.z += (EE_MOTION.translation()-start_translation)[2]/100.0;
-        waypoints.push_back(start_pose);
-    }
-    //planning
-    move_group->allowReplanning(true);
-    move_group->setStartStateToCurrentState();
-    moveit_msgs::RobotTrajectory my_traj;
-    double fraction= 0.0;
-    int attempts=0;
-    while(fraction<1.0&&attempts<100)
-    {
-        fraction = move_group->computeCartesianPath(waypoints,0.001,0.0,my_traj,path_constraints);
-        attempts++;
-        if(attempts%10==0)
-            ROS_INFO("Still trying after %d attempts",attempts);
-        usleep(50000);
-    }
-    ROS_INFO_NAMED("visual_servo constant","cartesian path %2.f%% acheived",fraction*100.0);
-    if(fraction<1.0)
-    {
-        ROS_INFO("No trajectory");
+    path_constraints.orientation_constraints.push_back(ocm);
+    move_group->setPathConstraints(path_constraints);
+    move_group->setPoseTarget(getEndMotion(RIGHT,destination));
+    move_group->setPlanningTime(10.0);
+    moveit::planning_interface::MoveGroupInterface::Plan real_plan;
+    bool planing_success = move_group->plan(real_plan) == moveit::planning_interface::MoveItErrorCode::SUCCESS;
+    move_group->setPlanningTime(5.0);
+    move_group->clearPathConstraints();
+    if(!planing_success)
         return false;
-    }
     else
     {
-        /*
-        robot_trajectory::RobotTrajectory real_traj(move_group->getCurrentState()->getRobotModel(),"manipulator_i5");
-        real_traj.setRobotTrajectoryMsg(*move_group->getCurrentState(),my_traj);
-        trajectory_processing::IterativeParabolicTimeParameterization IPTP;
-        bool ITSuccess = IPTP.computeTimeStamps(real_traj,velocity_limit);
-        ROS_INFO("Computed time stamp %s",ITSuccess? "SUCCEED" : "FAILED");
-        real_traj.getRobotTrajectoryMsg(my_traj);*/
-        moveit::planning_interface::MoveGroupInterface::Plan real_plan;
-        real_plan.trajectory_ = my_traj;
-        scale_trajectory_speed(real_plan,velocity_limit);
-        return  move_group->execute(real_plan)==moveit::planning_interface::MoveItErrorCode::SUCCESS;
+        setAvgCartesianSpeed(real_plan,velocity_limit);
     }
+
+    ros::Time test_before{ros::Time::now()};
+    bool a= move_group->execute(real_plan)==moveit::planning_interface::MoveItErrorCode::SUCCESS;
+    ROS_INFO_STREAM("THE INTERVAL IS "<<(ros::Time::now()-test_before).toSec());
+    return a;
 }
 void Manipulator::updateParameters(int ID)
 {
@@ -841,7 +927,7 @@ bool Manipulator::goSearchOnce(SearchType search_type, double velocity_scale,dou
             }
             else
             {
-                if(!linearMoveTo(Eigen::Vector3d(0.0, 0.0, Parameters.searchDownHeight),velocity_scale))
+                if(!constantMoveTo(Eigen::Vector3d(0.0, 0.0, Parameters.searchDownHeight),0.05))
                     return false;
                 else
                     return !Tags_detected.empty();
@@ -961,12 +1047,12 @@ bool Manipulator::goServo( double velocity_scale)
 bool Manipulator::goCut(double velocity_scale)
 {
     addDynamicPlanningConstraint(true);
-    ros::param::set(PARAMETER_NAMES[2],0.0);
-    usleep(50000);
+    //ros::param::set(PARAMETER_NAMES[2],0.0);
+    //usleep(50000);
     //knife go forward
     if(!linearMoveTo(Eigen::Vector3d(0.385,0.0,0.0),0.5))
         return false;
-    //knife go clock-wise half circle
+    /*//knife go clock-wise half circle
     ros::param::set("/visual_servo/clockGo",1.0);
     usleep(500000);
     //check if the knife reach the position, and unplug the knife after 15.0 seconds period
@@ -995,20 +1081,20 @@ bool Manipulator::goCut(double velocity_scale)
     knife_status=KnifeStatus::KNIFE_ON;
     //knife ready to go anti-clock-wise entire circle
     isInCut=true;
-    //knife go down
+    //knife go down*/
     if(!linearMoveTo(Eigen::Vector3d(0.0,0.0,-0.09),0.0225))
         return false;
-    knife_status=KnifeStatus ::KNIFE_RIGHT;
+    /*knife_status=KnifeStatus ::KNIFE_RIGHT;
     ros::param::set("visual_servo/knifeOff",1.0);
     usleep(500000);
-    knife_status=KnifeStatus ::KNIFE_OFF;
+    knife_status=KnifeStatus ::KNIFE_OFF;*/
     //knife go up
     if(!linearMoveTo(Eigen::Vector3d(0.0,0.0,0.09),0.5))
         return false;
     //knife go back
     if(!linearMoveTo(Eigen::Vector3d(-0.385,0.0,0.0),0.5))
         return false;
-    //knife go clock-wise to the center
+    /*//knife go clock-wise to the center
     ros::param::set("/visual_servo/clockGo",1.0);
     usleep(500000);
     //check if the knife reach the position, and unplug the knife after 15.0 seconds period
@@ -1030,7 +1116,7 @@ bool Manipulator::goCut(double velocity_scale)
         }
         usleep(33333);
     }
-    knife_status=KnifeStatus::KNIFE_CENTER;
+    knife_status=KnifeStatus::KNIFE_CENTER;*/
     addDynamicPlanningConstraint(false);
     return true;
 }
@@ -1128,6 +1214,7 @@ int Manipulator::executeService(int serviceType)
                         }
                         Center3d/=times;*/
                         Center3d += Parameters.cameraXYZ;
+                        std::cout<<Parameters.cameraXYZ[0]<<","<<Parameters.cameraXYZ[1]<<","<<Parameters.cameraXYZ[2]<<std::endl;
                         if(!goCamera(Center3d,Parameters.basicVelocity))
                             serviceStatus=visual_servo_namespace::SERVICE_STATUS_CLOSE_FAILED;
                         else
@@ -1264,7 +1351,7 @@ int Manipulator::executeService(int serviceType)
                             visual_servo_namespace::SERVICE_STATUS_HOME_FAILED;
             break;
         case visual_servo::manipulate::Request::LINEAR:
-            serviceStatus = linearMoveTo(Eigen::Vector3d(0.0,0.0,-0.05),0.1) ?
+            serviceStatus = constantMoveTo(Eigen::Vector3d(0.0,0.0,-0.09),0.03) ?
                             visual_servo_namespace::SERVICE_STATUS_SUCCEED:
                             visual_servo_namespace::SERVICE_STATUS_LINEAR_FAILED;
             break;

@@ -8,14 +8,14 @@ SerialManager::SerialManager(std::string serial_addr, unsigned int baudrate): SE
 {
 
 }
-SerialManager::SerialManager(const SerialManager & serialManager)
+SerialManager::SerialManager(const SerialManager & serialManager): SERIAL_ADDR_(serialManager.SERIAL_ADDR_),BAUDRATE_(serialManager.BAUDRATE_)
 {
-    this->SERIAL_ADDR_=serialManager.SERIAL_ADDR_;
-    this->BAUDRATE_=serialManager.BAUDRATE_;
+
 }
 SerialManager::~SerialManager()
 {
-    close(m_dFd);
+    if(isOpen_)
+        close(m_dFd);
 }
 bool SerialManager::openSerial()
 {

@@ -14,12 +14,16 @@ ManiSerialManager::ManiSerialManager(const SerialManager & serialManager): Seria
 }
 ManiSerialManager::~ManiSerialManager()
 {
-    thread_ptr_->interrupt();
-    thread_ptr_->join();
+    if(thread_registered_)
+    {
+        thread_ptr_->interrupt();
+        thread_ptr_->join();
+    }
 }
 void ManiSerialManager::registerAutoReadThread(int rate)
 {
     thread_ptr_.reset(new boost::thread(boost::bind(&ManiSerialManager::readWorker, this, rate)));
+    thread_registered_=true;
 }
 void ManiSerialManager::readWorker(int rate)
 {
@@ -61,5 +65,4 @@ void ManiSerialManager::receive()
         serial_alive_ =false;
         memset(read_buffer,0,BUFFER_SIZE);
     }
-
 }

@@ -58,7 +58,7 @@ int main(int argc, char** argv)
     nh_.param("max_angular_velocity",max_angular_velocity,(double)0.5);
     JOYTELEOP::JoyTeleop joyTeleop("joy",true,max_linear_velocity,max_angular_velocity);
     
-    ros::Rate loop_rate(30);
+    ros::Rate loop_rate(60);
     while(ros::ok())
     {
         switch(joyTeleop.getControlTrigger())
