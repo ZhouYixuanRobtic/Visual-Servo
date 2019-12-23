@@ -149,6 +149,11 @@ void JoyTeleop::JoyCallback(const sensor_msgs::JoyConstPtr &msg)
         {
             vel.angular.z = msg->axes[3] * max_angular_velocity_ / 2.0;
             vel.linear.x = msg->axes[4] * max_linear_velocity_ / 2.0;
+            if(msg->axes[0]||msg->axes[1])
+            {
+                vel.angular.z = msg->axes[0] * max_angular_velocity_ + msg->axes[3] * max_angular_velocity_ / 2.0;
+                vel.linear.x = msg->axes[1] * max_linear_velocity_ + msg->axes[4] * max_linear_velocity_ / 2.0;
+            }
         }
         joy_vel_pub.publish(vel);
     }

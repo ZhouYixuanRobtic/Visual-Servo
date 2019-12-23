@@ -23,7 +23,6 @@ class Listener
     typedef void(*sighandler_t)(int);
 private:
     ros::NodeHandle nh;
-    ros::ServiceClient client;
 public:
     Listener();
     virtual ~Listener();
@@ -32,7 +31,6 @@ public:
 };
 Listener::Listener()
 {
-    client =nh.serviceClient<visual_servo::manipulate>("manipulate");
     serviceCaller = new visual_servo_namespace::ServiceCaller();
 }
 Listener::~Listener()
