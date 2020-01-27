@@ -1,12 +1,12 @@
 visual:
   tagSize: 0.08 #default 0.10
   #camera tag graph interface trigger
-  tagGraphOn: true #default false
+  tagGraphOn: false #default false
   #camera trace result trigger
   traceResultOn: false #default true
   #camera trace debug trigger
   traceDebugOn: false #default false
   #detector color mode trigger
-  colorOn: true #default false
+  colorOn: false #default false
   #detector trigger
   tagDetectorOn: false

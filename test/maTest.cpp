@@ -56,7 +56,7 @@ int main(int argc, char** argv)
     nh_.param("max_angular_velocity",max_angular_velocity,(double)0.5);
     JOYTELEOP::JoyTeleop joyTeleop("joy",true,max_linear_velocity,max_angular_velocity);
     
-    ros::Rate loop_rate(60);
+    ros::Rate loop_rate(30);
     while(ros::ok())
     {
         switch(joyTeleop.getControlTrigger())
@@ -110,13 +110,13 @@ int main(int argc, char** argv)
                 ros::master::getNodes(AllNodes);
                 for(auto & node_name:AllNodes)
                 {
-                    if(node_name=="/aubo_gazebo_driver"||node_name=="/rviz")
+                    if(node_name=="/aubo_driver"||node_name=="/rviz")
                     {
                         listener.pox_system(("rosnode kill " + node_name).c_str());
                         sleep(20);
                     }
                 }
-                listener.pox_system("gnome-terminal -x bash -c \"roslaunch visual_servo visual_servo_sim.launch\";exit;exec bash;");
+                listener.pox_system("gnome-terminal -x bash -c \"roslaunch visual_servo visual_servo_real.launch\";exit;exec bash;");
                 break;
             }
             case NavigationOn:
@@ -125,7 +125,7 @@ int main(int argc, char** argv)
                 ros::master::getNodes(AllNodes);
                 for(auto & node_name:AllNodes)
                 {
-                    if(node_name=="/rubber_navigation"||node_name=="/auboRobot")
+                    if(node_name=="/rubber_navigation"||node_name=="/auboRobot"||node_name=="/baseOnly")
                     {
                         listener.pox_system(("rosnode kill " + node_name).c_str());
                     }

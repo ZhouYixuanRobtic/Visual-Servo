@@ -239,6 +239,7 @@ void visual_servo_namespace::ServiceCaller::worker(int SrvRequestType)
 bool visual_servo_namespace::ServiceCaller::callSrv(int SrvRequestType)
 {
     thread_ptr_.reset(new boost::thread(boost::bind(&ServiceCaller::worker, this, SrvRequestType)));
+	thread_ptr_->detach();
 }
 
 

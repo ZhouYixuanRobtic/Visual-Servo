@@ -920,14 +920,16 @@ bool Manipulator::goSearchOnce(SearchType search_type, double velocity_scale,dou
         case DOWN:
             if(charging)
             {
-                if(!linearMoveTo(Eigen::Vector3d(0.0, 0.0, Parameters.chargeDownHeight),velocity_scale))
+                move_group->setPoseTarget(getEndMotion(RIGHT, Eigen::Vector3d(0.0, 0.0, Parameters.chargeDownHeight), Eigen::Vector3d(0, 0, 0)));
+                if(move_group->move()!=moveit_msgs::MoveItErrorCodes::SUCCESS)
                     return false;
                 else
                     return !Tags_detected.empty();
             }
             else
             {
-                if(!constantMoveTo(Eigen::Vector3d(0.0, 0.0, Parameters.searchDownHeight),0.05))
+                move_group->setPoseTarget(getEndMotion(RIGHT, Eigen::Vector3d(0.0, 0.0, Parameters.searchDownHeight), Eigen::Vector3d(0, 0, 0)));
+                if(move_group->move()!=moveit_msgs::MoveItErrorCodes::SUCCESS)
                     return false;
                 else
                     return !Tags_detected.empty();
@@ -1047,12 +1049,12 @@ bool Manipulator::goServo( double velocity_scale)
 bool Manipulator::goCut(double velocity_scale)
 {
     addDynamicPlanningConstraint(true);
-    //ros::param::set(PARAMETER_NAMES[2],0.0);
-    //usleep(50000);
+    ros::param::set(PARAMETER_NAMES[2],0.0);
+    usleep(50000);
     //knife go forward
     if(!linearMoveTo(Eigen::Vector3d(0.385,0.0,0.0),0.5))
         return false;
-    /*//knife go clock-wise half circle
+    //knife go clock-wise half circle
     ros::param::set("/visual_servo/clockGo",1.0);
     usleep(500000);
     //check if the knife reach the position, and unplug the knife after 15.0 seconds period
@@ -1081,29 +1083,29 @@ bool Manipulator::goCut(double velocity_scale)
     knife_status=KnifeStatus::KNIFE_ON;
     //knife ready to go anti-clock-wise entire circle
     isInCut=true;
-    //knife go down*/
-    if(!linearMoveTo(Eigen::Vector3d(0.0,0.0,-0.09),0.0225))
+    //knife go down
+    if(!constantMoveTo(Eigen::Vector3d(0.0,0.0,-0.09),0.0225))
         return false;
-    /*knife_status=KnifeStatus ::KNIFE_RIGHT;
+    knife_status=KnifeStatus ::KNIFE_RIGHT;
     ros::param::set("visual_servo/knifeOff",1.0);
     usleep(500000);
-    knife_status=KnifeStatus ::KNIFE_OFF;*/
+    knife_status=KnifeStatus ::KNIFE_OFF;
     //knife go up
     if(!linearMoveTo(Eigen::Vector3d(0.0,0.0,0.09),0.5))
         return false;
     //knife go back
     if(!linearMoveTo(Eigen::Vector3d(-0.385,0.0,0.0),0.5))
         return false;
-    /*//knife go clock-wise to the center
+    //knife go clock-wise to the center
     ros::param::set("/visual_servo/clockGo",1.0);
     usleep(500000);
     //check if the knife reach the position, and unplug the knife after 15.0 seconds period
     start = ros::Time::now();
     while(true)
     {
-        if((bool) parameterListener_->parameters()[6])
+        if((bool) parameterListener_->parameters()[2])
         {
-            ros::param::set(PARAMETER_NAMES[6],0.0);
+            ros::param::set(PARAMETER_NAMES[2],0.0);
             usleep(500000);
             break;
         }
@@ -1116,7 +1118,7 @@ bool Manipulator::goCut(double velocity_scale)
         }
         usleep(33333);
     }
-    knife_status=KnifeStatus::KNIFE_CENTER;*/
+    knife_status=KnifeStatus::KNIFE_CENTER;
     addDynamicPlanningConstraint(false);
     return true;
 }

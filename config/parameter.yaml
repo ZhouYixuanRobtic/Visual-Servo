@@ -22,7 +22,7 @@ user:
  goCameraX: 0.000
  goCameraY: 0.3
  goCameraZ: -0.30
- cameraFrame: "virtual_camera_color_optical_frame"
+ cameraFrame: "camera_color_optical_frame"
  toolFrame: "charger_ee_link"
 robot:
  #parameter constrain the robot velocity 0.0-1.0

@@ -9,7 +9,7 @@
         <param name="max_linear_velocity" value="0.8"/>
         <param name="max_angular_velocity" value="0.5"/>
     </node>
-    <!--include file="$(find rubber_navigation)/launch/baseOnly.launch">
+    <include file="$(find rubber_navigation)/launch/baseOnly.launch">
         <arg name="publish_robot_source_odom_tf" value="true"/>
-    </include-->
+    </include>
 </launch>

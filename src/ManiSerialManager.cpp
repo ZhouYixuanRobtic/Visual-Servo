@@ -57,7 +57,9 @@ void ManiSerialManager::receive()
         ReadResult temp{};
         memcpy(&temp.read_result, &read_buffer, RESULT_SIZE);
         temp.read_bytes=receiveNumbers;
+        queue_mutex_.lock();
         read_result_queue.push(temp);
+        queue_mutex_.unlock();
         memset(read_buffer,0,BUFFER_SIZE);
     }
     else if(receiveNumbers<0)

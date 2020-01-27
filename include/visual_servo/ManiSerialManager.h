@@ -19,6 +19,7 @@ private:
     std::queue<ReadResult> read_result_queue{};
     ReadResult read_results_;
     std::tr1::shared_ptr<boost::thread> thread_ptr_;
+    std::mutex queue_mutex_;
     void readWorker(int rate);
     bool thread_registered_{};
 public:
@@ -29,6 +30,7 @@ public:
     void receive();
     ReadResult & getReadResult()
     {
+        queue_mutex_.lock();
         if(!read_result_queue.empty())
         {
             read_results_ = read_result_queue.front();
@@ -36,6 +38,7 @@ public:
         }
         else
             memset(&read_results_,0, sizeof(ReadResult));
+        queue_mutex_.unlock();
         return read_results_;
     };
 };
