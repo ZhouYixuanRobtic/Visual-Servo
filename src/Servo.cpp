@@ -64,12 +64,12 @@ const Destination_t & Servo::getCameraEE(const Eigen::Affine3d & Trans_C2T,const
     Eigen::Quaterniond Td{Sophus::SE3(Eigen::Matrix3d::Identity(),Eigen::Vector3d(0,0,0)).unit_quaternion().slerp(lambda,
             DestinationSE3.unit_quaternion())};
 
-    //translation linear interpolate
+    /*//translation linear interpolate
     for(int i=0;i<3;++i)
     {
      if(abs(t(i))>Interpolate_tolerance)
          t(i)=lambda*t(i);
-    }
+    }*/
     Sophus::SE3 EndMotionDelta(Td,t);
     //increment
     EndDestinationDelta.EE_Motion.matrix()=EndMotionDelta.matrix();
@@ -77,9 +77,13 @@ const Destination_t & Servo::getCameraEE(const Eigen::Affine3d & Trans_C2T,const
     EndDestinationDelta.error_log=error_vector;
     //concentrate on the pose adjust
     error_vector[0]=0.0;
-    error_vector[1]=0.0;
-    error_vector[2]=0.0;
+	error_vector[1]=0.0;
+	//error_vector[2]=0.0;
+	//error_vector[3]=0.0;
+    //error_vector[4]=0.0;
+    error_vector[5]=0.0;
     EndDestinationDelta.error=error_vector.norm();
-    return EndDestinationDelta;
+	std::cout<<"error: "<<EndDestinationDelta.error<<std::endl;    
+	return EndDestinationDelta;
 }
 

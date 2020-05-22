@@ -1,0 +1,22 @@
+<launch>
+    <arg name="config_file" default="$(find visual_servo)/config/parameter.yaml"/>
+    <arg name="camera_config" default="$(find visual_servo)/config/camera.yaml"/>
+    <arg name="enable_infra1" default="false"/>
+    <arg name="enable_infra2" default="false"/>
+    <arg name="sim" default="true"/>
+    <arg name="robot_ip" default="192.168.2.13"/>
+
+    <!--Launch the realsense ros wrapper-->
+
+    <include file="$(find aubo_i5_moveit_config)/launch/demo.launch"/>
+
+	<node pkg="tf" type="static_transform_publisher" name="camera_optical_broadcaster" args="0.0 0.0 0.0 -1.571 0.000 -1.571 virtual_camera_color_frame virtual_camera_color_optical_frame 0.01" /> 
+
+    <!--Launch the image processing node-->
+    <rosparam command="load" file="$(arg camera_config)"/>
+    <node pkg="visual_servo" type="real_sense" name="real_sense" respawn="true"/>
+
+    <!-- Launch our own node-->
+    <rosparam command="load" file="$(arg config_file)"/>
+    <!--node pkg="visual_servo" type="visual_servo" name="visual_servo" output="screen" launch-prefix="gnome-terminal -e"/-->
+</launch>

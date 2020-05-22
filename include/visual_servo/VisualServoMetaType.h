@@ -79,6 +79,7 @@ struct Destination_t{
 
 struct manipulateSrv{
     int srv_type;
+	Eigen::Vector3d transformation;
     int srv_status;
 };
 
@@ -98,8 +99,8 @@ namespace visual_servo_namespace
     public:
         ServiceCaller();
         ~ServiceCaller();
-        void worker(int SrvRequestType);
-        bool callSrv(int SrvRequestType);
+        void worker(int SrvRequestType,Eigen::Vector3d transformation=Eigen::Vector3d(0,0,0));
+        bool callSrv(int SrvRequestType,Eigen::Vector3d transformation=Eigen::Vector3d(0,0,0));
         const visual_servo::manipulate::Response & getSrvResponseStatus()const {return srv.response;};
         bool srvCalling() { return srvCalling_;};
         bool srvFinished() {bool temp{srvFinished_};srvFinished_=false;
@@ -120,6 +121,7 @@ namespace visual_servo_namespace
 
     typedef enum{
         SERVICE_STATUS_SUCCEED,
+		SERVICE_STATUS_CUTIN_SUCCEED,
         SERVICE_STATUS_NO_TAG,          //未发现标签
         SERVICE_STATUS_OUT_RANGE,       //超出工作空间
         SERVICE_STATUS_GOAL_IN_COLLISION,    //规划场景中，规划路径上有障碍物
@@ -129,6 +131,8 @@ namespace visual_servo_namespace
         SERVICE_STATUS_NO_TRAJECTORY,   //无法生成切割轨迹
         SERVICE_STATUS_UP_FAILED,
         SERVICE_STATUS_HOME_FAILED,
+		SERVICE_STATUS_FORWARD_FAILED,
+		SERVICE_STATUS_BACK_FAILED,
         SERVICE_STATUS_ROBOT_ABORT,
         SERVICE_STATUS_CLOSE_FAILED,
         SERVICE_STATUS_EMPTY,         //无法调用服务
@@ -139,54 +143,14 @@ namespace visual_servo_namespace
         SERVICE_STATUS_LINEAR_FAILED,
     }ServiceStatus;
 
-    static void printServiceStatus(const int & ServiceStatus)
-    {
-        switch(ServiceStatus)
-        {
-            case visual_servo_namespace::SERVICE_STATUS_SUCCEED:
-                std::cout<<"Service call succeed and manipulate succeed"<<std::endl;
-                break;
-            case visual_servo_namespace::SERVICE_STATUS_NO_TAG:
-                std::cout<<"Service call failed because no tag searched"<<std::endl;
-                break;
-            case visual_servo_namespace::SERVICE_STATUS_CLOSE_FAILED:
-                std::cout<<"Service call failed because can't get close"<<std::endl;
-                break;
-            case visual_servo_namespace::SERVICE_STATUS_SERVO_FAILED:
-                std::cout<<"Service call failed because can't servo to right place"<<std::endl;
-                break;
-            case visual_servo_namespace::SERVICE_STATUS_CUT_FAILED:
-                std::cout<<"Service call failed because can't cut "<<std::endl;
-                break;
-            case visual_servo_namespace::SERVICE_STATUS_ROBOT_ABORT:
-                std::cout<<"Service call failed because robot abort "<<std::endl;
-                break;
-            case visual_servo_namespace::SERVICE_STATUS_UP_FAILED:
-                std::cout<<"Service call failed because can't get up"<<std::endl;
-                break;
-            case visual_servo_namespace::SERVICE_STATUS_HOME_FAILED:
-                std::cout<<"Service call failed because can't get home"<<std::endl;
-                break;
-            case visual_servo_namespace::SERVICE_STATUS_CHARGE_FAILED:
-                std::cout<<"Service call failed because cant't charge"<<std::endl;
-                break;
-            case visual_servo_namespace::SERVICE_STATUS_LEAVE_CHARGE_FAILED:
-                std::cout<<"Service call failed because cant't leave charge"<<std::endl;
-                break;
-            case visual_servo_namespace::SERVICE_STATUS_LINEAR_FAILED:
-                std::cout<<"Service call failed because can't go linear"<<std::endl;
-                break;
-            default:
-                std::cout<<"Service call succeed but no response"<<std::endl;
-                break;
-        }
-    }
     static std::string getServiceStatusString(const int & ServiceStatus)
     {
         switch(ServiceStatus)
         {
             case visual_servo_namespace::SERVICE_STATUS_SUCCEED:
                 return "Service call succeed and manipulate succeed";
+			case visual_servo_namespace::SERVICE_STATUS_CUTIN_SUCCEED:
+				return "Service call succeed and cut in succeed";
             case visual_servo_namespace::SERVICE_STATUS_NO_TAG:
                 return "Service call failed because no tag searched";
             case visual_servo_namespace::SERVICE_STATUS_CLOSE_FAILED:
@@ -206,8 +170,12 @@ namespace visual_servo_namespace
             case visual_servo_namespace::SERVICE_STATUS_LEAVE_CHARGE_FAILED:
                 return "Service call failed because cant't leave charge";
             case visual_servo_namespace::SERVICE_STATUS_LINEAR_FAILED:
-                return "Service call failed because can't go linear";
-            default:
+                return "Service call failed because can't go linear";  
+			case visual_servo_namespace::SERVICE_STATUS_FORWARD_FAILED:
+				return "Service call failed because can't go forward";
+			case visual_servo_namespace::SERVICE_STATUS_BACK_FAILED:
+				return "Service call failed because can't go back";        
+			default:
                 return "Service call succeed but no response";
         }
     }
@@ -220,25 +188,27 @@ visual_servo_namespace::ServiceCaller::~ServiceCaller()
 {
 
 }
-void visual_servo_namespace::ServiceCaller::worker(int SrvRequestType)
+void visual_servo_namespace::ServiceCaller::worker(int SrvRequestType,Eigen::Vector3d transformation)
 {
     srvCalling_=true;
     srv.request.type=SrvRequestType;
+	srv.request.transformation={transformation[0],transformation[1],transformation[2]};
     if (client.call(srv))
     {
-        visual_servo_namespace::printServiceStatus(srv.response.status);
+        std::cout<<"The error code is "<<srv.response.status<<": "<<srv.response.status_string<<std::endl;
         srvFinished_=true;
     }
     else
     {
         ROS_ERROR("Failed to call service detect_once");
         srv.response.status = visual_servo_namespace::SERVICE_STATUS_EMPTY;
+		srvFinished_=true;
     }
     srvCalling_=false;
 }
-bool visual_servo_namespace::ServiceCaller::callSrv(int SrvRequestType)
+bool visual_servo_namespace::ServiceCaller::callSrv(int SrvRequestType,Eigen::Vector3d transformation)
 {
-    thread_ptr_.reset(new boost::thread(boost::bind(&ServiceCaller::worker, this, SrvRequestType)));
+    thread_ptr_.reset(new boost::thread(boost::bind(&ServiceCaller::worker, this, SrvRequestType,transformation)));
 	thread_ptr_->detach();
 }
 

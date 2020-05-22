@@ -6,9 +6,11 @@ int32 EMPTY=3
 int32 UP=5
 int32 HOME=6
 int32 LINEAR=7
+int32 CUTBACK=8
 #request type
 int32 type
-
+float64[3] transformation
 ---
 #feedback status
 int32 status
+string status_string

@@ -180,7 +180,7 @@ add_executable(newtest test/newtest.cpp)
 target_link_libraries(newtest detector ${OpenCV_LIBS} ${catkin_LIBRARIES} )
 
 add_executable(maTest test/maTest.cpp)
-target_link_libraries(maTest ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop JoyTeleop)
+target_link_libraries(maTest ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop JoyTeleop ${YAML_LIBRARIES})
 add_dependencies(maTest ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)
 
 add_executable(keyTest test/keyboardTest.cpp)

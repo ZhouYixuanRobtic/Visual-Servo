@@ -6,10 +6,10 @@
 
 
     <!--Launch the realsense ros wrapper-->
-    <include file="$(find realsense2_camera)/launch/rs_rgbd.launch">
+    <!--include file="$(find realsense2_camera)/launch/rs_rgbd.launch">
         <arg name="enable_infra1" default="$(arg enable_infra1)"/>
         <arg name="enable_infra2" default="$(arg enable_infra2)"/>
-    </include>
+    </include-->
 
 
     <!-- run our own node -->

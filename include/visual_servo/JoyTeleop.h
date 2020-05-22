@@ -24,6 +24,8 @@ namespace JOYTELEOP
         KnifeUnplug,
         LightOn,
         LightOff,
+		SteeringIn,
+		SteeringOut,
         MappingOn,
         MappingOff,
         RobotArmOn,
@@ -34,6 +36,11 @@ namespace JOYTELEOP
         SaveNavPoint,
         SaveTurnPoint,
         ArmEmergencyChange,
+		LinearUp,
+		LinearDown,
+		LinearForward,
+		LinearBack,
+		CutBack
     };
     class JoyTeleop {
     private:

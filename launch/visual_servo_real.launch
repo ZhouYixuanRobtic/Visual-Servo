@@ -4,6 +4,7 @@
     <arg name="enable_infra1" default="false"/>
     <arg name="enable_infra2" default="false"/>
 
+ 	<param name="robot_description" command="xacro --inorder  '$(find aubo_gazebo)/urdf/aubo_i5.xacro'"/>
 
     <!--Launch the realsense ros wrapper-->
     <include file="$(find realsense2_camera)/launch/rs_rgbd.launch">

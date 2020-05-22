@@ -44,22 +44,42 @@ void JoyTeleop::JoyCallback(const sensor_msgs::JoyConstPtr &msg)
     {
         control_trigger_=UpOn;
     }
+	else if(msg->axes[2]==-1&&msg->axes[6]==1)
+	{
+		control_trigger_=LinearBack;	
+	}
+	else if(msg->axes[2]==-1&&msg->axes[6]==-1)
+	{
+		control_trigger_=LinearForward;	
+	}
+	else if(msg->axes[2]==-1&&msg->axes[7]==1)
+	{
+		control_trigger_=LinearUp;
+	}
+	else if(msg->axes[2]==-1&&msg->axes[7]==-1)
+	{
+		control_trigger_=LinearDown;
+	}
     else if(msg->axes[2]==-1&&msg->buttons[5])//
     {
         control_trigger_=ArmEmergencyChange;
     }
+	else if(msg->axes[2]==-1&&msg->buttons[4])
+	{
+		control_trigger_=CutBack;
+	}
     else if(msg->axes[2]==-1&&msg->axes[5]==-1)
     {
         control_trigger_=KnifeUnplug;
     }
-    else if(msg->axes[2]==-1&&msg->axes[7]==1)//up
+    /*else if(msg->axes[2]==-1&&msg->axes[7]==1)//up
     {
         control_trigger_ = LightOn;
     }
     else if(msg->axes[2]==-1&&msg->axes[7]==-1)//down
     {
         control_trigger_ = LightOff;
-    }
+    }*/
     else if(msg->axes[5]==-1&&msg->buttons[0]) //A
     {
         control_trigger_=KnifeOff;
@@ -88,6 +108,14 @@ void JoyTeleop::JoyCallback(const sensor_msgs::JoyConstPtr &msg)
     {
         control_trigger_=ShutDown;
     }
+	else if(msg->axes[5]==-1&&msg->buttons[4])
+	{
+		control_trigger_=SteeringIn;
+	}
+	else if(msg->axes[5]==-1&&msg->buttons[5])
+	{
+		control_trigger_=SteeringOut;
+	}
     else if(msg->buttons[0])
     {
         control_trigger_=SaveCutPoint;

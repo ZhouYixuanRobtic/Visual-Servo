@@ -36,7 +36,7 @@ public:
      * @param ExpectTrans_C2T   [the desired target pose with respect to camera described as a transform matrix]
      * @return the end effector motion described as a homogeneous matrix and its position error
      */
-    const Destination_t & getCameraEE (const Eigen::Affine3d & Trans_C2T,const Eigen::Affine3d & Trans_E2C, const Eigen::Affine3d & ExpectTrans_C2T,double lambda=0.8);
+    const Destination_t & getCameraEE (const Eigen::Affine3d & Trans_C2T,const Eigen::Affine3d & Trans_E2C, const Eigen::Affine3d & ExpectTrans_C2T,double lambda=1.0);
 
 };
 
