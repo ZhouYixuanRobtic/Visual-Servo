@@ -32,5 +32,5 @@ robot:
  basicVelocity: 0.90000 #default 0.5
  #parameters constrain the robot execute precision
  goalTolerance: 0.00010 #default 0.001
- servoTolerance: 0.005 #default 0.001
- realWork: 0.0
+ servoTolerance: 0.003 #default 0.001
+ realWork: 1.0

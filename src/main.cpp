@@ -531,7 +531,10 @@ void Manipulator ::addDynamicPlanningConstraint(bool goDeep,bool servoing,bool c
     primitive.dimensions[0] = 5;
     primitive.dimensions[1] = Parameters.radius;
 	geometry_msgs::Pose object_pose;
-	object_pose.position.x=Trans_B2T_.translation()[0]-0.0;
+	if(!Parameters.inverse)
+		object_pose.position.x=Trans_B2T_.translation()[0]-0.0;
+	else
+		object_pose.position.x=Trans_B2T_.translation()[0]+0.05;
 	if(camera)
 	{
 		object_pose.position.y=Trans_B2T_.translation()[1]+(Parameters.radius-0.15)*boost::math::sign(Trans_B2T_.translation()[1]);	
@@ -676,7 +679,7 @@ moveit_msgs::JointConstraint Manipulator::addJointConstriant(double tolerance_an
 	else
 	{
 		jcm.tolerance_above = tolerance_angle*M_PI/180.0;
-		jcm.tolerance_below = 0;
+		jcm.tolerance_below =  0;
 	}	
 	jcm.weight=1.0;
 	return jcm;
@@ -803,11 +806,12 @@ bool Manipulator::linearMoveTo(const Eigen::Vector3d &destination_translation, d
     tf2::fromMsg(move_group->getCurrentPose().pose,Trans_W2E);
 
     move_group->setMaxVelocityScalingFactor(velocity_scale);
-	//not go forward 
-	if(!(Trans_W2E.translation()[1]!=0&&boost::math::sign(Trans_W2E.translation()[1])==boost::math::sign(destination_translation[1])))
-		addDangerDynamicPlanningConstraint();
 
 	Eigen::Affine3d DesiredMotion=getEndMotion(RIGHT,destination_translation);
+
+	//not go forward
+	if(!(Trans_W2E.translation()[1]!=0&&boost::math::sign(Trans_W2E.translation()[1])==boost::math::sign(DesiredMotion.translation()[1])))
+		addDangerDynamicPlanningConstraint();
 
 	std::vector<double> tolerance_pose{0.05,(DesiredMotion.translation()-Trans_W2E.translation()).norm()*1.5,0.1};
 	std::vector<double> tolerance_angle(3,0.0005);
