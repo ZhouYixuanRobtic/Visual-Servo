@@ -5,16 +5,16 @@
 #ifndef VISUAL_SERVO_VISUALSERVOMETATYPE_H
 #define VISUAL_SERVO_VISUALSERVOMETATYPE_H
 
-#include <stdint.h>
+#include <cstdint>
 #include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
+#include <cstdlib>
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <algorithm>
 #include <string>
-#include  <math.h>
+#include  <cmath>
 #include <ctime>
 #include <utility>
 
@@ -98,7 +98,7 @@ namespace visual_servo_namespace
 
     public:
         ServiceCaller();
-        ~ServiceCaller();
+        ~ServiceCaller() = default;
         void worker(int SrvRequestType,Eigen::Vector3d transformation=Eigen::Vector3d(0,0,0));
         bool callSrv(int SrvRequestType,Eigen::Vector3d transformation=Eigen::Vector3d(0,0,0));
         const visual_servo::manipulate::Response & getSrvResponseStatus()const {return srv.response;};
@@ -183,10 +183,6 @@ namespace visual_servo_namespace
 visual_servo_namespace::ServiceCaller::ServiceCaller()
 {
     client =nh.serviceClient<visual_servo::manipulate>("manipulate");
-}
-visual_servo_namespace::ServiceCaller::~ServiceCaller()
-{
-
 }
 void visual_servo_namespace::ServiceCaller::worker(int SrvRequestType,Eigen::Vector3d transformation)
 {

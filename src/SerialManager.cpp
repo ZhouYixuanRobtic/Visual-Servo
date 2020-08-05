@@ -4,7 +4,7 @@
 
 #include "SerialManager.h"
 
-SerialManager::SerialManager(std::string serial_addr, unsigned int baudrate): SERIAL_ADDR_(std::move(serial_addr)), BAUDRATE_(std::move(baudrate))
+SerialManager::SerialManager(std::string serial_addr, unsigned int baudrate): SERIAL_ADDR_(std::move(serial_addr)), BAUDRATE_(baudrate)
 {
 
 }

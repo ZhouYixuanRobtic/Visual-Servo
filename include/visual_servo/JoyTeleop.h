@@ -59,7 +59,7 @@ namespace JOYTELEOP
 
     public:
         explicit JoyTeleop(std::string topic_name,bool publish_vel=false,double max_linear_velocity=0.8,double max_angular_velocity=0.5);
-        ~JoyTeleop();
+        ~JoyTeleop() = default;
         void JoyCallback(const sensor_msgs::JoyConstPtr & msg);
         void watchdog(const ros::TimerEvent &e);
         ControlTrigger getControlTrigger()  {ControlTrigger temp{control_trigger_};control_trigger_=Default;return temp;};

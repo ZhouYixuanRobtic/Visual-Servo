@@ -23,7 +23,7 @@ private:
     int ret;
 
     /** 如果是连接真实机械臂，需要对机械臂进行初始化　**/
-    aubo_robot_namespace::ROBOT_SERVICE_STATE result;
+    aubo_robot_namespace::ROBOT_SERVICE_STATE result{};
     static void RealTimeEventInfoCallback(const aubo_robot_namespace::RobotEventInfo *pEventInfo, void *arg);
 public:
     AuboSDK();

@@ -69,7 +69,7 @@ bool manipulate_srv_on=false;
 bool RobotAllRight;
 bool isRobotMoving=false;
 
-manipulateSrv ManipulateSrv{};
+manipulateSrv ManipulateSrv;
 
 void *camera_thread(void *data);
 
@@ -153,7 +153,7 @@ private:
                                  const Eigen::Vector3d & RPY = Eigen::Vector3d(0.0, 0.0, 0.0));
     //read parameters and listen to tf
     void initParameter();
-    //scale tracjectory speed by given multiple (legacy function)
+    //scale trajectory speed by given multiple (legacy function)
     void scale_trajectory_speed(moveit::planning_interface::MoveGroupInterface::Plan & plan, double scale_factor) const;
     //reset the tool into the original(0.0) status(legacy function)
     void resetTool();
@@ -162,8 +162,8 @@ private:
 
     void saveCutTimes(int ID,double cutTimes);
 
-    //warning, only used when the vel is low, and the velocity is constant but the execute time is not euqal to destination.norm()/speed;
-    void setAvgCartesianSpeed(moveit::planning_interface::MoveGroupInterface::Plan &plan, const double speed);
+    //warning, only used when the vel is low, and the velocity is constant but the execute time is not equal to destination.norm()/speed;
+    void setAvgCartesianSpeed(moveit::planning_interface::MoveGroupInterface::Plan &plan, double speed);
 
     //prameters
     struct{
@@ -210,7 +210,7 @@ public:
      */
 	void addDangerDynamicPlanningConstraint();
 	void removeDangerDynamicPlanningConstraint() const;
-	moveit_msgs::JointConstraint addJointConstriant(double tolerance_angle,int index=0)const;
+	moveit_msgs::JointConstraint addJointConstraint(double tolerance_angle, int index=0)const;
 
     bool goUp(double velocity_scale) const;
     // Function makes robot go to a preset position
@@ -377,7 +377,7 @@ Manipulator::~Manipulator()
 void Manipulator::logPublish(const std::string & log_data)
 {
 	std_msgs::String log;
-  	log.data = std::move(log_data);
+  	log.data = log_data;
   	log_pub_.publish(log);
 }
 void Manipulator::setParametersFromCallback()
@@ -543,7 +543,7 @@ void Manipulator ::addDynamicPlanningConstraint(bool goDeep,bool servoing,bool c
 	{
 		if(!goDeep&&servoing)
         	object_pose.position.y=Trans_B2T_.translation()[1]+(Parameters.radius-0.15)*boost::math::sign(Trans_B2T_.translation()[1]);
-    	else if(goDeep&&!servoing)
+		else if(goDeep&&!servoing)
         	object_pose.position.y=Trans_B2T_.translation()[1]+(Parameters.radius+0.4)*boost::math::sign(Trans_B2T_.translation()[1]);
 	} 
 	collision_object.primitives.push_back(primitive);
@@ -661,7 +661,7 @@ void Manipulator::removeDangerDynamicPlanningConstraint() const
         planning_scene_interface->removeCollisionObjects(dynamic_names);
     }
 }
-moveit_msgs::JointConstraint Manipulator::addJointConstriant(double tolerance_angle,int index) const
+moveit_msgs::JointConstraint Manipulator::addJointConstraint(double tolerance_angle, int index) const
 {
 	//joint constraint
 	const std::vector<std::string>& joint_names = joint_model_group->getVariableNames();
@@ -828,7 +828,7 @@ bool Manipulator::linearMoveTo(const Eigen::Vector3d &destination_translation, d
 
     //path_constraints.orientation_constraints.push_back(ocm);
 	//joint constraint
-	path_constraints.joint_constraints.push_back(addJointConstriant(85.0));
+	path_constraints.joint_constraints.push_back(addJointConstraint(85.0));
     move_group->setPathConstraints(path_constraints);
     move_group->setPoseTarget(DesiredMotion);
     move_group->setPlanningTime(10.0);
@@ -852,7 +852,7 @@ bool Manipulator::constantMoveTo(const Eigen::Vector3d & destination,double velo
     ocm.weight=1.0;
     moveit_msgs::Constraints path_constraints;
     path_constraints.orientation_constraints.push_back(ocm);
-	path_constraints.joint_constraints.push_back(addJointConstriant(30.0));
+	path_constraints.joint_constraints.push_back(addJointConstraint(30.0));
     move_group->setPathConstraints(path_constraints);
     move_group->setPoseTarget(getEndMotion(RIGHT,destination));
     move_group->setPlanningTime(10.0);
@@ -907,7 +907,7 @@ void Manipulator::saveCutTimes(int ID,double cutTimes)
 	if(cutTimes<1)
 	{
 		YAML::Node doc = YAML::LoadFile(ros::package::getPath("visual_servo")+"/config/tagParam.yaml");
-		double temp_cameraY=doc["ID"+std::to_string(ID)]["goCameraY"].as<double>();
+		auto temp_cameraY=doc["ID"+std::to_string(ID)]["goCameraY"].as<double>();
         doc["ID"+std::to_string(ID)]["goCameraY"]=temp_cameraY+cutTimes;
         std::ofstream output_file(ros::package::getPath("visual_servo")+"/config/tagParam.yaml");
         if(output_file.is_open())
@@ -1130,8 +1130,8 @@ bool Manipulator::goServo( double velocity_scale)
     move_group->setGoalTolerance(Parameters.goal_tolerance);
     move_group->setMaxVelocityScalingFactor(velocity_scale);
 	moveit_msgs::Constraints path_constraints;
-    path_constraints.joint_constraints.push_back(addJointConstriant(85.0));
-	path_constraints.joint_constraints.push_back(addJointConstriant(90,2));
+    path_constraints.joint_constraints.push_back(addJointConstraint(85.0));
+	path_constraints.joint_constraints.push_back(addJointConstraint(90, 2));
 	move_group->setPathConstraints(path_constraints);
     while(RobotAllRight&&error>Parameters.servoTolerance)
     {
@@ -1317,8 +1317,8 @@ bool Manipulator::goCamera(const Eigen::Vector3d & target_array, double velocity
 	//constraints
 	move_group->setPlanningTime(10.0);
 	moveit_msgs::Constraints path_constraints;
-    path_constraints.joint_constraints.push_back(addJointConstriant(60.0));
-	path_constraints.joint_constraints.push_back(addJointConstriant(75.0,1));
+    path_constraints.joint_constraints.push_back(addJointConstraint(60.0));
+	path_constraints.joint_constraints.push_back(addJointConstraint(75.0, 1));
 	move_group->setPathConstraints(path_constraints);
     move_group->setPoseTarget(Trans_W2E*Trans_W2EP);
     moveit::planning_interface::MoveGroupInterface::Plan my_plan;

@@ -3,8 +3,10 @@
 //
 #include "SerialManager.h"
 #include "ManiSerialManager.h"
+
+#include <utility>
 #include "ros/ros.h"
-ManiSerialManager::ManiSerialManager(std::string serial_addr, unsigned int baudrate): SerialManager(serial_addr, baudrate)
+ManiSerialManager::ManiSerialManager(std::string serial_addr, unsigned int baudrate): SerialManager(std::move(serial_addr), baudrate)
 {
 
 }

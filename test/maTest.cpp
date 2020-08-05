@@ -40,10 +40,10 @@ private:
 	int tagID_;
 	void tagInfoCallback(const visual_servo::TagsDetection_msg &msg);
 public:
-    Listener(int tag_id);
+    explicit Listener(int tag_id);
     virtual ~Listener();
     visual_servo_namespace::ServiceCaller* serviceCaller;
-    int pox_system(const char* commands);
+    static int pox_system(const char* commands);
 	double getParameter();
 };
 Listener::Listener(int tag_id):tagID_(tag_id)

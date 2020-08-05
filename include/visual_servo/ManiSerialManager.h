@@ -24,10 +24,10 @@ private:
     bool thread_registered_{};
 public:
     ManiSerialManager(std::string serial_addr, unsigned int baudrate);
-    ManiSerialManager(const SerialManager & serialManager);
-    ~ManiSerialManager();
+    explicit ManiSerialManager(const SerialManager & serialManager);
+    ~ManiSerialManager() override;
     void registerAutoReadThread(int rate);
-    void receive();
+    void receive() override;
     ReadResult & getReadResult()
     {
         queue_mutex_.lock();

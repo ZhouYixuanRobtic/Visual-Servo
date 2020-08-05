@@ -15,10 +15,6 @@ JoyTeleop::JoyTeleop(std::string topic_name,bool publish_vel,double max_linear_v
     watchdog_timer_ = nh_.createTimer(ros::Duration(WATCHDOG_PERIOD_), &JoyTeleop::watchdog, this, true);
     watchdog_timer_.start();
 }
-JoyTeleop::~JoyTeleop()
-{
-
-}
 void JoyTeleop::watchdog(const ros::TimerEvent &e)
 {
     ROS_WARN("joy not received for %f seconds, is the joy node drop?", WATCHDOG_PERIOD_);

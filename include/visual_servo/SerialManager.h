@@ -36,7 +36,7 @@ protected:
     char write_buffer[BUFFER_SIZE]{};
 
 public:
-    explicit SerialManager(std::string serial_addr, unsigned int baudrate);
+    SerialManager(std::string serial_addr, unsigned int baudrate);
     SerialManager(const SerialManager & serialManager);
     virtual ~SerialManager();
     unsigned int getBaudrate(){return BAUDRATE_;};
@@ -45,7 +45,7 @@ public:
     bool isSerialAlive(){return serial_alive_;};
     bool openSerial();
     void send(const void* src,int size);
-    void receive();
+    virtual void receive();
 };
 
 
