@@ -65,7 +65,7 @@ std::atomic_bool isRobotMoving{};
 tag_detection_info_t Tags_detected{};
 manipulateSrv ManipulateSrv{};
 
-boost::shared_mutex tag_data_mutex{},manipulate_srv_mutex{};
+boost::shared_mutex tag_data_mutex{};
 
 void *camera_thread(void *data);
 
@@ -116,7 +116,7 @@ private:
     moveit::planning_interface::PlanningSceneInterface *planning_scene_interface;
     const robot_state::JointModelGroup* joint_model_group;
 
-    bool charging{};
+    bool charging{},isTagEmpty;
 
     //Servo class for computing the servo related transform matrix
     Servo *astra;
@@ -311,7 +311,6 @@ int main(int argc, char** argv)
         robot_manipulator.setParametersFromCallback();
         if(manipulate_srv_on)
         {
-            manipulate_srv_mutex.lock_upgrade();
             if(RobotAllRight)
             {
                 ros::param::set("/visual/tagDetectorOn",true);
@@ -322,7 +321,6 @@ int main(int argc, char** argv)
             //check again
             if(!RobotAllRight)
                 ManipulateSrv.srv_status=visual_servo_namespace::SERVICE_STATUS_ROBOT_ABORT;
-            manipulate_srv_mutex.lock_upgrade();
             manipulate_srv_on=false;
             ROS_INFO("Service executed!");
             //robot_manipulator.logPublish("INFO: Service executed");
@@ -435,6 +433,7 @@ void Manipulator::initParameter()
     astra->getTransform(EE_NAME,Parameters.toolFrame,Trans_E2CH);
 
     RobotAllRight= (Parameters.cameraFrame != "camera_color_optical_frame");
+    std::cout<<"RobotAllRight"<<RobotAllRight<<std::endl;
     parameterListener_->registerParameterCallback(PARAMETER_NAMES,false);
 }
 void Manipulator::addStaticPlanningConstraint() const
@@ -510,11 +509,12 @@ void Manipulator::addStaticPlanningConstraint() const
 }
 void Manipulator ::addDynamicPlanningConstraint(bool goDeep,bool servoing,bool camera)
 {
-    boost::shared_lock<boost::shared_mutex> read_lock(tag_data_mutex);
+    tag_data_mutex.lock_shared();
     if(!Tags_detected.empty())
     {
         Trans_B2T_=getTagPosition(Tags_detected[0].Trans_C2T);
     }
+    tag_data_mutex.unlock_shared();
     std::vector<std::string> object_names{planning_scene_interface->getKnownObjectNames()};
     const std::vector<std::string> tree_name{TREE_NAME};
     if(!object_names.empty())
@@ -562,8 +562,9 @@ void Manipulator ::addDynamicPlanningConstraint(bool goDeep,bool servoing,bool c
 }
 void Manipulator::addChargerDynamicPlanningConstraint() const
 {
-    boost::shared_lock<boost::shared_mutex> read_lock(tag_data_mutex);
+    tag_data_mutex.lock_shared();
     Eigen::Affine3d Trans_B2T{getTagPosition(Tags_detected[0].Trans_C2T)};
+    tag_data_mutex.unlock_shared();
     std::vector<std::string> object_names{planning_scene_interface->getKnownObjectNames()};
     const std::vector<std::string> charger_name{"CHARGER"};
     if(!object_names.empty())
@@ -1038,7 +1039,6 @@ Eigen::Affine3d Manipulator::getEndMotion(MultiplyType multiply_type, const Eige
 }
 bool Manipulator::goSearchOnce(SearchType search_type, double velocity_scale,double search_angle)
 {
-    boost::shared_lock<boost::shared_mutex> read_lock(tag_data_mutex);
     move_group->setGoalTolerance(Parameters.goal_tolerance);
     move_group->setMaxVelocityScalingFactor(velocity_scale);
     std::vector<double> goal;
@@ -1058,7 +1058,12 @@ bool Manipulator::goSearchOnce(SearchType search_type, double velocity_scale,dou
                 if(!linearMoveTo(Eigen::Vector3d(0.0, 0.0, Parameters.chargeDownHeight),velocity_scale))
                     return false;
                 else
-                    return !Tags_detected.empty();
+                {
+                    tag_data_mutex.lock_shared();
+                    isTagEmpty = Tags_detected.empty();
+                    tag_data_mutex.unlock_shared();
+                    return !isTagEmpty;
+                }
             }
             else
             {
@@ -1066,7 +1071,12 @@ bool Manipulator::goSearchOnce(SearchType search_type, double velocity_scale,dou
                 if(move_group->move()!=moveit_msgs::MoveItErrorCodes::SUCCESS)
                 	return false;
                 else
-                    return !Tags_detected.empty();
+                {
+                    tag_data_mutex.lock_shared();
+                    isTagEmpty = Tags_detected.empty();
+                    tag_data_mutex.unlock_shared();
+                    return !isTagEmpty;
+                }
             }
             break;
         case UP:
@@ -1093,14 +1103,18 @@ bool Manipulator::goSearchOnce(SearchType search_type, double velocity_scale,dou
     while(RobotAllRight)
     {
         ROS_INFO_ONCE("Searching tag!!!!!");
-
-        if(!Tags_detected.empty())
+        tag_data_mutex.lock_shared();
+        isTagEmpty = Tags_detected.empty();
+        tag_data_mutex.unlock_shared();
+        if(!isTagEmpty)
         {
+            tag_data_mutex.lock_shared();
             if(abs(Tags_detected[0].Trans_C2T.translation()[0])<temp_x )
             {
                 temp_x = abs(Tags_detected[0].Trans_C2T.translation()[0]);
                 joint_values = move_group->getCurrentJointValues();
             }
+            tag_data_mutex.unlock_shared();
         }
         if(allClose(goal)<=Parameters.goal_tolerance*3)
         {
@@ -1131,7 +1145,6 @@ bool Manipulator::goSearch(double velocity_scale,bool underServoing,double searc
 }
 bool Manipulator::goServo( double velocity_scale)
 {
-    boost::shared_lock<boost::shared_mutex> read_lock(tag_data_mutex);
     tf2::fromMsg(move_group->getCurrentPose().pose,Trans_W2E);
 	move_group->setPlanningTime(10.0);
     double error=100.0;
@@ -1145,11 +1158,16 @@ bool Manipulator::goServo( double velocity_scale)
 	move_group->setPathConstraints(path_constraints);
     while(RobotAllRight&&error>Parameters.servoTolerance)
     {
-        if(!Tags_detected.empty()|| goSearch(Parameters.basicVelocity,true))
+        tag_data_mutex.lock_shared();
+        isTagEmpty = Tags_detected.empty();
+        tag_data_mutex.unlock_shared();
+        if(!isTagEmpty|| goSearch(Parameters.basicVelocity,true))
         {
 			tag_empty=false;
             addDynamicPlanningConstraint(false,true);
+            tag_data_mutex.lock_shared();
             EndDestination=astra->getCameraEE(Tags_detected[0].Trans_C2T,Trans_E2C,ExpectMatrix);
+            tag_data_mutex.unlock_shared();
             error=EndDestination.error;
 
             if(!Parameters.servoPoseOn)
@@ -1353,10 +1371,11 @@ Eigen::Affine3d Manipulator::getTagPosition(const Eigen::Affine3d &Trans_C2T) co
 }
 bool Manipulator::goCharge(double velocity_scale)
 {
-    boost::shared_lock<boost::shared_mutex> read_lock(tag_data_mutex);
     move_group->setGoalTolerance(Parameters.goal_tolerance);
     move_group->setMaxVelocityScalingFactor(velocity_scale);
+    tag_data_mutex.lock_shared();
     Eigen::Affine3d Trans_B2T{getTagPosition(Tags_detected[0].Trans_C2T)};
+    tag_data_mutex.unlock_shared();
     Trans_B2T.translation() += Eigen::Vector3d(boost::math::sign(Trans_B2T.translation()[1])*0.087,-0.015,-0.150);
     Eigen::Affine3d tempMatrix;
     tempMatrix.linear() = Eigen::Matrix3d{Eigen::AngleAxisd(M_PI/2.0, Eigen::Vector3d::UnitX())*
@@ -1379,14 +1398,17 @@ bool Manipulator::leaveCharge(double velocity_scale)
 }
 int Manipulator::executeService(int serviceType)
 {
-    boost::shared_lock<boost::shared_mutex> read_lock(tag_data_mutex);
+    //boost::shared_lock<boost::shared_mutex> read_lock(tag_data_mutex);
     running_=true;
     int serviceStatus;
     switch (serviceType)
     {
         case visual_servo::manipulate::Request::CUT:
             goUp(1.0);
-            if(Tags_detected.empty())
+            tag_data_mutex.lock_shared();
+            isTagEmpty = Tags_detected.empty();
+            tag_data_mutex.unlock_shared();
+            if(isTagEmpty)
             {
                 if(!goSearch(Parameters.basicVelocity))
                 {
@@ -1398,7 +1420,9 @@ int Manipulator::executeService(int serviceType)
                 }
                 else
                 {
+                    tag_data_mutex.lock_shared();
                     Parameters.ID=Tags_detected[0].id;
+                    tag_data_mutex.unlock_shared();
                     updateParameters(Parameters.ID);
                     std::string serial_send{"Processing the "+std::to_string(Parameters.ID)+" th tree"};
                     communicator_->send(serial_send.c_str(),serial_send.size());
@@ -1414,13 +1438,17 @@ visual_servo_namespace::SERVICE_STATUS_SERVO_FAILED;
                     else
                     {
                         //addDynamicPlanningConstraint(false,true);
+                        tag_data_mutex.lock_shared();
                         Eigen::Vector3d Center3d{Tags_detected[0].Trans_C2T.translation()};
+                        tag_data_mutex.unlock_shared();
                         ros::Time start=ros::Time::now();
                         int times=1;
                         while((ros::Time::now()-start).toSec()<1.0)
                         {
                             times++;
+                            tag_data_mutex.lock_shared();
                             Center3d+=Tags_detected[0].Trans_C2T.translation();
+                            tag_data_mutex.unlock_shared();
                             usleep(50000);
                         }
                         Center3d/=times;
@@ -1468,7 +1496,9 @@ visual_servo_namespace::SERVICE_STATUS_CUT_FAILED;
             }
             else
             {
+                tag_data_mutex.lock_shared();
 				Parameters.ID=Tags_detected[0].id;
+				tag_data_mutex.unlock_shared();
                 updateParameters(Parameters.ID);
                 std::string serial_send{"Processing the "+std::to_string(Parameters.ID)+" th tree"};
                 communicator_->send(serial_send.c_str(),serial_send.size());
@@ -1484,13 +1514,17 @@ visual_servo_namespace::SERVICE_STATUS_SERVO_FAILED;
                 else
                 {
                 	//addDynamicPlanningConstraint(false,true);
+                	tag_data_mutex.lock_shared();
                     Eigen::Vector3d Center3d{Tags_detected[0].Trans_C2T.translation()};
+                    tag_data_mutex.unlock_shared();
                     ros::Time start=ros::Time::now();
                     int times=1;
                     while((ros::Time::now()-start).toSec()<1.0)
                     {
                     	times++;
+                    	tag_data_mutex.lock_shared();
                         Center3d+=Tags_detected[0].Trans_C2T.translation();
+                        tag_data_mutex.unlock_shared();
                         usleep(50000);
                     }
                     Center3d/=times;
@@ -1558,7 +1592,10 @@ visual_servo_namespace::SERVICE_STATUS_CUT_FAILED;
             charging=true;
             Parameters.inverse=true;
             goUp(0.8);
-            if(Tags_detected.empty())
+            tag_data_mutex.lock_shared();
+            isTagEmpty = Tags_detected.empty();
+            tag_data_mutex.unlock_shared();
+            if(isTagEmpty)
             {
                 if(!goSearch(0.5))
                 {
@@ -1628,10 +1665,8 @@ visual_servo_namespace::SERVICE_STATUS_CUT_FAILED;
 			{
 				serviceStatus = 
                          visual_servo_namespace::SERVICE_STATUS_CUTIN_SUCCEED;
-				manipulate_srv_mutex.lock_shared();
 				if(ManipulateSrv.transformation[2]!=0)
                  	saveCutTimes(Parameters.ID,-1*ManipulateSrv.transformation[2]);
-				manipulate_srv_mutex.unlock_shared();
 			}
 			else
 				serviceStatus = visual_servo_namespace::SERVICE_STATUS_LINEAR_FAILED;
@@ -1674,9 +1709,9 @@ Listener::~Listener()
 
 void Listener::tagInfoCallback(const visual_servo::TagsDetection_msg &msg)
 {
-    boost::unique_lock<boost::shared_mutex> write_lock(tag_data_mutex);
     watchdog_timer_.stop();
     watchdog_timer_.start();
+    boost::unique_lock<boost::shared_mutex> write_lock(tag_data_mutex);
     this->tag_info_received=true;
     TagDetectInfo Tag_detected;
     Tags_detected.clear();
@@ -1720,7 +1755,6 @@ void Listener::jointStateCallback(const sensor_msgs::JointState &msg)
  bool Listener::manipulate(visual_servo::manipulate::Request &req,
                           visual_servo::manipulate::Response &res)
 {
-    boost::unique_lock<boost::shared_mutex> write_lock(manipulate_srv_mutex);
     manipulate_srv_on=true;
     ManipulateSrv.srv_type=req.type;
 	if(!req.transformation.empty())

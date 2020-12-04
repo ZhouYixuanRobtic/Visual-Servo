@@ -112,13 +112,14 @@ int main(int argc, char** argv)
 	   }
 	}
     listener.pox_system("gnome-terminal -x bash -c \"roslaunch rubber_navigation baseOnly.launch publish_robot_source_odom_tf:=true\";exit;exec bash");
-    */printf("here\r\n");
+    */
     ros::Rate loop_rate(30);
     while(ros::ok())
     {
         switch(controlTeleop.getControlTrigger())
         {
             case ManipulateOn:
+                printf("here\n");
                 if(!listener.serviceCaller->srvCalling())
                     listener.serviceCaller->callSrv(visual_servo::manipulate::Request::CUT);
                 break;

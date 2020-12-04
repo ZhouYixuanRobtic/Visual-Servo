@@ -42,7 +42,6 @@ void ParameterListener::registerParameterCallback(const std::vector <std::string
 }
 void ParameterListener::ParameterLoop(int thread_index,bool isString)
 {
-    boost::unique_lock<boost::shared_mutex> writeLock(data_mutex_);
     try
     {
         boost::this_thread::interruption_enabled();
@@ -52,6 +51,7 @@ void ParameterListener::ParameterLoop(int thread_index,bool isString)
             boost::posix_time::ptime startTime = boost::posix_time::microsec_clock::local_time();
             if(ros::ok())
             {
+                data_mutex_.lock_upgrade();
                 if (isString)
                 {
                     if(thread_index < min_threads_num_)
@@ -89,6 +89,7 @@ void ParameterListener::ParameterLoop(int thread_index,bool isString)
                     }
 
                 }
+                data_mutex_.unlock_upgrade();
 
             }
             boost::posix_time::ptime endTime = boost::posix_time::microsec_clock::local_time();
