@@ -13,11 +13,11 @@
 #include "AuboSDK.h"
 #include "visual_servo/VisualServoMetaTypeMsg.h"
 #include "VisualServoMetaType.h"
-#include "JoyTeleop.h"
+#include "ControlTeleop.h"
 #include "parameterTeleop.h"
 
-extern bool ExitSoftEmergency;
-extern bool RobotMoveStop;
+//extern bool ExitSoftEmergency;
+//extern bool RobotMoveStop;
 int main(int argc, char** argv)
 {
     ros::init(argc, argv, "auboSDK");
@@ -29,7 +29,7 @@ int main(int argc, char** argv)
     const std::vector<std::string> parameterNames{"/visual_servo/toolStart","/visual_servo/toolAllClear","/visual_servo/overturnStatus"};
     parameterListener.registerParameterCallback(parameterNames,false);
 
-    JOYTELEOP::JoyTeleop joyTeleop("joy");
+    CONTROLTELEOP::ControlTeleop controlTeleop;
 
     visual_servo::VisualServoMetaTypeMsg status;
     ros::Publisher status_pub;
@@ -57,9 +57,9 @@ int main(int argc, char** argv)
             auboSdk.OverturnIOStatus();
             ros::param::set(parameterNames[4],(double)false);
         }
-        switch(joyTeleop.getControlTrigger())
+        switch(controlTeleop.getControlTrigger())
         {
-            case JOYTELEOP::ArmEmergencyChange:
+            case CONTROLTELEOP::ArmEmergencyChange:
                 if(!isMoveStop)
                 {
                     isMoveStop=auboSdk.robotFastMoveStop();

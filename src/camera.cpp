@@ -14,7 +14,9 @@
 
 #include "Detector.h"
 #include "VisualServoMetaType.h"
-
+#include <atomic>
+#include <boost/thread/shared_mutex.hpp>
+#include <boost/thread/locks.hpp>
 #include <dirent.h>
 
 extern "C" {
@@ -98,6 +100,7 @@ private:
 
     void watchdog(const ros::TimerEvent &e);
 
+    boost::shared_mutex rgb_mutex_{},depth_mutex_{},tag_data_mutex_{};
 
 public:
     //type definition of detect_once service call back function handle
@@ -109,7 +112,6 @@ public:
     void ImageCallback(const sensor_msgs::ImageConstPtr& msg);
     void DepthCallback(const sensor_msgs::ImageConstPtr& msg);
     void TagsInfoPublish();
-    void run();
 
 };
 RealSense::RealSense()
@@ -162,6 +164,7 @@ void RealSense::initParameter()
 }
 void RealSense::GetTargetPoseMatrix(cv::Mat & UserImage)
 {
+    boost::unique_lock<boost::shared_mutex> write_lock(tag_data_mutex_);
     cv::Mat gray;
     tags_detected_.clear();
     cvtColor(UserImage, gray, COLOR_BGR2GRAY);
@@ -225,6 +228,7 @@ void RealSense::GetTargetPoseMatrix(cv::Mat & UserImage)
 }
 void RealSense::ImageCallback(const sensor_msgs::ImageConstPtr &msg)
 {
+    boost::unique_lock<boost::shared_mutex> write_lock(rgb_mutex_);
     watchdog_timer_.stop();
     watchdog_timer_.start();
     this->image_received=true;
@@ -254,6 +258,7 @@ void RealSense::ImageCallback(const sensor_msgs::ImageConstPtr &msg)
 }
 void RealSense::DepthCallback(const sensor_msgs::ImageConstPtr &msg)
 {
+    boost::unique_lock<boost::shared_mutex> write_lock(depth_mutex_);
     this->depth_received=true;
     try
     {
@@ -270,6 +275,7 @@ void RealSense::DepthCallback(const sensor_msgs::ImageConstPtr &msg)
 }
 void RealSense::TagsInfoPublish()
 {
+    boost::shared_lock<boost::shared_mutex> read_lock(tag_data_mutex_);
     visual_servo::TagsDetection_msg TagsDetection;
     visual_servo::TagDetection_msg TagDetection;
     if(!tags_detected_.empty())
@@ -291,6 +297,7 @@ void RealSense::TagsInfoPublish()
 }
 geometry_msgs::Point RealSense::inverse_project(const Eigen::Vector3d & TargetPoint)
 {
+    boost::shared_lock<boost::shared_mutex> read_lock(depth_mutex_);
     Eigen::Vector3d coordinate_3d_;
     Eigen::Matrix3d intrinsic_matrix;
     intrinsic_matrix<<  this->fx,0.0,this->u0,
@@ -321,6 +328,7 @@ geometry_msgs::Point RealSense::inverse_project(const Eigen::Vector3d & TargetPo
 bool RealSense::detect_once(visual_servo::detect_once::Request  &req,
                           visual_servo::detect_once::Response &res)
 {
+    boost::shared_lock<boost::shared_mutex> read_lock(rgb_mutex_);
     std::vector<cv::Point> knife_trace{Detector::get_traceSegments(detector_->get_knifeTrace(subscribed_rgb_))};
     if(knife_trace.empty())
         return false;

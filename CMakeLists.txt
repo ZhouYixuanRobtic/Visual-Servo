@@ -65,7 +65,7 @@ add_service_files(
 
 catkin_package(
         INCLUDE_DIRS src LIBRARIES KeyboardTeleop
-        INCLUDE_DIRS src LIBRARIES JoyTeleop
+        INCLUDE_DIRS src LIBRARIES ControlTeleop
         INCLUDE_DIRS src LIBRARIES SerialManager
   CATKIN_DEPENDS 
                  cv_bridge
@@ -152,17 +152,20 @@ add_library(USBCamera src/USBCamera.cpp)
 target_link_libraries(USBCamera ${OpenCV_LIBRARIES} ${Boost_LIBRARIES})
 add_dependencies(USBCamera ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)
 
-add_library(JoyTeleop src/JoyTeleop.cpp)
-target_link_libraries(JoyTeleop ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+add_library(ControlTeleop src/ControlTeleop.cpp)
+target_link_libraries(ControlTeleop ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 
 add_library(SerialManager src/SerialManager.cpp)
 target_link_libraries(SerialManager ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 
 add_library(ManiSerialManager src/ManiSerialManager.cpp)
 target_link_libraries(ManiSerialManager ${catkin_LIBRARIES} ${Boost_LIBRARIES} SerialManager)
+
+add_library(BLManager src/BLManager.cpp)
+target_link_libraries(BLManager ${catkin_LIBRARIES} ${Boost_LIBRARIES} bluetooth)
 #application
 add_executable(auboRobot src/auboRobotLaunch.cpp)
-target_link_libraries(auboRobot auboA protobuf our_alg_i5p log4cplus config auborobotcontroller auboUtil ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop parameterTeleop JoyTeleop)
+target_link_libraries(auboRobot auboA protobuf our_alg_i5p log4cplus config auborobotcontroller auboUtil ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop parameterTeleop ControlTeleop)
 
 add_executable(visual_servo src/main.cpp)
 target_link_libraries(visual_servo ${catkin_LIBRARIES} apriltag servo ${OpenCV_LIBRARIES} Sophus ${Boost_LIBRARIES} ${YAML_LIBRARIES} parameterTeleop ManiSerialManager)
@@ -180,12 +183,19 @@ add_executable(newtest test/newtest.cpp)
 target_link_libraries(newtest detector ${OpenCV_LIBS} ${catkin_LIBRARIES} )
 
 add_executable(maTest test/maTest.cpp)
-target_link_libraries(maTest ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop JoyTeleop ${YAML_LIBRARIES})
+target_link_libraries(maTest ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop ControlTeleop ${YAML_LIBRARIES})
 add_dependencies(maTest ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)
 
 add_executable(keyTest test/keyboardTest.cpp)
 target_link_libraries(keyTest ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop)
 
 add_executable(toolTest test/toolTest.cpp)
-target_link_libraries(toolTest ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop JoyTeleop)
+target_link_libraries(toolTest ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop ControlTeleop)
 
+add_executable(BLRosWrapper src/BLROSWrapper.cpp)
+target_link_libraries(BLRosWrapper ${catkin_LIBRARIES} ${Boost_LIBRARIES} BLManager)
+add_dependencies(BLRosWrapper ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)
+
+add_executable(blTest test/BLTest.cpp)
+target_link_libraries(blTest ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop ControlTeleop ${YAML_LIBRARIES} bluetooth)
+add_dependencies(blTest ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)

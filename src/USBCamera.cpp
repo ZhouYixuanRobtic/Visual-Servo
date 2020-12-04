@@ -48,6 +48,7 @@ void USBCamera::readIntrinsic()
 
 void USBCamera::video_worker()
 {
+    boost::unique_lock<boost::shared_mutex> write_lock(frame_mutex_);
     try
     {
         boost::this_thread::interruption_enabled();
@@ -58,10 +59,10 @@ void USBCamera::video_worker()
             boost::this_thread::interruption_point();
             if(isOpened)
             {
-                write_mutex_.lock();
+                frame_mutex_.lock();
                 *capture_>> frame_;
                 isReady=true;
-                write_mutex_.unlock();
+                frame_mutex_.unlock();
             }
             boost::posix_time::ptime endTime = boost::posix_time::microsec_clock::local_time();
             boost::this_thread::sleep(boost::posix_time::microseconds((int)1E6/FPS_ - (endTime - startTime).total_microseconds()));
@@ -100,6 +101,7 @@ void USBCamera::getIntrinsicParameter(double &fx, double &fy, double &cx, double
 }
 UndistortedGroup& USBCamera::getUndistortedGroup()
 {
+    boost::shared_lock<boost::shared_mutex> read_lock(frame_mutex_);
     undistortedGroup_.intrinsic_matrix=cv::getOptimalNewCameraMatrix(intrinsic_matrix_,distortion_coefficients_,resolution_,1,resolution_);
     cv::undistort(frame_,undistortedGroup_.frame,intrinsic_matrix_,distortion_coefficients_);
     return undistortedGroup_;

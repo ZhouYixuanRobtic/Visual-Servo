@@ -38,6 +38,7 @@
 #include<iterator>
 #include<map>
 #include "ManiSerialManager.h"
+#include <atomic>
 #define _USE_MATH_DEFINES
 
 #ifdef HAVE_NEW_YAMLCPP
@@ -54,22 +55,17 @@ void operator >> ( const YAML::Node& node, T& i )
  * @param Tags_detected     [Tags information received from camera thread, vector is empty when no tags were detected]
  * @param manipulate_srv_on [The manipulation service trigger]
  * @param RobotAllRight     [The robot status, false for something wrong]
+ * @param isRobotMoving     [The robot moving status, false for not moving]
  */
-enum KnifeStatus{
-	KNIFE_READY,
-    KNIFE_LEFT,
-    KNIFE_RIGHT,
-    KNIFE_ON,
-    KNIFE_OFF,
-	KNIFE_FORWARD,
-	KNIFE_BACK,
-}knife_status;
-tag_detection_info_t Tags_detected;
-bool manipulate_srv_on=false;
-bool RobotAllRight;
-bool isRobotMoving=false;
 
-manipulateSrv ManipulateSrv;
+std::atomic_bool manipulate_srv_on{};
+std::atomic_bool RobotAllRight{};
+std::atomic_bool isRobotMoving{};
+
+tag_detection_info_t Tags_detected{};
+manipulateSrv ManipulateSrv{};
+
+boost::shared_mutex tag_data_mutex{},manipulate_srv_mutex{};
 
 void *camera_thread(void *data);
 
@@ -98,6 +94,15 @@ private:
         RIGHT=4,
         LEFT=5,
     };
+    enum KnifeStatus{
+        KNIFE_READY,
+        KNIFE_LEFT,
+        KNIFE_RIGHT,
+        KNIFE_ON,
+        KNIFE_OFF,
+        KNIFE_FORWARD,
+        KNIFE_BACK,
+    }knife_status;
     //the planning_group name specified by the moveit_config package
     const std::string PLANNING_GROUP = "manipulator_i5";
 
@@ -306,6 +311,7 @@ int main(int argc, char** argv)
         robot_manipulator.setParametersFromCallback();
         if(manipulate_srv_on)
         {
+            manipulate_srv_mutex.lock_upgrade();
             if(RobotAllRight)
             {
                 ros::param::set("/visual/tagDetectorOn",true);
@@ -316,7 +322,7 @@ int main(int argc, char** argv)
             //check again
             if(!RobotAllRight)
                 ManipulateSrv.srv_status=visual_servo_namespace::SERVICE_STATUS_ROBOT_ABORT;
-            	
+            manipulate_srv_mutex.lock_upgrade();
             manipulate_srv_on=false;
             ROS_INFO("Service executed!");
             //robot_manipulator.logPublish("INFO: Service executed");
@@ -504,6 +510,7 @@ void Manipulator::addStaticPlanningConstraint() const
 }
 void Manipulator ::addDynamicPlanningConstraint(bool goDeep,bool servoing,bool camera)
 {
+    boost::shared_lock<boost::shared_mutex> read_lock(tag_data_mutex);
     if(!Tags_detected.empty())
     {
         Trans_B2T_=getTagPosition(Tags_detected[0].Trans_C2T);
@@ -555,6 +562,7 @@ void Manipulator ::addDynamicPlanningConstraint(bool goDeep,bool servoing,bool c
 }
 void Manipulator::addChargerDynamicPlanningConstraint() const
 {
+    boost::shared_lock<boost::shared_mutex> read_lock(tag_data_mutex);
     Eigen::Affine3d Trans_B2T{getTagPosition(Tags_detected[0].Trans_C2T)};
     std::vector<std::string> object_names{planning_scene_interface->getKnownObjectNames()};
     const std::vector<std::string> charger_name{"CHARGER"};
@@ -1030,6 +1038,7 @@ Eigen::Affine3d Manipulator::getEndMotion(MultiplyType multiply_type, const Eige
 }
 bool Manipulator::goSearchOnce(SearchType search_type, double velocity_scale,double search_angle)
 {
+    boost::shared_lock<boost::shared_mutex> read_lock(tag_data_mutex);
     move_group->setGoalTolerance(Parameters.goal_tolerance);
     move_group->setMaxVelocityScalingFactor(velocity_scale);
     std::vector<double> goal;
@@ -1122,6 +1131,7 @@ bool Manipulator::goSearch(double velocity_scale,bool underServoing,double searc
 }
 bool Manipulator::goServo( double velocity_scale)
 {
+    boost::shared_lock<boost::shared_mutex> read_lock(tag_data_mutex);
     tf2::fromMsg(move_group->getCurrentPose().pose,Trans_W2E);
 	move_group->setPlanningTime(10.0);
     double error=100.0;
@@ -1343,6 +1353,7 @@ Eigen::Affine3d Manipulator::getTagPosition(const Eigen::Affine3d &Trans_C2T) co
 }
 bool Manipulator::goCharge(double velocity_scale)
 {
+    boost::shared_lock<boost::shared_mutex> read_lock(tag_data_mutex);
     move_group->setGoalTolerance(Parameters.goal_tolerance);
     move_group->setMaxVelocityScalingFactor(velocity_scale);
     Eigen::Affine3d Trans_B2T{getTagPosition(Tags_detected[0].Trans_C2T)};
@@ -1368,6 +1379,7 @@ bool Manipulator::leaveCharge(double velocity_scale)
 }
 int Manipulator::executeService(int serviceType)
 {
+    boost::shared_lock<boost::shared_mutex> read_lock(tag_data_mutex);
     running_=true;
     int serviceStatus;
     switch (serviceType)
@@ -1375,7 +1387,7 @@ int Manipulator::executeService(int serviceType)
         case visual_servo::manipulate::Request::CUT:
             goUp(1.0);
             if(Tags_detected.empty())
-            { 
+            {
                 if(!goSearch(Parameters.basicVelocity))
                 {
                     ROS_INFO("!!!!!!NO TAG SEARCHED!!!!!");
@@ -1616,8 +1628,10 @@ visual_servo_namespace::SERVICE_STATUS_CUT_FAILED;
 			{
 				serviceStatus = 
                          visual_servo_namespace::SERVICE_STATUS_CUTIN_SUCCEED;
+				manipulate_srv_mutex.lock_shared();
 				if(ManipulateSrv.transformation[2]!=0)
                  	saveCutTimes(Parameters.ID,-1*ManipulateSrv.transformation[2]);
+				manipulate_srv_mutex.unlock_shared();
 			}
 			else
 				serviceStatus = visual_servo_namespace::SERVICE_STATUS_LINEAR_FAILED;
@@ -1660,6 +1674,7 @@ Listener::~Listener()
 
 void Listener::tagInfoCallback(const visual_servo::TagsDetection_msg &msg)
 {
+    boost::unique_lock<boost::shared_mutex> write_lock(tag_data_mutex);
     watchdog_timer_.stop();
     watchdog_timer_.start();
     this->tag_info_received=true;
@@ -1702,9 +1717,10 @@ void Listener::jointStateCallback(const sensor_msgs::JointState &msg)
     last_received_state_=msg;
 
 }
-bool Listener::manipulate(visual_servo::manipulate::Request &req,
+ bool Listener::manipulate(visual_servo::manipulate::Request &req,
                           visual_servo::manipulate::Response &res)
 {
+    boost::unique_lock<boost::shared_mutex> write_lock(manipulate_srv_mutex);
     manipulate_srv_on=true;
     ManipulateSrv.srv_type=req.type;
 	if(!req.transformation.empty())

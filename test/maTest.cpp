@@ -11,7 +11,7 @@
 
 #include <yaml-cpp/yaml.h>
 
-#include "JoyTeleop.h"
+#include "ControlTeleop.h"
 
 #include <boost/thread/thread.hpp>
 #include <boost/thread/locks.hpp>
@@ -30,7 +30,7 @@ void operator >> ( const YAML::Node& node, T& i )
 #endif
 
 using std::tr1::shared_ptr;
-using namespace JOYTELEOP;
+using namespace CONTROLTELEOP;
 class Listener
 {
     typedef void(*sighandler_t)(int);
@@ -98,9 +98,9 @@ int main(int argc, char** argv)
     double max_linear_velocity,max_angular_velocity;
     nh_.param("max_linear_velocity",max_linear_velocity,(double)0.8);
     nh_.param("max_angular_velocity",max_angular_velocity,(double)0.5);
-    JOYTELEOP::JoyTeleop joyTeleop("joy",true,max_linear_velocity,max_angular_velocity);
+    CONTROLTELEOP::ControlTeleop controlTeleop(true,max_linear_velocity,max_angular_velocity);
 
-    
+    /*
 	ros::V_string AllNodes;
    	ros::master::getNodes(AllNodes);
     for(auto & node_name:AllNodes)
@@ -112,11 +112,11 @@ int main(int argc, char** argv)
 	   }
 	}
     listener.pox_system("gnome-terminal -x bash -c \"roslaunch rubber_navigation baseOnly.launch publish_robot_source_odom_tf:=true\";exit;exec bash");
-
+    */printf("here\r\n");
     ros::Rate loop_rate(30);
     while(ros::ok())
     {
-        switch(joyTeleop.getControlTrigger())
+        switch(controlTeleop.getControlTrigger())
         {
             case ManipulateOn:
                 if(!listener.serviceCaller->srvCalling())
@@ -233,6 +233,7 @@ int main(int argc, char** argv)
             }
             case MappingOn:
             {
+                /*
                 ros::V_string AllNodes;
                 ros::master::getNodes(AllNodes);
                 for(auto & node_name:AllNodes)
@@ -245,7 +246,7 @@ int main(int argc, char** argv)
                     }
                 }
                 listener.pox_system("gnome-terminal -x bash -c \"roslaunch cartographer_ros demo_velodyne2d.launch\";exit;exec bash;");
-                break;
+                */break;
             }
             case MappingOff:
             {

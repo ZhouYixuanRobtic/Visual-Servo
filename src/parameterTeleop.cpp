@@ -42,6 +42,7 @@ void ParameterListener::registerParameterCallback(const std::vector <std::string
 }
 void ParameterListener::ParameterLoop(int thread_index,bool isString)
 {
+    boost::unique_lock<boost::shared_mutex> writeLock(data_mutex_);
     try
     {
         boost::this_thread::interruption_enabled();
@@ -101,6 +102,7 @@ void ParameterListener::ParameterLoop(int thread_index,bool isString)
 }
 bool ParameterListener::getParameterValueViaName(const std::string & parameterName, std::string & value)
 {
+    boost::shared_lock<boost::shared_mutex> readLock(data_mutex_);
     for(int i=0;i<STRING_PARAMETER_NAMES.size();++i)
     {
         if(STRING_PARAMETER_NAMES[i] == parameterName)
@@ -113,6 +115,7 @@ bool ParameterListener::getParameterValueViaName(const std::string & parameterNa
 }
 double ParameterListener::getNumberParameterValueViaIndex(int index)
 {
+    boost::shared_lock<boost::shared_mutex> readLock(data_mutex_);
     if(index>=0&&index<parameters_.size())
         return parameters_[index];
     else
@@ -124,6 +127,7 @@ double ParameterListener::getNumberParameterValueViaIndex(int index)
 }
 std::string ParameterListener::getStringParameterValueViaIndex(int index)
 {
+    boost::shared_lock<boost::shared_mutex> readLock(data_mutex_);
     if(index>=0&&index<stringParameters_.size())
         return stringParameters_[index];
     else

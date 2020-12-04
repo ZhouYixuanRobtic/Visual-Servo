@@ -8,6 +8,9 @@
 #include <ros/ros.h>
 #include <boost/thread/thread.hpp>
 #include "tr1/memory"
+#include <boost/thread/locks.hpp>
+#include <boost/thread/shared_mutex.hpp>
+#include "atomic"
 using std::tr1::shared_ptr;
 class ParameterListener
 {
@@ -21,9 +24,18 @@ private:
     std::vector<std::string> stringParameters_{};
     int registered_threads_num_{};
     int min_threads_num_{};
+    boost::shared_mutex data_mutex_{};
 public:
-    const std::vector<double>& parameters() const {return parameters_;}
-    const std::vector<std::string>& stringParameters() const {return stringParameters_;};
+    const std::vector<double>& parameters()
+    {
+        boost::shared_lock<boost::shared_mutex> readLock(data_mutex_);
+        return parameters_;
+    }
+    const std::vector<std::string>& stringParameters()
+    {
+        boost::shared_lock<boost::shared_mutex> readLock(data_mutex_);
+        return stringParameters_;
+    };
     const std::vector<std::string>& parameterNames() const {return NUMBER_PARAMETER_NAMES;}
     const std::vector<std::string>& stringParameterNames() const {return STRING_PARAMETER_NAMES;};
     ParameterListener(int rate, int num_per_thread);
@@ -41,6 +53,7 @@ public:
 template<typename ANY_TYPE>
 bool ParameterListener::getParameterValueViaName(const std::string & parameterName, ANY_TYPE & value)
 {
+    boost::shared_lock<boost::shared_mutex> readLock(data_mutex_);
     for(int i=0;i<NUMBER_PARAMETER_NAMES.size();++i)
     {
         if(NUMBER_PARAMETER_NAMES[i] == parameterName)

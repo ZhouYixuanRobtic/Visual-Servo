@@ -47,7 +47,6 @@ private:
     //apriltag pose handle
     apriltag_pose_t pose;
 
-    cv::Mat subscribed_rgb_{};
     //april tag physic size unit meter
     double tag_size_ ;
     //triggers
@@ -56,7 +55,6 @@ private:
     ros::NodeHandle n_;
 
     ros::Publisher tag_pub_;
-
     /*
      * Function computes tag information of all tags detected
      * @param UserImage [the image prepared to detect tag]
@@ -201,14 +199,15 @@ void Monocular::detect_worker()
     n_.param<bool>("/visual/tagDetectorOn",tagDetectorOn_,false);
     if(usbCamera_->isReady)
     {
-        subscribed_rgb_ = usbCamera_->getUndistortedGroup().frame;
+        cv::Mat subscribed_rgb{};
+        subscribed_rgb = usbCamera_->getUndistortedGroup().frame;
         if(tagDetectorOn_)
-            TagsInfoPublish(GetTargetPoseMatrix(subscribed_rgb_));
+            TagsInfoPublish(GetTargetPoseMatrix(subscribed_rgb));
         else
         {
             if(colorOn_)
             {
-                cv::imshow("Tag Detections",subscribed_rgb_);
+                cv::imshow("Tag Detections", subscribed_rgb);
                 cv::waitKey(3);
             }
         }

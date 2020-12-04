@@ -40,6 +40,7 @@
 #include <boost/thread/thread.hpp>
 #include <boost/thread/locks.hpp>
 #include <boost/thread/shared_mutex.hpp>
+#include <atomic>
 #include "ros/ros.h"
 
 #include "tr1/memory"
@@ -94,7 +95,7 @@ namespace visual_servo_namespace
         ros::ServiceClient client;
         visual_servo::manipulate srv{};
         std::tr1::shared_ptr<boost::thread> thread_ptr_;
-        bool srvCalling_{},srvFinished_{};
+        std::atomic_bool srvCalling_{},srvFinished_{};
 
     public:
         ServiceCaller();
@@ -102,7 +103,7 @@ namespace visual_servo_namespace
         void worker(int SrvRequestType,Eigen::Vector3d transformation=Eigen::Vector3d(0,0,0));
         bool callSrv(int SrvRequestType,Eigen::Vector3d transformation=Eigen::Vector3d(0,0,0));
         const visual_servo::manipulate::Response & getSrvResponseStatus()const {return srv.response;};
-        bool srvCalling() { return srvCalling_;};
+        bool srvCalling() const { return srvCalling_;};
         bool srvFinished() {bool temp{srvFinished_};srvFinished_=false;
             return temp;};
     };

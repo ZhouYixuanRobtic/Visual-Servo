@@ -4,6 +4,8 @@
 #include "VisualServoMetaType.h"
 #include <boost/thread/thread.hpp>
 #include "tr1/memory"
+#include <boost/thread/shared_mutex.hpp>
+#include <atomic>
 
 namespace USB_CAMERA
 {
@@ -27,7 +29,7 @@ namespace USB_CAMERA
         cv::Mat frame_{};
         UndistortedGroup undistortedGroup_{};
 
-        boost::mutex write_mutex_{};
+        boost::shared_mutex frame_mutex_{};
         std::tr1::shared_ptr<boost::thread> video_thread_ptr_{};
 
         bool isStreamingStopped_{};

@@ -7,17 +7,17 @@
 #include <ros/single_subscriber_publisher.h>
 #include "ros/callback_queue.h"
 #include "KeyboardTeleop.h"
-#include "JoyTeleop.h"
-using namespace JOYTELEOP;
+#include "ControlTeleop.h"
+using namespace CONTROLTELEOP;
 int main(int argc, char* argv[])
 {
     ros::init(argc,argv,"toolTest");
     ros::NodeHandle n;
-    JoyTeleop joyTeleop("joy");
+    ControlTeleop controlTeleop;
     ros::Rate loop_rate(30);
     while (ros::ok())
     {
-        switch(joyTeleop.getControlTrigger())
+        switch(controlTeleop.getControlTrigger())
         {
             case ClockGo:
                 ros::param::set("/visual_servo/clockGo",1.0);

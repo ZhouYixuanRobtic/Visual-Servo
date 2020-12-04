@@ -124,6 +124,7 @@ bool AuboSDK::toolStart()
 bool AuboSDK::toolAllclear()
 {
     ret = robotService->robotServiceSetBoardIOStatus(aubo_robot_namespace::RobotBoardUserDO,"U_DO_00",0.0);
+    return ret == aubo_robot_namespace::InterfaceCallSuccCode;
 }
 int AuboSDK::robotDiagno()
 {

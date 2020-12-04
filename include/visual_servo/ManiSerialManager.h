@@ -17,9 +17,9 @@ public:
 
 private:
     std::queue<ReadResult> read_result_queue{};
-    ReadResult read_results_;
     std::tr1::shared_ptr<boost::thread> thread_ptr_;
-    std::mutex queue_mutex_;
+    mutable boost::shared_mutex queue_mutex_{};
+
     void readWorker(int rate);
     bool thread_registered_{};
 public:
@@ -28,18 +28,16 @@ public:
     ~ManiSerialManager() override;
     void registerAutoReadThread(int rate);
     void receive() override;
-    ReadResult & getReadResult()
+    ReadResult getReadResult()
     {
-        queue_mutex_.lock();
+        boost::unique_lock<boost::shared_mutex> writeLock(queue_mutex_);
+        ReadResult read_result{};
         if(!read_result_queue.empty())
         {
-            read_results_ = read_result_queue.front();
+            read_result = read_result_queue.front();
             read_result_queue.pop();
         }
-        else
-            memset(&read_results_,0, sizeof(ReadResult));
-        queue_mutex_.unlock();
-        return read_results_;
+        return read_result;
     };
 };
 

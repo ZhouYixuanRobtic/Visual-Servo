@@ -16,8 +16,7 @@
 #include <utility>
 #include <mutex>
 #include <queue>
-
-
+#include <atomic>
 #define BUFFER_SIZE 400
 
 class SerialManager {
@@ -27,24 +26,23 @@ private:
     const std::string SERIAL_ADDR_;
 
 protected:
-    std::mutex send_mutex_;
-    //std::mutex serial_mutex_;
-    file_descriptor_t m_dFd;
-    bool serial_alive_{};
-    bool isOpen_{};
-    char read_buffer[BUFFER_SIZE]{};
-    char write_buffer[BUFFER_SIZE]{};
+    file_descriptor_t m_dFd{};
+    std::atomic_bool serial_alive_{};
+    std::atomic_bool isOpen_{};
+    std::atomic_char read_buffer[BUFFER_SIZE]{};
+    std::atomic_char write_buffer[BUFFER_SIZE]{};
 
 public:
-    SerialManager(std::string serial_addr, unsigned int baudrate);
+    explicit SerialManager(std::string serial_addr, unsigned int baudrate);
     SerialManager(const SerialManager & serialManager);
+
     virtual ~SerialManager();
-    unsigned int getBaudrate(){return BAUDRATE_;};
-    std::string getSerialAddr(){return SERIAL_ADDR_;};
-    bool isOpen(){ return isOpen_;};
-    bool isSerialAlive(){return serial_alive_;};
+    unsigned int getBaudrate() const {return BAUDRATE_;};
+    std::string getSerialAddr() const{return SERIAL_ADDR_;};
+    bool isOpen() const{ return isOpen_;};
+    bool isSerialAlive() const {return serial_alive_;};
     bool openSerial();
-    void send(const void* src,int size);
+    virtual void send(const void* src,int size);
     virtual void receive();
 };
 
