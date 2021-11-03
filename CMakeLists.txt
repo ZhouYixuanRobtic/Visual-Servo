@@ -15,7 +15,7 @@ if(NOT EIGEN3_INCLUDE_DIRS)
   set(EIGEN3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})
 endif()
 find_package(catkin REQUIRED COMPONENTS roscpp rospy std_msgs sensor_msgs geometry_msgs cv_bridge image_transport
-                interactive_markers moveit_core moveit_visual_tools moveit_ros_planning moveit_ros_planning_interface 
+                interactive_markers moveit_core moveit_visual_tools moveit_ros_planning moveit_ros_planning_interface
                 pluginlib geometric_shapes pcl_ros pcl_conversions rosbag tf2_ros tf2_eigen tf2_geometry_msgs message_generation)
 
 find_package(
@@ -63,11 +63,17 @@ add_service_files(
  )
 
 
+
 catkin_package(
-        INCLUDE_DIRS src LIBRARIES KeyboardTeleop
-        INCLUDE_DIRS src LIBRARIES ControlTeleop
-        INCLUDE_DIRS src LIBRARIES SerialManager
-  CATKIN_DEPENDS 
+        # INCLUDE_DIRS src LIBRARIES KeyboardTeleop
+        # INCLUDE_DIRS src LIBRARIES ControlTeleop
+        # INCLUDE_DIRS src LIBRARIES SerialManager
+  INCLUDE_DIRS include
+  LIBRARIES
+        KeyboardTeleop
+        ControlTeleop
+        SerialManager
+  CATKIN_DEPENDS
                  cv_bridge
                  std_msgs
                  sensor_msgs
@@ -98,7 +104,7 @@ set(VISUAL_SERVO_INCLUDE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/include/visual_servo/)
 include_directories (
         SYSTEM
         include
-        ${Boost_INCLUDE_DIR} 
+        ${Boost_INCLUDE_DIR}
         ${EIGEN3_INCLUDE_DIRS}
         ${OpenCV_INCLUDE_DIRS}
         /usr/local/include/tf
@@ -112,7 +118,7 @@ include_directories (
 link_directories(
         ${OpenCV_LIB_DIR}
         ${catkin_LIBRARY_DIRS}
-        /user/local/lib
+        /usr/local/lib
         ${AUBO_LINK_DIRS}
         ${YAML_LIBRARIES}
 )
@@ -161,8 +167,8 @@ target_link_libraries(SerialManager ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 add_library(ManiSerialManager src/ManiSerialManager.cpp)
 target_link_libraries(ManiSerialManager ${catkin_LIBRARIES} ${Boost_LIBRARIES} SerialManager)
 
-add_library(BLManager src/BLManager.cpp)
-target_link_libraries(BLManager ${catkin_LIBRARIES} ${Boost_LIBRARIES} bluetooth)
+#add_library(BLManager src/BLManager.cpp)
+#target_link_libraries(BLManager ${catkin_LIBRARIES} ${Boost_LIBRARIES} bluetooth)
 #application
 add_executable(auboRobot src/auboRobotLaunch.cpp)
 target_link_libraries(auboRobot auboA protobuf our_alg_i5p log4cplus config auborobotcontroller auboUtil ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop parameterTeleop ControlTeleop)
@@ -192,10 +198,10 @@ target_link_libraries(keyTest ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTel
 add_executable(toolTest test/toolTest.cpp)
 target_link_libraries(toolTest ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop ControlTeleop)
 
-add_executable(BLRosWrapper src/BLROSWrapper.cpp)
-target_link_libraries(BLRosWrapper ${catkin_LIBRARIES} ${Boost_LIBRARIES} BLManager)
-add_dependencies(BLRosWrapper ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)
+#add_executable(BLRosWrapper src/BLROSWrapper.cpp)
+#target_link_libraries(BLRosWrapper ${catkin_LIBRARIES} ${Boost_LIBRARIES} BLManager)
+#add_dependencies(BLRosWrapper ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)
 
-add_executable(blTest test/BLTest.cpp)
-target_link_libraries(blTest ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop ControlTeleop ${YAML_LIBRARIES} bluetooth)
-add_dependencies(blTest ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)
+#add_executable(blTest test/BLTest.cpp)
+#target_link_libraries(blTest ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop ControlTeleop ${YAML_LIBRARIES} bluetooth)
+#add_dependencies(blTest ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencpp)

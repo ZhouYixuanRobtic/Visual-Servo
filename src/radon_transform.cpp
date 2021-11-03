@@ -275,7 +275,7 @@ static void rT( Mat src,
       rT_T<double, CV_64FC1>(src, dst, minAngle, maxAngle);
       break;
     default:
-      CV_Error_(CV_StsNotImplemented, ("Unknown depth %d", depth));
+      CV_Error_(Error::StsNotImplemented, ("Unknown depth %d", depth));
       break;
   }
 }
