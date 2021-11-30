@@ -830,6 +830,7 @@ bool Manipulator::linearMoveTo(const Eigen::Vector3d &destination_translation,
   tf2::fromMsg(move_group->getCurrentPose().pose, Trans_W2E);
 
   move_group->setMaxVelocityScalingFactor(velocity_scale);
+  move_group->setMaxAccelerationScalingFactor(1.0);
 
   Eigen::Affine3d DesiredMotion = getEndMotion(RIGHT, destination_translation);
 
@@ -882,6 +883,7 @@ bool Manipulator::linearMoveTo(const Eigen::Vector3d &destination_translation,
 bool Manipulator::constantMoveTo(const Eigen::Vector3d &destination,
                                  double velocity_limit) {
   move_group->setMaxVelocityScalingFactor(1.0);
+  move_group->setMaxAccelerationScalingFactor(1.0);
   moveit_msgs::OrientationConstraint ocm;
   ocm.link_name = EE_NAME;
   ocm.header.frame_id = move_group->getPlanningFrame();
@@ -1024,6 +1026,7 @@ void Manipulator::resetTool() {
 bool Manipulator::goUp(double velocity_scale) const {
   move_group->setGoalTolerance(Parameters.goal_tolerance);
   move_group->setMaxVelocityScalingFactor(velocity_scale);
+  move_group->setMaxAccelerationScalingFactor(1.0);
   if (Parameters.inverse)
     move_group->setNamedTarget("inverseUp");
   else
@@ -1035,6 +1038,7 @@ bool Manipulator::goHome(double velocity_scale) {
   removeAllDynamicConstraint();
   move_group->setGoalTolerance(Parameters.goal_tolerance);
   move_group->setMaxVelocityScalingFactor(velocity_scale);
+  move_group->setMaxAccelerationScalingFactor(1.0);
   std::vector<double> goal;
   if (Parameters.inverse)
     move_group->setNamedTarget("inverseHome");
@@ -1080,6 +1084,7 @@ bool Manipulator::goSearchOnce(SearchType search_type, double velocity_scale,
                                double search_angle) {
   move_group->setGoalTolerance(Parameters.goal_tolerance);
   move_group->setMaxVelocityScalingFactor(velocity_scale);
+  move_group->setMaxAccelerationScalingFactor(1.0);
   std::vector<double> goal;
   switch (search_type) {
     case FLAT:
@@ -1143,6 +1148,7 @@ bool Manipulator::goSearchOnce(SearchType search_type, double velocity_scale,
   }
   move_group->setJointValueTarget(goal);
   move_group->setMaxVelocityScalingFactor(0.2);
+  move_group->setMaxAccelerationScalingFactor(1.0);
   moveit::planning_interface::MoveGroupInterface::Plan my_plan;
   bool success = (move_group->plan(my_plan) ==
                   moveit::planning_interface::MoveItErrorCode::SUCCESS);
@@ -1181,6 +1187,7 @@ bool Manipulator::goSearchOnce(SearchType search_type, double velocity_scale,
   while (isRobotMoving)
     ;
   move_group->setMaxVelocityScalingFactor(1.0);
+  move_group->setMaxAccelerationScalingFactor(1.0);
   move_group->setJointValueTarget(joint_values);
   return (move_group->move() == moveit_msgs::MoveItErrorCodes::SUCCESS);
 }
@@ -1199,6 +1206,7 @@ bool Manipulator::goServo(double velocity_scale) {
   static bool tag_empty{true};
   move_group->setGoalTolerance(Parameters.goal_tolerance);
   move_group->setMaxVelocityScalingFactor(velocity_scale);
+  move_group->setMaxAccelerationScalingFactor(1.0);
   moveit_msgs::Constraints path_constraints;
   path_constraints.joint_constraints.push_back(addJointConstraint(85.0));
   path_constraints.joint_constraints.push_back(addJointConstraint(90, 2));
@@ -1294,6 +1302,7 @@ bool Manipulator::goCut(double velocity_scale) {
   ros::param::set(PARAMETER_NAMES[2], 0.0);
   ros::param::set(PARAMETER_NAMES[3], 0.0);
   ros::param::set("/visual_servo/antiClockGo", 1.0);
+  std::cout << "visual servo anticlockgo" << std::endl;
   usleep(20000);
   // check the right switch
   ros::param::set("/visual_servo/getSwitch", 0.0);
@@ -1325,14 +1334,17 @@ bool Manipulator::goCut(double velocity_scale) {
   knife_status = KnifeStatus::KNIFE_FORWARD;
   // knife ready to go anti-clock-wise entire circle
   ros::param::set("/visual_servo/clockGo", 1.0);
+  std::cout << "visual servo clockgo" << std::endl;
+
   start = ros::Time::now();
   while (true) {
+    // ros::param::set("/visual_servo/getSwitch", 0.0);
     if ((bool)parameterListener_->parameters()[2]) {
       ros::param::set(PARAMETER_NAMES[2], 0.0);
       knife_status = KnifeStatus::KNIFE_LEFT;
       break;
     }
-    if ((ros::Time::now() - start).toSec() >= 35.0) {
+    if ((ros::Time::now() - start).toSec() >= 13.0) {  // default 35
       ROS_ERROR(
           "After 15.0 seconds, the knife can not reach the right position");
       ros::param::set("/visual_servo/knifeUnplug", 1.0);
@@ -1385,6 +1397,7 @@ bool Manipulator::goCamera(const Eigen::Vector3d &target_array,
   move_group->clearPathConstraints();
   move_group->setGoalTolerance(Parameters.goal_tolerance);
   move_group->setMaxVelocityScalingFactor(velocity_scale);
+  move_group->setMaxAccelerationScalingFactor(1.0);
   tf2::fromMsg(move_group->getCurrentPose().pose, Trans_W2E);
 
   Trans_W2EP.translation() = Trans_E2C * target_array;
@@ -1424,6 +1437,7 @@ Eigen::Affine3d Manipulator::getTagPosition(
 bool Manipulator::goCharge(double velocity_scale) {
   move_group->setGoalTolerance(Parameters.goal_tolerance);
   move_group->setMaxVelocityScalingFactor(velocity_scale);
+  move_group->setMaxAccelerationScalingFactor(1.0);
   tag_data_mutex.lock_shared();
   Eigen::Affine3d Trans_B2T{getTagPosition(Tags_detected[0].Trans_C2T)};
   tag_data_mutex.unlock_shared();
@@ -1628,63 +1642,65 @@ int Manipulator::executeService(int serviceType) {
                           : visual_servo_namespace::SERVICE_STATUS_NO_TAG;
       break;
     case visual_servo::manipulate::Request::CHARGE:
-      charging = true;
-      Parameters.inverse = true;
-      goUp(0.8);
-      tag_data_mutex.lock_shared();
-      isTagEmpty = Tags_detected.empty();
-      tag_data_mutex.unlock_shared();
-      if (isTagEmpty) {
-        if (!goSearch(0.5)) {
-          ROS_INFO("!!!!!!NO TAG SEARCHED!!!!!");
-          serviceStatus = visual_servo_namespace::SERVICE_STATUS_NO_TAG;
-          goUp(Parameters.basicVelocity);
-          goHome(Parameters.basicVelocity);
-        } else {
-          addChargerDynamicPlanningConstraint();
-          bool servo_success = goServo(Parameters.basicVelocity);
-          if (!servo_success)
-            serviceStatus = visual_servo_namespace::SERVICE_STATUS_SERVO_FAILED;
-          else {
-            if (!goCharge(Parameters.basicVelocity))
-              serviceStatus =
-                  visual_servo_namespace::SERVICE_STATUS_CHARGE_FAILED;
-            else {
-              sleep(20);
-              serviceStatus =
-                  leaveCharge(Parameters.basicVelocity)
-                      ? visual_servo_namespace::SERVICE_STATUS_SUCCEED
-                      : visual_servo_namespace::
-                            SERVICE_STATUS_LEAVE_CHARGE_FAILED;
-            }
-          }
-          goHome(Parameters.basicVelocity);
-        }
-      } else {
-        addChargerDynamicPlanningConstraint();
-        bool servo_success = goServo(Parameters.basicVelocity);
-        if (!servo_success)
-          serviceStatus = visual_servo_namespace::SERVICE_STATUS_SERVO_FAILED;
-        else {
-          if (!goCharge(Parameters.basicVelocity))
-            serviceStatus =
-                visual_servo_namespace::SERVICE_STATUS_CHARGE_FAILED;
-          else {
-            // to do charge proto
-            ros::param::set("/visual_servo/isChargingStatusChanged",
-                            (double)true);
-            sleep(20);
-            ros::param::set("/visual_servo/isChargingStatusChanged",
-                            (double)true);
-            serviceStatus = leaveCharge(Parameters.basicVelocity)
-                                ? visual_servo_namespace::SERVICE_STATUS_SUCCEED
-                                : visual_servo_namespace::
-                                      SERVICE_STATUS_LEAVE_CHARGE_FAILED;
-          }
-        }
-        goHome(Parameters.basicVelocity);
-      }
-      charging = false;
+      // charging = true;
+      // Parameters.inverse = true;
+      goUp(1.0);
+      // tag_data_mutex.lock_shared();
+      // isTagEmpty = Tags_detected.empty();
+      // tag_data_mutex.unlock_shared();
+      // if (isTagEmpty) {
+      //   if (!goSearch(0.5)) {
+      //     ROS_INFO("!!!!!!NO TAG SEARCHED!!!!!");
+      //     serviceStatus = visual_servo_namespace::SERVICE_STATUS_NO_TAG;
+      //     goUp(Parameters.basicVelocity);
+      //     goHome(Parameters.basicVelocity);
+      //   } else {
+      //     addChargerDynamicPlanningConstraint();
+      //     bool servo_success = goServo(Parameters.basicVelocity);
+      //     if (!servo_success)
+      //       serviceStatus =
+      //       visual_servo_namespace::SERVICE_STATUS_SERVO_FAILED;
+      //     else {
+      //       if (!goCharge(Parameters.basicVelocity))
+      //         serviceStatus =
+      //             visual_servo_namespace::SERVICE_STATUS_CHARGE_FAILED;
+      //       else {
+      //         sleep(20);
+      //         serviceStatus =
+      //             leaveCharge(Parameters.basicVelocity)
+      //                 ? visual_servo_namespace::SERVICE_STATUS_SUCCEED
+      //                 : visual_servo_namespace::
+      //                       SERVICE_STATUS_LEAVE_CHARGE_FAILED;
+      //       }
+      //     }
+      goHome(Parameters.basicVelocity);
+      //   }
+      // }
+      // else {
+      //   addChargerDynamicPlanningConstraint();
+      //   bool servo_success = goServo(Parameters.basicVelocity);
+      //   if (!servo_success)
+      //     serviceStatus =
+      //     visual_servo_namespace::SERVICE_STATUS_SERVO_FAILED;
+      //   else {
+      //     if (!goCharge(Parameters.basicVelocity))
+      //       serviceStatus =
+      //       visual_servo_namespace::SERVICE_STATUS_CHARGE_FAILED;
+      //     else {
+      //       // to do charge proto
+      //       ros::param::set("/visual_servo/isChargingStatusChanged",
+      //       (double)true); sleep(20);
+      //       ros::param::set("/visual_servo/isChargingStatusChanged",
+      //       (double)true); serviceStatus =
+      //           leaveCharge(Parameters.basicVelocity)
+      //               ? visual_servo_namespace::SERVICE_STATUS_SUCCEED
+      //               :
+      //               visual_servo_namespace::SERVICE_STATUS_LEAVE_CHARGE_FAILED;
+      //     }
+      //   }
+      //   goHome(Parameters.basicVelocity);
+      // }
+      // charging = false;
       break;
     case visual_servo::manipulate::Request::UP:
       serviceStatus = goUp(Parameters.basicVelocity)

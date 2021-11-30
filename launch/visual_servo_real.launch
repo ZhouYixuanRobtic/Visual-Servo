@@ -3,8 +3,9 @@
     <arg name="camera_config" default="$(find visual_servo)/config/camera.yaml"/>
     <arg name="enable_infra1" default="false"/>
     <arg name="enable_infra2" default="false"/>
+    <arg name="use_rviz" default="false"/>
 
- 	<param name="robot_description" command="xacro --inorder  '$(find aubo_gazebo)/urdf/aubo_i5.xacro'"/>
+ 	<param name="robot_description" command="xacro --inorder  '$(find rubber_navigation)/urdf/aubo_i5.xacro'"/>
 
     <!--Launch the realsense ros wrapper-->
     <include file="$(find realsense2_camera)/launch/rs_rgbd.launch">
@@ -22,6 +23,7 @@
     <include file="$(find aubo_i5_moveit_config)/launch/moveit_planning_execution.launch">
         <arg name="sim" value="false"/>
         <arg name="robot_ip" value="192.168.2.13"/>
+        <arg name="use_rviz" value="$(arg use_rviz)"/>
     </include>
 
     <!-- Launch our own node-->

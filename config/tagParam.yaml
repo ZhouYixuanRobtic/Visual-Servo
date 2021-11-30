@@ -262,14 +262,6 @@ ID38:
   steeringDistance: 230.0
   goCameraY: 0.5339999999999988
   compensateP: -0.000445319974680778991
-ID2:
-  radius: 0.01
-  cutTimes: 25
-  steeringDistance: 110.0
-  compensateP: 0.0004279525775511272
-  goCameraZ: -0.260
-  goCameraX: 0.002
-  goCameraY: 0.6509999999999999
 ID35:
   radius: 0.01
   compensateP: -0.0004453199746807789
@@ -287,13 +279,29 @@ ID40:
   goCameraX: 0.02
   radius: 0.01
 ID0:
-  cutTimes: 10
-  steeringDistance: 200.0
-  goCameraX: 0.012
-  goCameraZ: -0.26
-  radius: 0.01
+  cutTimes: 12
+  steeringDistance: 60.0
+  goCameraX: 0.015
+  goCameraZ: -0.285
+  radius: 0.001
   compensateP: 0.00176951282504649
-  goCameraY: 0.6994999999999991
+  goCameraY: 0.40
+ID1:
+  cutTimes: 12
+  steeringDistance: 60.0
+  goCameraX: 0.015
+  goCameraZ: -0.28
+  radius: 0.001
+  compensateP: 0.00176951282504649
+  goCameraY: 0.30
+ID2:
+  radius: 0.01
+  cutTimes: 1
+  steeringDistance: 60
+  compensateP: 0.0004279525775511272
+  goCameraZ: -0.260
+  goCameraX: 0.01
+  goCameraY: 0.25
 ID36:
   radius: 0.001
   steeringDistance: 250.0
