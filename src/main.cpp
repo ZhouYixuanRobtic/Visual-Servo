@@ -17,6 +17,7 @@
 #include <ros/package.h>
 #include <ros/ros.h>
 #include <ros/single_subscriber_publisher.h>
+#include <std_msgs/Int8.h>
 #include <std_msgs/String.h>
 #include <tf/tf.h>
 #include <tf2_eigen/tf2_eigen.h>
@@ -69,7 +70,8 @@ void *camera_thread(void *data);
 class Manipulator {
  private:
   ros::NodeHandle n_;
-
+  // debug test 1221
+  ros::Publisher debug_test_pub_;
   // For remote debug/simper logger
   ros::Publisher log_pub_;
 
@@ -348,6 +350,8 @@ void *camera_thread(void *data) {
 
 Manipulator::Manipulator() {
   log_pub_ = n_.advertise<std_msgs::String>("robot_log", 1);
+  // debug test 1221
+  debug_test_pub_ = n_.advertise<std_msgs::Int8>("datatest", 10);
   move_group =
       new moveit::planning_interface::MoveGroupInterface(PLANNING_GROUP);
   planning_scene_interface =
@@ -1331,6 +1335,12 @@ bool Manipulator::goCut(double velocity_scale) {
   ros::param::set("/visual_servo/knifeOn", 1.0);
   sleep(1);
   knife_status = KnifeStatus::KNIFE_ON;
+  // debug test 1221
+  {
+    std_msgs::Int8 msg;
+    msg.data = 303;
+    debug_test_pub_.publish(msg);
+  }
   // knife go forward
   ros::param::set("/visual_servo/steeringIn", Parameters.steeringDistance);
   sleep(1);
@@ -1489,6 +1499,12 @@ int Manipulator::executeService(int serviceType) {
           isInverse = false;
       }
       goUp(1.0);
+      // debug test 1221
+      {
+        std_msgs::Int8 msg;
+        msg.data = 301;
+        debug_test_pub_.publish(msg);
+      }
       tag_data_mutex.lock_shared();
       isTagEmpty = Tags_detected.empty();
       tag_data_mutex.unlock_shared();
@@ -1593,6 +1609,12 @@ int Manipulator::executeService(int serviceType) {
           if (!goHome(Parameters.basicVelocity))
             serviceStatus = visual_servo_namespace::SERVICE_STATUS_HOME_FAILED;
         } else {
+          // debug test 1221
+          {
+            std_msgs::Int8 msg;
+            msg.data = 302;
+            debug_test_pub_.publish(msg);
+          }
           // addDynamicPlanningConstraint(false,true);
           tag_data_mutex.lock_shared();
           Eigen::Vector3d Center3d{Tags_detected[0].Trans_C2T.translation()};
