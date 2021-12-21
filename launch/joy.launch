@@ -10,6 +10,14 @@
         <param name="max_angular_velocity" value="1.0"/>
     </node>
     <!--include file="$(find rubber_navigation)/launch/baseOnly.launch">
-        <arg name="publish_robot_source_odom_tf" value="true"/>
+        <arg name="publish_robot_source_odom_tf" value="false"/>
     </include-->
+    <arg name="publish_robot_source_odom_tf" default="false"/>
+
+    <node name="base_only" pkg="rubber_navigation" type="baseOnly" output="screen" required="false">
+        <param name="base_foot_print" value="base_link"/>
+        <param name="odom_frame" value="odom"/>
+        <param name="publish_tf" value="$(arg publish_robot_source_odom_tf)"/>
+        <param name="serial_addr" value="/dev/ttyS0"/>
+    </node>
 </launch>

@@ -1,536 +1,144 @@
-ID58:
-  radius: 0.01
-  goCameraX: -0.005
-  steeringDistance: 140.00
-  cutTimes: 11
-  compensateP: -0.000445319974680778901
-  goCameraZ: -0.27
-  goCameraY: 0.6344999999999976
-ID79:
-  compensateP: 0.0004279525775511272
-  goCameraY: 0.5234999999999995
-  goCameraZ: -0.29
-  radius: 0.01
-  cutTimes: 11
-  steeringDistance: 180.0
-  goCameraX: -0.015
-ID66:
-  steeringDistance: 200.0
-  goCameraY: 0.4325
-  compensateP: -0.0000004
-  radius: 0.01
-  cutTimes: 0
-  goCameraZ: -0.265
-  goCameraX: 0.02
-ID60:
-  radius: 0.01
-  goCameraY: 0.45
-  cutTimes: 0
-  steeringDistance: 150.0
-  goCameraZ: -0.26
-  goCameraX: 0.0
-  compensateP: -0.0000004
-ID50:
-  compensateP: -0.0000004
-  goCameraX: -0.025
-  radius: 0.01
-  steeringDistance: 180.0
+ID0:
+  cutTimes: 12
+  steeringDistance: 60.0
+  goCameraX: 0.025
+  goCameraY: 0.40
+  goCameraZ: -0.325
+  radius: 0.001
+  compensateP: 0.00176951282504649
+ID1:
+  cutTimes: 12
+  steeringDistance: 60.0
+  goCameraX: 0.03
+  goCameraY: 0.40
+  goCameraZ: -0.31
+  radius: 0.001
+  compensateP: 0.00176951282504649
+ID2:
+  cutTimes: 12
+  steeringDistance: 60.0
+  goCameraX: 0.015
+  goCameraY: 0.40
   goCameraZ: -0.305
-  goCameraY: 0.5244999999999997
-  cutTimes: 17
-ID83:
-  cutTimes: 10
-  radius: 0.01
-  steeringDistance: 190.0
-  goCameraZ: -0.28
-  compensateP: -0.0000004
-  goCameraY: 0.6439999999999991
-  goCameraX: 0.01
-ID71:
-  cutTimes: 10
+  radius: 0.001
+  compensateP: 0.00176951282504649
+ID3:
+  cutTimes: 12
+  steeringDistance: 60.0
+  goCameraX: 0.025
+  goCameraY: 0.40
+  goCameraZ: -0.325
+  radius: 0.001
+  compensateP: 0.00176951282504649
+ID4:
+  cutTimes: 12
+  steeringDistance: 60.0
   goCameraX: 0.02
-  goCameraZ: -0.29
-  goCameraY: 0.474
-  radius: 0.01
-  steeringDistance: 240.0
-  compensateP: -0.0000004
+  goCameraY: 0.40
+  goCameraZ: -0.325
+  radius: 0.001
+  compensateP: 0.00176951282504649
+ID5:
+  cutTimes: 12
+  steeringDistance: 60.0
+  goCameraX: 0.035
+  goCameraY: 0.40
+  goCameraZ: -0.28
+  radius: 0.001
+  compensateP: 0.00176951282504649
+ID6:
+  cutTimes: 12
+  steeringDistance: 60.0
+  goCameraX: 0.02
+  goCameraY: 0.40
+  goCameraZ: -0.325
+  radius: 0.001
+  compensateP: 0.00176951282504649
+ID7:
+  cutTimes: 12
+  steeringDistance: 60.0
+  goCameraX: 0.03
+  goCameraY: 0.40
+  goCameraZ: -0.315
+  radius: 0.001
+  compensateP: 0.00176951282504649
+ID8:
+  cutTimes: 12
+  steeringDistance: 60.0
+  goCameraX: 0.03
+  goCameraY: 0.30
+  goCameraZ: -0.325
+  radius: 0.001
+  compensateP: 0.00176951282504649
+ID9:
+  cutTimes: 12
+  steeringDistance: 60.0
+  goCameraX: 0.015
+  goCameraY: 0.40
+  goCameraZ: -0.325
+  radius: 0.001
+  compensateP: 0.00176951282504649
+ID10:
+  cutTimes: 12
+  steeringDistance: 60.0
+  goCameraX: 0.015
+  goCameraY: 0.40
+  goCameraZ: -0.32
+  radius: 0.001
+  compensateP: 0.00176951282504649
+ID11:
+  cutTimes: 12
+  steeringDistance: 60.0
+  goCameraX: 0.015
+  goCameraY: 0.40
+  goCameraZ: -0.315
+  radius: 0.001
+  compensateP: 0.00176951282504649
+ID12:
+  cutTimes: 12
+  steeringDistance: 60.0
+  goCameraX: 0.015
+  goCameraY: 0.40
+  goCameraZ: -0.355
+  radius: 0.001
+  compensateP: 0.00176951282504649
+ID13:
+  cutTimes: 12
+  steeringDistance: 60.0
+  goCameraX: 0.015
+  goCameraY: 0.40
+  goCameraZ: -0.335
+  radius: 0.001
+  compensateP: 0.00176951282504649
+ID14:
+  cutTimes: 12
+  steeringDistance: 60.0
+  goCameraX: 0.005
+  goCameraY: 0.40
+  goCameraZ: -0.315
+  radius: 0.001
+  compensateP: 0.00176951282504649
+ID15:
+  cutTimes: 12
+  steeringDistance: 60.0
+  goCameraX: 0.035
+  goCameraY: 0.40
+  goCameraZ: -0.325
+  radius: 0.001
+  compensateP: 0.00176951282504649
+ID16:
+  cutTimes: 12
+  steeringDistance: 60.0
+  goCameraX: 0.015
+  goCameraY: 0.40
+  goCameraZ: -0.325
+  radius: 0.001
+  compensateP: 0.00176951282504649
 ID400:
   goCameraZ: 0.0
   cutTimes: 0
-  steeringDistance: 100.0
+  steeringDistance: 60.0
   goCameraX: 0.01
   goCameraY: 0.00
   radius: 0.0
   compensateP: 0.025
-ID11:
-  goCameraZ: -0.25
-  compensateP: 0.0001125933450549311
-  steeringDistance: 200.0
-  goCameraY: 0.643
-  cutTimes: 6
-  radius: 0.001
-  goCameraX: 0.03
-ID6:
-  cutTimes: 8
-  goCameraX: 0.02
-  goCameraZ: -0.27
-  compensateP: 0.0006346699157037682
-  goCameraY: 0.7119999999999995
-  radius: 0.01
-  steeringDistance: 160.0
-ID87:
-  goCameraX: 0.02
-  steeringDistance: 200.0
-  goCameraY: 0.5759999999999997
-  radius: 0.01
-  compensateP: -0.0000004
-  goCameraZ: -0.28
-  cutTimes: 8
-ID82:
-  goCameraY: 0.6494999999999993
-  goCameraX: -0.055
-  radius: 0.01
-  steeringDistance: 200.0
-  goCameraZ: -0.25
-  compensateP: -0.0000004
-  cutTimes: 9
-ID81:
-  steeringDistance: 190.0
-  goCameraZ: -0.245
-  radius: 0.01
-  cutTimes: 14
-  goCameraX: -0.035
-  compensateP: 0.0004279525775511272
-  goCameraY: 0.5464999999999994
-ID89:
-  compensateP: -0.0000004
-  radius: 0.01
-  goCameraZ: -0.23
-  cutTimes: 12
-  goCameraX: -0.035
-  goCameraY: 0.5889999999999996
-  steeringDistance: 160.0
-ID68:
-  cutTimes: 13
-  compensateP: -0.0000004
-  goCameraX: -0.005
-  steeringDistance: 200.0
-  radius: 0.01
-  goCameraY: 0.5315
-  goCameraZ: -0.30
-ID51:
-  goCameraY: 0.434
-  steeringDistance: 140.0
-  cutTimes: 6
-  radius: 0.01
-  compensateP: -0.0004453199746807789
-  goCameraZ: -0.27
-  goCameraX: 0.03
-ID7:
-  compensateP: -0.0004265059658970285
-  steeringDistance: 210.0
-  cutTimes: 15
-  goCameraX: 0.02
-  radius: 0.01
-  goCameraY: 0.6749999999999988
-  goCameraZ: -0.265
-ID10:
-  steeringDistance: 220.0
-  goCameraY: 0.666999999999999
-  compensateP: -0.0004178426879705632
-  goCameraX: 0.0
-  radius: 0.001
-  cutTimes: 26
-  goCameraZ: -0.265
-ID76:
-  cutTimes: 17
-  radius: 0.01
-  compensateP: -0.000445319974680778901
-  steeringDistance: 160.00
-  goCameraY: 0.5510000000000004
-  goCameraX: -0.01
-  goCameraZ: -0.23
-ID47:
-  goCameraY: 0.5875
-  radius: 0.01
-  goCameraX: 0.045
-  cutTimes: 18
-  steeringDistance: 160
-  goCameraZ: -0.27
-  compensateP: -0.0004453199746807789
-ID61:
-  cutTimes: 8
-  compensateP: -0.0000004
-  goCameraX: 0.03
-  goCameraY: 0.432
-  radius: 0.01
-  steeringDistance: 230.0
-  goCameraZ: -0.28
-ID90:
-  goCameraZ: -0.26
-  goCameraX: -0.01
-  cutTimes: 11
-  steeringDistance: 160.0
-  compensateP: -0.0000004
-  radius: 0.01
-  goCameraY: 0.5379999999999999
-ID86:
-  goCameraY: 0.4925
-  compensateP: -0.0000004
-  goCameraX: 0.005
-  radius: 0.01
-  steeringDistance: 230.0
-  cutTimes: 7
-  goCameraZ: -0.27
-ID67:
-  goCameraY: 0.499
-  compensateP: -0.0000004
-  goCameraX: 0.02
-  goCameraZ: -0.26
-  cutTimes: 10
-  steeringDistance: 150.0
-  radius: 0.01
-ID46:
-  compensateP: -0.0004453199746807789
-  goCameraX: -0.0081
-  goCameraZ: -0.29
-  goCameraY: 0.498
-  steeringDistance: 200.0
-  cutTimes: 15
-  radius: 0.01
-ID77:
-  radius: 0.01
-  steeringDistance: 140.0
-  goCameraX: -0.005
-  compensateP: 0.0004279525775511272
-  cutTimes: 6
-  goCameraZ: -0.26
-  goCameraY: 0.492
-ID39:
-  goCameraZ: -0.263
-  goCameraY: 0.699999999999998
-  compensateP: -0.000445319974680778900
-  cutTimes: 27
-  goCameraX: 0.025
-  radius: 0.01
-  steeringDistance: 150.0
-ID49:
-  goCameraZ: -0.26
-  compensateP: -0.0000004
-  steeringDistance: 100.0
-  radius: 0.01
-  cutTimes: 15
-  goCameraX: -0.003
-  goCameraY: 0.5004999999999999
-ID56:
-  cutTimes: 15
-  goCameraY: 0.623999999999998
-  goCameraZ: -0.282
-  steeringDistance: 230.00
-  goCameraX: 0.01
-  radius: 0.01
-  compensateP: -0.000445319974680778901
-ID30:
-  goCameraZ: -0.250
-  steeringDistance: 30.000
-  goCameraY: 0.45
-  cutTimes: 1
-  compensateP: -0.0004453199746807789
-  goCameraX: 0.01
-  radius: 0.001
-ID34:
-  goCameraY: 0.621
-  cutTimes: 15
-  goCameraZ: -0.2651
-  compensateP: -0.00044531997468077895
-  radius: 0.01
-  steeringDistance: 150.0
-  goCameraX: 0.03
-ID42:
-  goCameraZ: -0.23
-  goCameraX: 0.0156
-  steeringDistance: 140.00
-  compensateP: -0.000445319974680778901
-  radius: 0.01
-  cutTimes: 1
-  goCameraY: 0.584
-ID38:
-  goCameraZ: -0.262
-  cutTimes: 53
-  radius: 0.001
-  goCameraX: 0.005
-  steeringDistance: 230.0
-  goCameraY: 0.5339999999999988
-  compensateP: -0.000445319974680778991
-ID35:
-  radius: 0.01
-  compensateP: -0.0004453199746807789
-  goCameraZ: -0.255
-  goCameraX: 0.0
-  goCameraY: 0.6089999999999999
-  steeringDistance: 200.0
-  cutTimes: 35
-ID40:
-  steeringDistance: 180.01
-  goCameraY: 0.545
-  cutTimes: 31
-  goCameraZ: -0.244
-  compensateP: -0.00044531997468077898
-  goCameraX: 0.02
-  radius: 0.01
-ID0:
-  cutTimes: 12
-  steeringDistance: 60.0
-  goCameraX: 0.015
-  goCameraZ: -0.285
-  radius: 0.001
-  compensateP: 0.00176951282504649
-  goCameraY: 0.40
-ID1:
-  cutTimes: 12
-  steeringDistance: 60.0
-  goCameraX: 0.015
-  goCameraZ: -0.28
-  radius: 0.001
-  compensateP: 0.00176951282504649
-  goCameraY: 0.30
-ID2:
-  radius: 0.01
-  cutTimes: 1
-  steeringDistance: 60
-  compensateP: 0.0004279525775511272
-  goCameraZ: -0.260
-  goCameraX: 0.01
-  goCameraY: 0.25
-ID36:
-  radius: 0.001
-  steeringDistance: 250.0
-  goCameraY: 0.5899999999999991
-  goCameraZ: -0.28
-  cutTimes: 32
-  compensateP: -0.0004453199746807789
-  goCameraX: 0.013
-ID62:
-  radius: 0.01
-  goCameraY: 0.6655000000000002
-  goCameraX: 0.01
-  compensateP: 0.0004279525775511272
-  steeringDistance: 160.0
-  goCameraZ: -0.280
-  cutTimes: 7
-ID37:
-  goCameraX: 0.01
-  steeringDistance: 160.0
-  cutTimes: 1
-  compensateP: -0.0004453199746807789
-  goCameraZ: -0.22
-  radius: 0.001
-  goCameraY: 0.508
-ID14:
-  goCameraZ: -0.28
-  cutTimes: 12
-  steeringDistance: 100.0
-  goCameraY: 0.540
-  compensateP: -0.0003066379678708966
-  radius: 0.01
-  goCameraX: 0.02
-ID32:
-  cutTimes: 38
-  goCameraZ: -0.25
-  compensateP: -0.0004453199746807789
-  goCameraX: -0.02
-  radius: 0.010
-  goCameraY: 0.5969999999999998
-  steeringDistance: 220.0
-ID72:
-  radius: 0.01
-  steeringDistance: 180.0
-  cutTimes: 11
-  goCameraZ: -0.265
-  compensateP: -0.0000004
-  goCameraY: 0.465
-  goCameraX: 0.013
-ID84:
-  radius: 0.01
-  compensateP: -0.0000004
-  goCameraZ: -0.28
-  goCameraX: 0.005
-  goCameraY: 0.5615
-  cutTimes: 10
-  steeringDistance: 180.0
-ID91:
-  cutTimes: 7
-  goCameraX: 0.01
-  radius: 0.01
-  goCameraY: 0.5589999999999997
-  compensateP: -0.0000004
-  steeringDistance: 130.0
-  goCameraZ: -0.26
-ID57:
-  steeringDistance: 150.0
-  radius: 0.01
-  cutTimes: 8
-  goCameraZ: -0.26
-  compensateP: -0.0004453199746807789
-  goCameraX: 0.02
-  goCameraY: 0.4415
-ID12:
-  steeringDistance: 200.0
-  cutTimes: 14
-  goCameraY: 0.695
-  goCameraZ: -0.308
-  goCameraX: 0.01
-  radius: 0.001
-  compensateP: 0.0004208716526876866
-ID88:
-  steeringDistance: 190.0
-  goCameraZ: -0.28
-  goCameraY: 0.5689999999999997
-  compensateP: -0.0000004
-  goCameraX: 0.01
-  radius: 0.01
-  cutTimes: 9
-ID41:
-  radius: 0.01
-  cutTimes: 1
-  goCameraY: 0.506
-  steeringDistance: 180.01
-  goCameraX: 0.011
-  compensateP: -0.0004453199746807789
-  goCameraZ: -0.225
-ID54:
-  compensateP: -0.000445319974680778901
-  goCameraX: 0.02
-  goCameraZ: -0.28
-  goCameraY: 0.7589999999999997
-  cutTimes: 7
-  steeringDistance: 140.00
-  radius: 0.01
-ID73:
-  steeringDistance: 220.0
-  compensateP: -0.0000004
-  goCameraY: 0.5515
-  goCameraX: 0.02
-  radius: 0.01
-  goCameraZ: -0.29
-  cutTimes: 8
-ID44:
-  cutTimes: 21
-  goCameraZ: -0.26
-  compensateP: -0.0004453199746807789
-  steeringDistance: 160.0
-  goCameraX: 0.035
-  goCameraY: 0.575
-  radius: 0.01
-ID8:
-  cutTimes: 16
-  steeringDistance: 250.0
-  goCameraZ: -0.295
-  goCameraY: 0.6224999999999997
-  radius: 0.01
-  goCameraX: 0.025
-  compensateP: 0.0002413028321934663
-ID78:
-  steeringDistance: 220.0
-  goCameraX: 0.0
-  compensateP: 0.0004279525775511272
-  cutTimes: 8
-  goCameraZ: -0.29
-  goCameraY: 0.5129999999999999
-  radius: 0.01
-ID80:
-  compensateP: 0.0004279525775511272
-  goCameraX: -0.025
-  radius: 0.01
-  cutTimes: 10
-  steeringDistance: 140.0
-  goCameraZ: -0.250
-  goCameraY: 0.5519999999999996
-ID52:
-  compensateP: 0.0004208716526876866
-  goCameraZ: -0.260
-  goCameraY: 0.6389999999999986
-  radius: 0.001
-  steeringDistance: 180.0
-  goCameraX: -0.005
-  cutTimes: 10
-ID63:
-  goCameraX: 0.015
-  steeringDistance: 150.0
-  cutTimes: 10
-  compensateP: 0.0004208716526876866
-  goCameraZ: -0.270
-  goCameraY: 0.6079999999999999
-  radius: 0.001
-ID75:
-  cutTimes: 11
-  goCameraY: 0.5604999999999997
-  compensateP: -0.0000004
-  radius: 0.01
-  steeringDistance: 160
-  goCameraZ: -0.27
-  goCameraX: 0.01
-ID33:
-  goCameraX: -0.005
-  cutTimes: 1
-  goCameraY: 0.514
-  goCameraZ: -0.22
-  steeringDistance: 200.05
-  radius: 0.01
-  compensateP: -0.0004453199746807789
-ID74:
-  compensateP: -0.0000004
-  cutTimes: 10
-  goCameraZ: -0.28
-  radius: 0.01
-  goCameraX: -0.02
-  steeringDistance: 180.0
-  goCameraY: 0.5274999999999997
-ID48:
-  goCameraY: 0.5345
-  radius: 0.01
-  compensateP: -0.0000004
-  steeringDistance: 150.0
-  goCameraX: 0.0
-  goCameraZ: -0.26
-  cutTimes: 11
-ID70:
-  goCameraZ: -0.24
-  steeringDistance: 200.0
-  compensateP: -0.0000004
-  cutTimes: 8
-  goCameraY: 0.4995
-  goCameraX: 0.03
-  radius: 0.01
-ID31:
-  goCameraY: 0.6780000000000004
-  goCameraX: 0.005
-  goCameraZ: -0.234
-  compensateP: -0.0004453199746807789
-  radius: 0.001
-  steeringDistance: 220.0
-  cutTimes: 61
-ID85:
-  goCameraY: 0.6194999999999993
-  cutTimes: 10
-  goCameraX: 0.0
-  goCameraZ: -0.28
-  compensateP: -0.0000004
-  steeringDistance: 190.0
-  radius: 0.01
-ID59:
-  goCameraX: 0.01
-  goCameraY: 0.45
-  goCameraZ: -0.29
-  cutTimes: 0
-  compensateP: -0.0004453199746807789
-  steeringDistance: 100.0
-  radius: 0.01
-ID13:
-  cutTimes: 29
-  radius: 0.01
-  steeringDistance: 100.0
-  goCameraX: 0.005
-  goCameraY: 0.6364999999999994
-  compensateP: -0.0003808352875861319
-  goCameraZ: -0.27

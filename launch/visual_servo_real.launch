@@ -29,4 +29,5 @@
     <!-- Launch our own node-->
     <rosparam command="load" file="$(arg config_file)"/>
     <node pkg="visual_servo" type="visual_servo" name="visual_servo" output="screen"/>
+    <!--node pkg="visual_servo" type="landmark_broadcaster" name="landmark_broadcaster" output="screen"/-->
 </launch>

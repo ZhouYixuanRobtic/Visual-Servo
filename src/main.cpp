@@ -109,7 +109,7 @@ class Manipulator {
   moveit::planning_interface::PlanningSceneInterface *planning_scene_interface;
   const robot_state::JointModelGroup *joint_model_group;
 
-  bool charging{}, isTagEmpty;
+  bool charging{}, isTagEmpty, isInverse{false};
 
   // Servo class for computing the servo related transform matrix
   Servo *astra;
@@ -1040,10 +1040,13 @@ bool Manipulator::goHome(double velocity_scale) {
   move_group->setMaxVelocityScalingFactor(velocity_scale);
   move_group->setMaxAccelerationScalingFactor(1.0);
   std::vector<double> goal;
-  if (Parameters.inverse)
+  if (Parameters.inverse) {
     move_group->setNamedTarget("inverseHome");
-  else
+    isInverse = true;
+  } else {
     move_group->setNamedTarget("home");
+    isInverse = false;
+  }
   return move_group->move() ==
          moveit::planning_interface::MoveItErrorCode::SUCCESS;
 }
@@ -1301,7 +1304,7 @@ bool Manipulator::goCut(double velocity_scale) {
   // clear all sign
   ros::param::set(PARAMETER_NAMES[2], 0.0);
   ros::param::set(PARAMETER_NAMES[3], 0.0);
-  ros::param::set("/visual_servo/antiClockGo", 1.0);
+  // ros::param::set("/visual_servo/antiClockGo", 1.0);
   std::cout << "visual servo anticlockgo" << std::endl;
   usleep(20000);
   // check the right switch
@@ -1333,7 +1336,7 @@ bool Manipulator::goCut(double velocity_scale) {
   sleep(1);
   knife_status = KnifeStatus::KNIFE_FORWARD;
   // knife ready to go anti-clock-wise entire circle
-  ros::param::set("/visual_servo/clockGo", 1.0);
+  // ros::param::set("/visual_servo/clockGo", 1.0);
   std::cout << "visual servo clockgo" << std::endl;
 
   start = ros::Time::now();
@@ -1360,7 +1363,7 @@ bool Manipulator::goCut(double velocity_scale) {
   ros::param::set("/visual_servo/knifeOff", 1.0);
   knife_status = KnifeStatus::KNIFE_OFF;
   // try check the clock go
-  ros::param::set("/visual_servo/antiClockGo", 1.0);
+  // ros::param::set("/visual_servo/antiClockGo", 1.0);
   usleep(500000);
   knife_status = KnifeStatus::KNIFE_RIGHT;
   /*
@@ -1475,6 +1478,16 @@ int Manipulator::executeService(int serviceType) {
   int serviceStatus;
   switch (serviceType) {
     case visual_servo::manipulate::Request::CUT:
+      if (isInverse) {
+        ros::param::set("/user/inverse", 0.0);
+        Parameters.inverse = false;
+        if (!goHome(Parameters.basicVelocity)) {
+          isInverse = true;
+          serviceStatus = visual_servo_namespace::SERVICE_STATUS_HOME_FAILED;
+          break;
+        } else
+          isInverse = false;
+      }
       goUp(1.0);
       tag_data_mutex.lock_shared();
       isTagEmpty = Tags_detected.empty();
@@ -1519,40 +1532,49 @@ int Manipulator::executeService(int serviceType) {
             Center3d += Parameters.cameraXYZ;
             // logPublish("INFO: the received cameraxYZ is
             // "+std::to_string(Parameters.cameraXYZ[0])+","+std::to_string(Parameters.cameraXYZ[1])+","+std::to_string(Parameters.cameraXYZ[2]));
-            if (!goCamera(Center3d, Parameters.basicVelocity)) {
-              serviceStatus =
-                  visual_servo_namespace::SERVICE_STATUS_CLOSE_FAILED;
-              goUp(Parameters.basicVelocity);
-              if (!goHome(Parameters.basicVelocity))
+            // enable cut
+            bool real_cut = false;
+            if (real_cut) {
+              if (!goCamera(Center3d, Parameters.basicVelocity)) {
                 serviceStatus =
-                    visual_servo_namespace::SERVICE_STATUS_HOME_FAILED;
-            } else {
-              addDynamicPlanningConstraint(true);
-              if (linearMoveTo(Eigen::Vector3d(0.0, -0.3, 0.0), 0.5)) {
-                serviceStatus =
-                    visual_servo_namespace::SERVICE_STATUS_CUTIN_SUCCEED;
-                if (!Parameters.debugOn) {
-                  if (!goCut(Parameters.basicVelocity))
-                    serviceStatus =
-                        visual_servo_namespace::SERVICE_STATUS_CUT_FAILED;
-                  else {
-                    serviceStatus =
-                        visual_servo_namespace::SERVICE_STATUS_SUCCEED;
-                    saveCutTimes(Parameters.ID, Parameters.cutTimes + 1);
+                    visual_servo_namespace::SERVICE_STATUS_CLOSE_FAILED;
+                goUp(Parameters.basicVelocity);
+                if (!goHome(Parameters.basicVelocity))
+                  serviceStatus =
+                      visual_servo_namespace::SERVICE_STATUS_HOME_FAILED;
+              } else {
+                addDynamicPlanningConstraint(true);
+                if (linearMoveTo(Eigen::Vector3d(0.0, -0.3, 0.0), 0.5)) {
+                  serviceStatus =
+                      visual_servo_namespace::SERVICE_STATUS_CUTIN_SUCCEED;
+                  if (!Parameters.debugOn) {
+                    if (!goCut(Parameters.basicVelocity))
+                      serviceStatus =
+                          visual_servo_namespace::SERVICE_STATUS_CUT_FAILED;
+                    else {
+                      serviceStatus =
+                          visual_servo_namespace::SERVICE_STATUS_SUCCEED;
+                      saveCutTimes(Parameters.ID, Parameters.cutTimes + 1);
+                    }
+                    goUp(Parameters.basicVelocity);
+                    if (!goHome(Parameters.basicVelocity))
+                      serviceStatus =
+                          visual_servo_namespace::SERVICE_STATUS_HOME_FAILED;
                   }
+                } else {
+                  serviceStatus =
+                      visual_servo_namespace::SERVICE_STATUS_CUT_FAILED;
                   goUp(Parameters.basicVelocity);
                   if (!goHome(Parameters.basicVelocity))
                     serviceStatus =
                         visual_servo_namespace::SERVICE_STATUS_HOME_FAILED;
                 }
-              } else {
-                serviceStatus =
-                    visual_servo_namespace::SERVICE_STATUS_CUT_FAILED;
-                goUp(Parameters.basicVelocity);
-                if (!goHome(Parameters.basicVelocity))
-                  serviceStatus =
-                      visual_servo_namespace::SERVICE_STATUS_HOME_FAILED;
               }
+            } else {
+              goUp(Parameters.basicVelocity);
+              if (!goHome(Parameters.basicVelocity))
+                serviceStatus =
+                    visual_servo_namespace::SERVICE_STATUS_HOME_FAILED;
             }
           }
         }
@@ -1642,9 +1664,177 @@ int Manipulator::executeService(int serviceType) {
                           : visual_servo_namespace::SERVICE_STATUS_NO_TAG;
       break;
     case visual_servo::manipulate::Request::CHARGE:
+      if (!isInverse) {
+        ros::param::set("/user/inverse", 1.0);
+        Parameters.inverse = true;
+        if (!goHome(Parameters.basicVelocity)) {
+          isInverse = false;
+          serviceStatus = visual_servo_namespace::SERVICE_STATUS_HOME_FAILED;
+          break;
+        } else
+          isInverse = true;
+      }
+      goUp(1.0);
+      tag_data_mutex.lock_shared();
+      isTagEmpty = Tags_detected.empty();
+      tag_data_mutex.unlock_shared();
+      if (isTagEmpty) {
+        if (!goSearch(Parameters.basicVelocity)) {
+          ROS_INFO("!!!!!!NO TAG SEARCHED!!!!!");
+          serviceStatus = visual_servo_namespace::SERVICE_STATUS_NO_TAG;
+          goUp(Parameters.basicVelocity);
+          if (!goHome(Parameters.basicVelocity))
+            serviceStatus = visual_servo_namespace::SERVICE_STATUS_HOME_FAILED;
+        } else {
+          tag_data_mutex.lock_shared();
+          Parameters.ID = Tags_detected[0].id;
+          tag_data_mutex.unlock_shared();
+          updateParameters(Parameters.ID);
+          std::string serial_send{"Processing the " +
+                                  std::to_string(Parameters.ID) + " th tree"};
+          communicator_->send(serial_send.c_str(), serial_send.size());
+          // logPublish("INFO: "+serial_send);
+          if (!goServo(Parameters.basicVelocity)) {
+            serviceStatus = visual_servo_namespace::SERVICE_STATUS_SERVO_FAILED;
+            goUp(Parameters.basicVelocity);
+            if (!goHome(Parameters.basicVelocity))
+              serviceStatus =
+                  visual_servo_namespace::SERVICE_STATUS_HOME_FAILED;
+          } else {
+            // addDynamicPlanningConstraint(false,true);
+            tag_data_mutex.lock_shared();
+            Eigen::Vector3d Center3d{Tags_detected[0].Trans_C2T.translation()};
+            tag_data_mutex.unlock_shared();
+            ros::Time start = ros::Time::now();
+            int times = 1;
+            while ((ros::Time::now() - start).toSec() < 1.0) {
+              times++;
+              tag_data_mutex.lock_shared();
+              Center3d += Tags_detected[0].Trans_C2T.translation();
+              tag_data_mutex.unlock_shared();
+              usleep(50000);
+            }
+            Center3d /= times;
+            Center3d += Parameters.cameraXYZ;
+            // logPublish("INFO: the received cameraxYZ is
+            // "+std::to_string(Parameters.cameraXYZ[0])+","+std::to_string(Parameters.cameraXYZ[1])+","+std::to_string(Parameters.cameraXYZ[2]));
+            // enable cut
+            bool real_cut = false;
+            if (real_cut) {
+              if (!goCamera(Center3d, Parameters.basicVelocity)) {
+                serviceStatus =
+                    visual_servo_namespace::SERVICE_STATUS_CLOSE_FAILED;
+                goUp(Parameters.basicVelocity);
+                if (!goHome(Parameters.basicVelocity))
+                  serviceStatus =
+                      visual_servo_namespace::SERVICE_STATUS_HOME_FAILED;
+              } else {
+                addDynamicPlanningConstraint(true);
+                if (linearMoveTo(Eigen::Vector3d(0.0, -0.3, 0.0), 0.5)) {
+                  serviceStatus =
+                      visual_servo_namespace::SERVICE_STATUS_CUTIN_SUCCEED;
+                  if (!Parameters.debugOn) {
+                    if (!goCut(Parameters.basicVelocity))
+                      serviceStatus =
+                          visual_servo_namespace::SERVICE_STATUS_CUT_FAILED;
+                    else {
+                      serviceStatus =
+                          visual_servo_namespace::SERVICE_STATUS_SUCCEED;
+                      saveCutTimes(Parameters.ID, Parameters.cutTimes + 1);
+                    }
+                    goUp(Parameters.basicVelocity);
+                    if (!goHome(Parameters.basicVelocity))
+                      serviceStatus =
+                          visual_servo_namespace::SERVICE_STATUS_HOME_FAILED;
+                  }
+                } else {
+                  serviceStatus =
+                      visual_servo_namespace::SERVICE_STATUS_CUT_FAILED;
+                  goUp(Parameters.basicVelocity);
+                  if (!goHome(Parameters.basicVelocity))
+                    serviceStatus =
+                        visual_servo_namespace::SERVICE_STATUS_HOME_FAILED;
+                }
+              }
+            } else {
+              goUp(Parameters.basicVelocity);
+              if (!goHome(Parameters.basicVelocity))
+                serviceStatus =
+                    visual_servo_namespace::SERVICE_STATUS_HOME_FAILED;
+            }
+          }
+        }
+      } else {
+        tag_data_mutex.lock_shared();
+        Parameters.ID = Tags_detected[0].id;
+        tag_data_mutex.unlock_shared();
+        updateParameters(Parameters.ID);
+        std::string serial_send{"Processing the " +
+                                std::to_string(Parameters.ID) + " th tree"};
+        communicator_->send(serial_send.c_str(), serial_send.size());
+        // logPublish("INFO: "+serial_send);
+        if (!goServo(Parameters.basicVelocity)) {
+          serviceStatus = visual_servo_namespace::SERVICE_STATUS_SERVO_FAILED;
+          goUp(Parameters.basicVelocity);
+          if (!goHome(Parameters.basicVelocity))
+            serviceStatus = visual_servo_namespace::SERVICE_STATUS_HOME_FAILED;
+        } else {
+          // addDynamicPlanningConstraint(false,true);
+          tag_data_mutex.lock_shared();
+          Eigen::Vector3d Center3d{Tags_detected[0].Trans_C2T.translation()};
+          tag_data_mutex.unlock_shared();
+          ros::Time start = ros::Time::now();
+          int times = 1;
+          while ((ros::Time::now() - start).toSec() < 1.0) {
+            times++;
+            tag_data_mutex.lock_shared();
+            Center3d += Tags_detected[0].Trans_C2T.translation();
+            tag_data_mutex.unlock_shared();
+            usleep(50000);
+          }
+          Center3d /= times;
+          Center3d += Parameters.cameraXYZ;
+          // logPublish("INFO: the received cameraxYZ is
+          // "+std::to_string(Parameters.cameraXYZ[0])+","+std::to_string(Parameters.cameraXYZ[1])+","+std::to_string(Parameters.cameraXYZ[2]));
+          if (!goCamera(Center3d, Parameters.basicVelocity)) {
+            serviceStatus = visual_servo_namespace::SERVICE_STATUS_CLOSE_FAILED;
+            goUp(Parameters.basicVelocity);
+            if (!goHome(Parameters.basicVelocity))
+              serviceStatus =
+                  visual_servo_namespace::SERVICE_STATUS_HOME_FAILED;
+          } else {
+            addDynamicPlanningConstraint(true);
+            if (linearMoveTo(Eigen::Vector3d(0.0, -0.3, 0.0), 0.5)) {
+              serviceStatus =
+                  visual_servo_namespace::SERVICE_STATUS_CUTIN_SUCCEED;
+              if (!Parameters.debugOn) {
+                if (!goCut(Parameters.basicVelocity))
+                  serviceStatus =
+                      visual_servo_namespace::SERVICE_STATUS_CUT_FAILED;
+                else {
+                  serviceStatus =
+                      visual_servo_namespace::SERVICE_STATUS_SUCCEED;
+                  saveCutTimes(Parameters.ID, Parameters.cutTimes + 1);
+                }
+                goUp(Parameters.basicVelocity);
+                if (!goHome(Parameters.basicVelocity))
+                  serviceStatus =
+                      visual_servo_namespace::SERVICE_STATUS_HOME_FAILED;
+              }
+            } else {
+              serviceStatus = visual_servo_namespace::SERVICE_STATUS_CUT_FAILED;
+              goUp(Parameters.basicVelocity);
+              if (!goHome(Parameters.basicVelocity))
+                serviceStatus =
+                    visual_servo_namespace::SERVICE_STATUS_HOME_FAILED;
+            }
+          }
+        }
+      }
+      break;
       // charging = true;
       // Parameters.inverse = true;
-      goUp(1.0);
+      // goUp(1.0);
       // tag_data_mutex.lock_shared();
       // isTagEmpty = Tags_detected.empty();
       // tag_data_mutex.unlock_shared();
@@ -1673,7 +1863,7 @@ int Manipulator::executeService(int serviceType) {
       //                       SERVICE_STATUS_LEAVE_CHARGE_FAILED;
       //       }
       //     }
-      goHome(Parameters.basicVelocity);
+      // goHome(Parameters.basicVelocity);
       //   }
       // }
       // else {
@@ -1701,7 +1891,7 @@ int Manipulator::executeService(int serviceType) {
       //   goHome(Parameters.basicVelocity);
       // }
       // charging = false;
-      break;
+      // break;
     case visual_servo::manipulate::Request::UP:
       serviceStatus = goUp(Parameters.basicVelocity)
                           ? visual_servo_namespace::SERVICE_STATUS_SUCCEED

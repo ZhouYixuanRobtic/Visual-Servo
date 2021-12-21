@@ -16,7 +16,7 @@ if(NOT EIGEN3_INCLUDE_DIRS)
 endif()
 find_package(catkin REQUIRED COMPONENTS roscpp rospy std_msgs sensor_msgs geometry_msgs cv_bridge image_transport
                 interactive_markers moveit_core moveit_visual_tools moveit_ros_planning moveit_ros_planning_interface
-                pluginlib geometric_shapes pcl_ros pcl_conversions rosbag tf2_ros tf2_eigen tf2_geometry_msgs message_generation)
+                pluginlib geometric_shapes pcl_ros pcl_conversions rosbag tf2_ros tf2_eigen tf2_geometry_msgs message_generation cartographer_ros_msgs)
 
 find_package(
         OpenCV REQUIRED
@@ -197,6 +197,9 @@ target_link_libraries(keyTest ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTel
 
 add_executable(toolTest test/toolTest.cpp)
 target_link_libraries(toolTest ${catkin_LIBRARIES} ${Boost_LIBRARIES} KeyboardTeleop ControlTeleop)
+
+add_executable(landmark_broadcaster src/landmark_broadcaster.cpp)
+target_link_libraries(landmark_broadcaster servo ${catkin_LIBRARIES})
 
 #add_executable(BLRosWrapper src/BLROSWrapper.cpp)
 #target_link_libraries(BLRosWrapper ${catkin_LIBRARIES} ${Boost_LIBRARIES} BLManager)
