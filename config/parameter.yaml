@@ -29,7 +29,7 @@ user:
   toolFrame: "charger_ee_link"
 robot:
   #parameter constrain the robot velocity 0.0-1.0
-  basicVelocity: 1.00000 #default 0.5
+  basicVelocity: 0.30000 #default 0.5
   #parameters constrain the robot execute precision
   goalTolerance: 0.00100 #default 0.001
   servoTolerance: 0.01 #default 0.001

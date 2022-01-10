@@ -42,7 +42,7 @@ ID5:
   cutTimes: 12
   steeringDistance: 60.0
   goCameraX: 0.035
-  goCameraY: 0.40
+  goCameraY: 0.3985
   goCameraZ: -0.28
   radius: 0.001
   compensateP: 0.00176951282504649
@@ -67,7 +67,7 @@ ID8:
   steeringDistance: 60.0
   goCameraX: 0.03
   goCameraY: 0.30
-  goCameraZ: -0.325
+  goCameraZ: -0.345
   radius: 0.001
   compensateP: 0.00176951282504649
 ID9:
@@ -127,6 +127,14 @@ ID15:
   radius: 0.001
   compensateP: 0.00176951282504649
 ID16:
+  cutTimes: 12
+  steeringDistance: 60.0
+  goCameraX: 0.015
+  goCameraY: 0.40
+  goCameraZ: -0.325
+  radius: 0.001
+  compensateP: 0.00176951282504649
+ID17:
   cutTimes: 12
   steeringDistance: 60.0
   goCameraX: 0.015

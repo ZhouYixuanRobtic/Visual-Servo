@@ -564,6 +564,26 @@ void Manipulator ::addDynamicPlanningConstraint(bool goDeep, bool servoing,
   collision_object.operation = collision_object.ADD;
   objects.push_back(collision_object);
 
+  moveit_msgs::CollisionObject collision_object_WALL;
+  collision_object_WALL.header.frame_id = move_group->getPlanningFrame();
+  collision_object_WALL.id = "WALL";
+  shape_msgs::SolidPrimitive wall_primitive;
+  wall_primitive.type = primitive.BOX;
+  wall_primitive.dimensions.resize(3);
+  wall_primitive.dimensions[0] = 4;
+  wall_primitive.dimensions[1] = 0.010;
+  wall_primitive.dimensions[2] = 4;
+  if (!Parameters.inverse)
+    object_pose.position.y = 0.5;
+  else
+    object_pose.position.y = -0.5;
+  object_pose.position.x = 0.0;
+  object_pose.position.z = -0.105;
+  collision_object_WALL.primitives.push_back(wall_primitive);
+  collision_object_WALL.primitive_poses.push_back(object_pose);
+  collision_object_WALL.operation = collision_object.ADD;
+  objects.push_back(collision_object_WALL);
+
   planning_scene_interface->addCollisionObjects(objects);
 }
 void Manipulator::addChargerDynamicPlanningConstraint() const {
@@ -647,7 +667,7 @@ void Manipulator::removeAllDynamicConstraint() {
   if (!object_names.empty()) {
     for (auto &object_name : object_names) {
       if (object_name == "CHARGER" || object_name == TREE_NAME ||
-          object_name == "danger_tree") {
+          object_name == "danger_tree" || object_name == "WALL") {
         dynamic_names.push_back(object_name);
       }
     }
@@ -835,6 +855,7 @@ bool Manipulator::linearMoveTo(const Eigen::Vector3d &destination_translation,
 
   move_group->setMaxVelocityScalingFactor(velocity_scale);
   move_group->setMaxAccelerationScalingFactor(1.0);
+  ;
 
   Eigen::Affine3d DesiredMotion = getEndMotion(RIGHT, destination_translation);
 
@@ -888,6 +909,7 @@ bool Manipulator::constantMoveTo(const Eigen::Vector3d &destination,
                                  double velocity_limit) {
   move_group->setMaxVelocityScalingFactor(1.0);
   move_group->setMaxAccelerationScalingFactor(1.0);
+  ;
   moveit_msgs::OrientationConstraint ocm;
   ocm.link_name = EE_NAME;
   ocm.header.frame_id = move_group->getPlanningFrame();
@@ -1031,6 +1053,7 @@ bool Manipulator::goUp(double velocity_scale) const {
   move_group->setGoalTolerance(Parameters.goal_tolerance);
   move_group->setMaxVelocityScalingFactor(velocity_scale);
   move_group->setMaxAccelerationScalingFactor(1.0);
+  ;
   if (Parameters.inverse)
     move_group->setNamedTarget("inverseUp");
   else
@@ -1043,6 +1066,7 @@ bool Manipulator::goHome(double velocity_scale) {
   move_group->setGoalTolerance(Parameters.goal_tolerance);
   move_group->setMaxVelocityScalingFactor(velocity_scale);
   move_group->setMaxAccelerationScalingFactor(1.0);
+  ;
   std::vector<double> goal;
   if (Parameters.inverse) {
     move_group->setNamedTarget("inverseHome");
@@ -1090,8 +1114,9 @@ Eigen::Affine3d Manipulator::getEndMotion(MultiplyType multiply_type,
 bool Manipulator::goSearchOnce(SearchType search_type, double velocity_scale,
                                double search_angle) {
   move_group->setGoalTolerance(Parameters.goal_tolerance);
-  move_group->setMaxVelocityScalingFactor(velocity_scale);
+  move_group->setMaxVelocityScalingFactor(0.2);
   move_group->setMaxAccelerationScalingFactor(1.0);
+  ;
   std::vector<double> goal;
   switch (search_type) {
     case FLAT:
@@ -1156,6 +1181,7 @@ bool Manipulator::goSearchOnce(SearchType search_type, double velocity_scale,
   move_group->setJointValueTarget(goal);
   move_group->setMaxVelocityScalingFactor(0.2);
   move_group->setMaxAccelerationScalingFactor(1.0);
+  ;
   moveit::planning_interface::MoveGroupInterface::Plan my_plan;
   bool success = (move_group->plan(my_plan) ==
                   moveit::planning_interface::MoveItErrorCode::SUCCESS);
@@ -1195,6 +1221,7 @@ bool Manipulator::goSearchOnce(SearchType search_type, double velocity_scale,
     ;
   move_group->setMaxVelocityScalingFactor(1.0);
   move_group->setMaxAccelerationScalingFactor(1.0);
+  ;
   move_group->setJointValueTarget(joint_values);
   return (move_group->move() == moveit_msgs::MoveItErrorCodes::SUCCESS);
 }
@@ -1214,6 +1241,7 @@ bool Manipulator::goServo(double velocity_scale) {
   move_group->setGoalTolerance(Parameters.goal_tolerance);
   move_group->setMaxVelocityScalingFactor(velocity_scale);
   move_group->setMaxAccelerationScalingFactor(1.0);
+  ;
   moveit_msgs::Constraints path_constraints;
   path_constraints.joint_constraints.push_back(addJointConstraint(85.0));
   path_constraints.joint_constraints.push_back(addJointConstraint(90, 2));
@@ -1306,21 +1334,22 @@ bool Manipulator::goCut(double velocity_scale) {
   knife_status = KnifeStatus::KNIFE_READY;
   bool success{true};
   // clear all sign
-  ros::param::set(PARAMETER_NAMES[2], 0.0);
-  ros::param::set(PARAMETER_NAMES[3], 0.0);
-  // ros::param::set("/visual_servo/antiClockGo", 1.0);
-  std::cout << "visual servo anticlockgo" << std::endl;
+  ros::param::set(PARAMETER_NAMES[2], 0.0);  /// visual_servo/knifeLeftMoveEnd
+  ros::param::set(PARAMETER_NAMES[3], 0.0);  /// visual_servo/knifeRightMoveEnd
+  ros::param::set("/visual_servo/antiClockGo", 1.0);
   usleep(20000);
   // check the right switch
   ros::param::set("/visual_servo/getSwitch", 0.0);
   ros::Time start{ros::Time::now()};
   while (true) {
+    ros::param::set("/visual_servo/getSwitch", 2.0);
     if ((bool)parameterListener_->parameters()[3]) {
-      ros::param::set(PARAMETER_NAMES[3], 0.0);
+      ros::param::set(PARAMETER_NAMES[3],
+                      0.0);  /// visual_servo/knifeRightMoveEnd
       knife_status = KnifeStatus::KNIFE_RIGHT;
       break;
     }
-    if ((ros::Time::now() - start).toSec() >= 35.0) {
+    if ((ros::Time::now() - start).toSec() >= 15.0) {
       ROS_ERROR(
           "After 15.0 seconds, the knife can not reach the right position");
       ros::param::set("/visual_servo/knifeUnplug", 1.0);
@@ -1338,7 +1367,7 @@ bool Manipulator::goCut(double velocity_scale) {
   // debug test 1221
   {
     std_msgs::Int8 msg;
-    msg.data = 303;
+    msg.data = 103;
     debug_test_pub_.publish(msg);
   }
   // knife go forward
@@ -1346,18 +1375,18 @@ bool Manipulator::goCut(double velocity_scale) {
   sleep(1);
   knife_status = KnifeStatus::KNIFE_FORWARD;
   // knife ready to go anti-clock-wise entire circle
-  // ros::param::set("/visual_servo/clockGo", 1.0);
-  std::cout << "visual servo clockgo" << std::endl;
+  ros::param::set("/visual_servo/clockGo", 1.0);
+  usleep(20000);
 
   start = ros::Time::now();
   while (true) {
-    // ros::param::set("/visual_servo/getSwitch", 0.0);
+    ros::param::set("/visual_servo/getSwitch", 1.0);
     if ((bool)parameterListener_->parameters()[2]) {
       ros::param::set(PARAMETER_NAMES[2], 0.0);
       knife_status = KnifeStatus::KNIFE_LEFT;
       break;
     }
-    if ((ros::Time::now() - start).toSec() >= 13.0) {  // default 35
+    if ((ros::Time::now() - start).toSec() >= 15.0) {  // default 35
       ROS_ERROR(
           "After 15.0 seconds, the knife can not reach the right position");
       ros::param::set("/visual_servo/knifeUnplug", 1.0);
@@ -1373,7 +1402,7 @@ bool Manipulator::goCut(double velocity_scale) {
   ros::param::set("/visual_servo/knifeOff", 1.0);
   knife_status = KnifeStatus::KNIFE_OFF;
   // try check the clock go
-  // ros::param::set("/visual_servo/antiClockGo", 1.0);
+  ros::param::set("/visual_servo/antiClockGo", 1.0);
   usleep(500000);
   knife_status = KnifeStatus::KNIFE_RIGHT;
   /*
@@ -1411,6 +1440,7 @@ bool Manipulator::goCamera(const Eigen::Vector3d &target_array,
   move_group->setGoalTolerance(Parameters.goal_tolerance);
   move_group->setMaxVelocityScalingFactor(velocity_scale);
   move_group->setMaxAccelerationScalingFactor(1.0);
+  ;
   tf2::fromMsg(move_group->getCurrentPose().pose, Trans_W2E);
 
   Trans_W2EP.translation() = Trans_E2C * target_array;
@@ -1451,6 +1481,7 @@ bool Manipulator::goCharge(double velocity_scale) {
   move_group->setGoalTolerance(Parameters.goal_tolerance);
   move_group->setMaxVelocityScalingFactor(velocity_scale);
   move_group->setMaxAccelerationScalingFactor(1.0);
+  ;
   tag_data_mutex.lock_shared();
   Eigen::Affine3d Trans_B2T{getTagPosition(Tags_detected[0].Trans_C2T)};
   tag_data_mutex.unlock_shared();
@@ -1498,11 +1529,11 @@ int Manipulator::executeService(int serviceType) {
         } else
           isInverse = false;
       }
-      goUp(1.0);
+      goUp(Parameters.basicVelocity);
       // debug test 1221
       {
         std_msgs::Int8 msg;
-        msg.data = 301;
+        msg.data = 101;
         debug_test_pub_.publish(msg);
       }
       tag_data_mutex.lock_shared();
@@ -1518,6 +1549,12 @@ int Manipulator::executeService(int serviceType) {
         } else {
           tag_data_mutex.lock_shared();
           Parameters.ID = Tags_detected[0].id;
+          // debug test 1221
+          {
+            std_msgs::Int8 msg;
+            msg.data = Parameters.ID + 110;
+            debug_test_pub_.publish(msg);
+          }
           tag_data_mutex.unlock_shared();
           updateParameters(Parameters.ID);
           std::string serial_send{"Processing the " +
@@ -1531,6 +1568,12 @@ int Manipulator::executeService(int serviceType) {
               serviceStatus =
                   visual_servo_namespace::SERVICE_STATUS_HOME_FAILED;
           } else {
+            // debug test 1221
+            {
+              std_msgs::Int8 msg;
+              msg.data = 102;
+              debug_test_pub_.publish(msg);
+            }
             // addDynamicPlanningConstraint(false,true);
             tag_data_mutex.lock_shared();
             Eigen::Vector3d Center3d{Tags_detected[0].Trans_C2T.translation()};
@@ -1597,6 +1640,12 @@ int Manipulator::executeService(int serviceType) {
       } else {
         tag_data_mutex.lock_shared();
         Parameters.ID = Tags_detected[0].id;
+        // debug test 1221
+        {
+          std_msgs::Int8 msg;
+          msg.data = Parameters.ID + 110;
+          debug_test_pub_.publish(msg);
+        }
         tag_data_mutex.unlock_shared();
         updateParameters(Parameters.ID);
         std::string serial_send{"Processing the " +
@@ -1612,7 +1661,7 @@ int Manipulator::executeService(int serviceType) {
           // debug test 1221
           {
             std_msgs::Int8 msg;
-            msg.data = 302;
+            msg.data = 102;
             debug_test_pub_.publish(msg);
           }
           // addDynamicPlanningConstraint(false,true);
@@ -1696,7 +1745,12 @@ int Manipulator::executeService(int serviceType) {
         } else
           isInverse = true;
       }
-      goUp(1.0);
+      goUp(Parameters.basicVelocity);
+      {
+        std_msgs::Int8 msg;
+        msg.data = 101;
+        debug_test_pub_.publish(msg);
+      }
       tag_data_mutex.lock_shared();
       isTagEmpty = Tags_detected.empty();
       tag_data_mutex.unlock_shared();
@@ -1710,6 +1764,12 @@ int Manipulator::executeService(int serviceType) {
         } else {
           tag_data_mutex.lock_shared();
           Parameters.ID = Tags_detected[0].id;
+          // debug test 1221
+          {
+            std_msgs::Int8 msg;
+            msg.data = Parameters.ID + 110;
+            debug_test_pub_.publish(msg);
+          }
           tag_data_mutex.unlock_shared();
           updateParameters(Parameters.ID);
           std::string serial_send{"Processing the " +
@@ -1723,6 +1783,12 @@ int Manipulator::executeService(int serviceType) {
               serviceStatus =
                   visual_servo_namespace::SERVICE_STATUS_HOME_FAILED;
           } else {
+            // debug test 1221
+            {
+              std_msgs::Int8 msg;
+              msg.data = 102;
+              debug_test_pub_.publish(msg);
+            }
             // addDynamicPlanningConstraint(false,true);
             tag_data_mutex.lock_shared();
             Eigen::Vector3d Center3d{Tags_detected[0].Trans_C2T.translation()};
@@ -1789,6 +1855,12 @@ int Manipulator::executeService(int serviceType) {
       } else {
         tag_data_mutex.lock_shared();
         Parameters.ID = Tags_detected[0].id;
+        // debug test 1221
+        {
+          std_msgs::Int8 msg;
+          msg.data = Parameters.ID + 110;
+          debug_test_pub_.publish(msg);
+        }
         tag_data_mutex.unlock_shared();
         updateParameters(Parameters.ID);
         std::string serial_send{"Processing the " +
@@ -1801,6 +1873,11 @@ int Manipulator::executeService(int serviceType) {
           if (!goHome(Parameters.basicVelocity))
             serviceStatus = visual_servo_namespace::SERVICE_STATUS_HOME_FAILED;
         } else {
+          {
+            std_msgs::Int8 msg;
+            msg.data = 102;
+            debug_test_pub_.publish(msg);
+          }
           // addDynamicPlanningConstraint(false,true);
           tag_data_mutex.lock_shared();
           Eigen::Vector3d Center3d{Tags_detected[0].Trans_C2T.translation()};
