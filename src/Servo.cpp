@@ -55,35 +55,24 @@ const Destination_t & Servo::getCameraEE(const Eigen::Affine3d & Trans_C2T,const
     Eigen::Affine3d EndMotion{Trans_E2C*Trans_C2T*ExpectTrans_C2T.inverse()*Trans_E2C.inverse()};
     //dynamic interpolation
 
-    //the minimum tolerance of interpolation
-    double Interpolate_tolerance=0.05;
     Eigen::Matrix3d R{EndMotion.rotation()};
     Eigen::Vector3d t{EndMotion.translation()};
-    Sophus::SE3 DestinationSE3(R,t);
-    //rotation sphere interpolate
-    Eigen::Quaterniond Td{Sophus::SE3(Eigen::Matrix3d::Identity(),Eigen::Vector3d(0,0,0)).unit_quaternion().slerp(lambda,
-            DestinationSE3.unit_quaternion())};
-
-    /*//translation linear interpolate
-    for(int i=0;i<3;++i)
-    {
-     if(abs(t(i))>Interpolate_tolerance)
-         t(i)=lambda*t(i);
-    }*/
-    Sophus::SE3 EndMotionDelta(Td,t);
+    // Interpolation with rotation slerp and linear translation
+    Sophus::SO3 goal(R);
+    auto interminate_rotation = Sophus::SO3::exp(lambda * goal.log());
+    Eigen::Vector3d interminate_translation = lambda*t;
+    Sophus::SE3 EndMotionDelta(goal,t);
     //increment
     EndDestinationDelta.EE_Motion.matrix()=EndMotionDelta.matrix();
     Sophus::Vector6d error_vector{EndMotionDelta.log()};
     EndDestinationDelta.error_log=error_vector;
-    //concentrate on the pose adjust
-    error_vector[0]=0.0;
-	error_vector[1]=0.0;
-	//error_vector[2]=0.0;
-	//error_vector[3]=0.0;
-    //error_vector[4]=0.0;
-    error_vector[5]=0.0;
-    EndDestinationDelta.error=error_vector.norm();
-	std::cout<<"error: "<<EndDestinationDelta.error<<std::endl;    
+
+    // orientation error
+    double orientation_error =  interminate_rotation.log().norm();
+    double translation_error = interminate_translation.norm();
+    // THis formula could be adjusted
+    EndDestinationDelta.error = orientation_error;
+	std::cout<<"error: "<<EndDestinationDelta.error<<std::endl;
 	return EndDestinationDelta;
 }
 

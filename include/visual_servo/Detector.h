@@ -14,6 +14,9 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/core/utility.hpp>
 
+#include <opencv2/imgproc/imgproc_c.h>
+#include <opencv2/core/types_c.h>
+
 #include <opencv2/ximgproc.hpp>
 #include "radon_transform.hpp"
 
